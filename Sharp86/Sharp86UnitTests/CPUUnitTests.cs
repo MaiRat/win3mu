@@ -116,7 +116,6 @@ namespace Sharp86UnitTests
             {
                 Environment.GetEnvironmentVariable("WIN3MU_YASM"),
                 FindToolOnPath("yasm"),
-                @"C:\users\brad\dropbox\wintools\yasm.exe",
             };
 
             return candidates.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x) && File.Exists(x));
