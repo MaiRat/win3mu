@@ -592,7 +592,7 @@ namespace Sharp86
                         return string.Format("pop {0}", Format((RegSeg)((opCode >> 3) & 0x03)));
 
                     case 0x0F:
-                        switch (Read_Ib())
+                        switch (ReadByte(cs, ip++))
                         {
                             case 0xB6:
                                 return string.Format("movzx {0},{1}", Read_Gv(), Read_Eb());
