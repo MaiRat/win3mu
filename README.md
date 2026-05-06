@@ -8,6 +8,11 @@ Compilation
 
 Requires Visual Studio 2017 and .NET 4.6.1
 
+Development Roadmap
+===================
+
+See [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) for a prioritized plan covering Sharp86 instruction/protected-mode gaps and runtime compatibility work.
+
 Usage
 =====
 
