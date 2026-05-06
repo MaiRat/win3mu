@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -67,10 +68,14 @@ namespace Sharp86UnitTests
             // write the text
             System.IO.File.WriteAllText("temp.asm", _emitBuffer.ToString(), Encoding.ASCII);
 
+            var assemblerPath = ResolveAssemblerPath();
+            if (assemblerPath == null)
+                Assert.Inconclusive("YASM assembler not found. Set WIN3MU_YASM or add 'yasm' to PATH.");
+
             // Execute the assembler
             var processStartInfo = new ProcessStartInfo
             {
-                FileName = @"C:\users\brad\dropbox\wintools\yasm.exe",
+                FileName = assemblerPath,
                 Arguments = "temp.asm -o temp.bin -l temp.lst",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -103,6 +108,50 @@ namespace Sharp86UnitTests
             // Clear the emit buffer
             _emitBuffer.Length = 0;
             _emitBuffer.AppendFormat("ORG {0:X}H\n", _emitLocation);
+        }
+
+        static string ResolveAssemblerPath()
+        {
+            var candidates = new[]
+            {
+                Environment.GetEnvironmentVariable("WIN3MU_YASM"),
+                FindToolOnPath("yasm"),
+                @"C:\users\brad\dropbox\wintools\yasm.exe",
+            };
+
+            return candidates.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x) && File.Exists(x));
+        }
+
+        static string FindToolOnPath(string toolName)
+        {
+            var path = Environment.GetEnvironmentVariable("PATH");
+            if (string.IsNullOrWhiteSpace(path))
+                return null;
+
+            foreach (var entry in path.Split(Path.PathSeparator))
+            {
+                if (string.IsNullOrWhiteSpace(entry))
+                    continue;
+
+                try
+                {
+                    var fullPath = Path.Combine(entry, toolName);
+                    if (File.Exists(fullPath))
+                        return fullPath;
+
+                    if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+                    {
+                        var windowsPath = fullPath + ".exe";
+                        if (File.Exists(windowsPath))
+                            return windowsPath;
+                    }
+                }
+                catch (Exception)
+                {
+                }
+            }
+
+            return null;
         }
 
         protected void run()
