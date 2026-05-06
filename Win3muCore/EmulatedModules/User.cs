@@ -1193,6 +1193,9 @@ namespace Win3muCore
                 case Win16.WH_MSGFILTER:
                 case Win16.WH_SYSMSGFILTER:
                 case Win16.WH_GETMESSAGE:
+                    if (lParam16 == 0)
+                        return CallNextHookEx(hookInfo.hhook, code, (IntPtr)wParam16, IntPtr.Zero).DWord();
+
                     var msg16 = _machine.ReadStruct<Win16.MSG>(lParam16);
                     IntPtr? retval = null;
                     _machine.Messaging.Convert16to32(ref msg16, (msg32) =>
@@ -1204,7 +1207,9 @@ namespace Win3muCore
                         }
                     });
 
-                    System.Diagnostics.Debug.Assert(retval.HasValue);
+                    if (!retval.HasValue)
+                        return 0;
+
                     return retval.Value.DWord();
 
                 case Win16.WH_KEYBOARD:
@@ -1212,6 +1217,9 @@ namespace Win3muCore
 
                 case Win16.WH_MOUSE:
                 {
+                    if (lParam16 == 0)
+                        return CallNextHookEx(hookInfo.hhook, code, (IntPtr)wParam16, IntPtr.Zero).DWord();
+
                     var mhs16 = _machine.ReadStruct<Win16.MOUSEHOOKSTRUCT>(lParam16);
                     var mhs32 = new Win32.MOUSEHOOKSTRUCT()
                     {
@@ -1230,6 +1238,9 @@ namespace Win3muCore
 
                 case Win16.WH_CALLWNDPROC:
                 {
+                    if (lParam16 == 0)
+                        return CallNextHookEx(hookInfo.hhook, code, (IntPtr)wParam16, IntPtr.Zero).DWord();
+
                     var cwp16 = _machine.ReadStruct<Win16.CWPSTRUCT>(lParam16);
                     Win32.CWPSTRUCT cwp32;
                     if (!TryConvertCallWndProcHookTo32(ref cwp16, out cwp32))
