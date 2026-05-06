@@ -146,7 +146,10 @@ namespace Sharp86UnitTests
                             return windowsPath;
                     }
                 }
-                catch (Exception)
+                catch (ArgumentException)
+                {
+                }
+                catch (NotSupportedException)
                 {
                 }
             }
