@@ -249,11 +249,6 @@ namespace Win3muCore.MessageSemantics
                 cs16.lpszClassName = GetString(cs32.lpszClassName);
                 cs16.lpszName = GetString(cs32.lpszName);
 
-                if (cs32.lpCreateParams != IntPtr.Zero && !WindowClass.IsRegistered(_machine.ReadString(cs16.lpszClassName)))
-                {
-                    throw new NotImplementedException("CREATESTRUCT.lpCreateParams not supported");
-                }
-
                 if ((cs16.style & Win16.WS_CHILD) != 0)
                 {
                     cs16.hMenu = (ushort)(short)(cs32.hMenu);
@@ -268,11 +263,6 @@ namespace Win3muCore.MessageSemantics
 
             public void Convert(ref Win16.CREATESTRUCT cs16, out Win32.CREATESTRUCT cs32)
             {
-                if (cs16.lpCreateParams != 0 && !WindowClass.IsRegistered(_machine.ReadString(cs16.lpszClassName)))
-                {
-                    throw new NotImplementedException("CREATESTRUCT.lpCreateParams not supported");
-                }
-
                 // Convert it
                 cs32.lpCreateParams = BitUtils.DWordToIntPtr(cs16.lpCreateParams);
                 cs32.hInstance = IntPtr.Zero;

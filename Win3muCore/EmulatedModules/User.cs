@@ -2765,12 +2765,6 @@ namespace Win3muCore
             uint lpParam
             )
         {
-            if (lpParam != 0)
-            {
-                if (!WindowClass.IsRegistered(className))
-                    throw new NotImplementedException("CreateWindow lpParam not supported");
-            }
-
             uint lpCreateStruct = (uint)((_machine.ss << 16) + _machine.sp + 4);
 
             AdjustWindowSize(style, styleEx, ref width, ref height);
