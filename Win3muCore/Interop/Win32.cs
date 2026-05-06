@@ -174,6 +174,24 @@ namespace Win3muCore
         }
 
         [StructLayout(LayoutKind.Sequential)]
+        public struct CWPSTRUCT
+        {
+            public IntPtr lParam;
+            public IntPtr wParam;
+            public uint message;
+            public IntPtr hWnd;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MOUSEHOOKSTRUCT
+        {
+            public POINT pt;
+            public IntPtr hWnd;
+            public uint wHitTestCode;
+            public IntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
         public struct MINMAXINFO
         {
             public POINT ptReserved;

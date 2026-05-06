@@ -218,6 +218,24 @@ namespace Win3muCore
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        public struct CWPSTRUCT
+        {
+            public uint lParam;
+            public ushort wParam;
+            public ushort message;
+            public ushort hWnd;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        public struct MOUSEHOOKSTRUCT
+        {
+            public POINT pt;
+            public ushort hWnd;
+            public ushort wHitTestCode;
+            public uint dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
         public struct WNDCLASS
         {
             public ushort style;
