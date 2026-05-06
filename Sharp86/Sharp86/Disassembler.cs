@@ -484,7 +484,7 @@ namespace Sharp86
             switch ((_modRM >> 3) & 0x07)
             {
                 case 0: return "test";
-                case 1: throw new NotImplementedException();
+                case 1: return "test";
                 case 2: return "not";
                 case 3: return "neg"; 
                 case 4: return "mul"; 

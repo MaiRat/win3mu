@@ -47,6 +47,26 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void test_Eb_Ib_group3_subcode1()
+        {
+            si = 0x8000;
+            WriteByte(ds, si, 0x88);
+            FlagC = true;
+            FlagO = true;
+
+            WriteByte(cs, ip, 0xF6);
+            WriteByte(cs, (ushort)(ip + 1), 0x0C);
+            WriteByte(cs, (ushort)(ip + 2), 0x80);
+
+            step();
+
+            Assert.AreEqual(ReadByte(ds, si), 0x88);
+            Assert.IsFalse(FlagZ);
+            Assert.IsFalse(FlagC);
+            Assert.IsFalse(FlagO);
+        }
+
+        [TestMethod]
         public void not_Eb_Ib()
         {
             si = 0x8000;
@@ -122,6 +142,26 @@ namespace Sharp86UnitTests
             emit("test word [si],0x1");
             step();
             Assert.IsTrue(FlagZ);
+        }
+
+        [TestMethod]
+        public void test_Ev_Iv_group3_subcode1()
+        {
+            si = 0x8000;
+            WriteWord(ds, si, 0x8888);
+            FlagC = true;
+            FlagO = true;
+
+            WriteByte(cs, ip, 0xF7);
+            WriteByte(cs, (ushort)(ip + 1), 0x0C);
+            WriteWord(cs, (ushort)(ip + 2), 0x8000);
+
+            step();
+
+            Assert.AreEqual(ReadWord(ds, si), 0x8888);
+            Assert.IsFalse(FlagZ);
+            Assert.IsFalse(FlagC);
+            Assert.IsFalse(FlagO);
         }
 
         [TestMethod]

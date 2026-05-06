@@ -2734,8 +2734,10 @@ namespace Sharp86
                             ReadModRM();
                             switch ((_modRM >> 3) & 0x07)
                             {
-                                case 0: And8(Read_Eb(), Read_Ib()); break;
-                                case 1: throw new NotImplementedException();
+                                case 0:
+                                case 1:
+                                    And8(Read_Eb(), Read_Ib());
+                                    break;
                                 case 2: Write_Eb(Not8(Read_Eb())); break;
                                 case 3: Write_Eb(Neg8(Read_Eb())); break;
                                 case 4: ax = Mul8(al, Read_Eb()); break;
@@ -2758,8 +2760,10 @@ namespace Sharp86
                             ReadModRM();
                             switch ((_modRM >> 3) & 0x07)
                             {
-                                case 0: And16(Read_Ev(), Read_Iv()); break;
-                                case 1: throw new NotImplementedException();
+                                case 0:
+                                case 1:
+                                    And16(Read_Ev(), Read_Iv());
+                                    break;
                                 case 2: Write_Ev(Not16(Read_Ev())); break;
                                 case 3: Write_Ev(Neg16(Read_Ev())); break;
                                 case 4: dxax = Mul16(ax, Read_Ev()); break;
