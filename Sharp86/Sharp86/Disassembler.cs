@@ -592,8 +592,17 @@ namespace Sharp86
                         return string.Format("pop {0}", Format((RegSeg)((opCode >> 3) & 0x03)));
 
                     case 0x0F:
-                        // No pop cs instruction
-                        throw new InvalidOpCodeException();
+                        switch (Read_Ib())
+                        {
+                            case 0xB6:
+                                return string.Format("movzx {0},{1}", Read_Gv(), Read_Eb());
+
+                            case 0xBE:
+                                return string.Format("movsx {0},{1}", Read_Gv(), Read_Eb());
+
+                            default:
+                                throw new InvalidOpCodeException();
+                        }
 
                     case 0x08:
                     case 0x09:

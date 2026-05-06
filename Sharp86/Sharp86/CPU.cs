@@ -1045,7 +1045,22 @@ namespace Sharp86
                             break;
 
                         case 0x0F:
-                            throw new InvalidOpCodeException();
+                            switch (Read_Ib())
+                            {
+                                case 0xB6:
+                                    // MOVZX Gv, Eb
+                                    Write_Gv(Read_Eb());
+                                    break;
+
+                                case 0xBE:
+                                    // MOVSX Gv, Eb
+                                    Write_Gv(unchecked((ushort)(short)(sbyte)Read_Eb()));
+                                    break;
+
+                                default:
+                                    throw new InvalidOpCodeException();
+                            }
+                            break;
 
                         case 0x10:
                             // ADC Eb, Gb
