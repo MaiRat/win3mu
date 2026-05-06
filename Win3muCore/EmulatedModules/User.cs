@@ -939,9 +939,7 @@ namespace Win3muCore
             if (_machine.logDispatchedMessages)
                 Log.WriteLine("Dispatching: {0}", MessageNames.NameOfMessage(msg16.message));
 
-            DispatchMessage(ref msg32);
-
-            return 0;       // TODO: Supposed to be the return value from the WNDPROC 
+            return DispatchMessage(ref msg32).DWord();
         }
 
         // 0073 - REPLYMESSAGE
