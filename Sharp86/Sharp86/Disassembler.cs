@@ -623,6 +623,26 @@ namespace Sharp86
                             case 0xAF:
                                 return string.Format("imul {0},{1}", Read_Gv(), Read_Ev());
 
+                            case 0xBA:
+                                ReadModRM();
+                                switch ((_modRM >> 3) & 0x07)
+                                {
+                                    case 4:
+                                        return string.Format("bt {0},{1}", Read_Ev(), Read_Ib());
+
+                                    case 5:
+                                        return string.Format("bts {0},{1}", Read_Ev(), Read_Ib());
+
+                                    case 6:
+                                        return string.Format("btr {0},{1}", Read_Ev(), Read_Ib());
+
+                                    case 7:
+                                        return string.Format("btc {0},{1}", Read_Ev(), Read_Ib());
+
+                                    default:
+                                        throw new InvalidOpCodeException();
+                                }
+
                             case 0xB6:
                                 return string.Format("movzx {0},{1}", Read_Gv(), Read_Eb());
 

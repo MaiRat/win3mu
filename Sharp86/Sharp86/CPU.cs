@@ -1229,6 +1229,43 @@ namespace Sharp86
                                     Write_Gv((ushort)(IMul16(Read_Gv(), Read_Ev()) & 0xFFFF));
                                     break;
 
+                                case 0xBA:
+                                {
+                                    ReadModRM();
+                                    ushort bitOffset = Read_Ib();
+                                    ushort value = Read_BitBase_Ev(bitOffset, out byte bitIndex);
+                                    ushort mask = (ushort)(1 << bitIndex);
+                                    switch ((_modRM >> 3) & 0x07)
+                                    {
+                                        case 4:
+                                            // BT Ev, Ib
+                                            FlagC = (value & mask) != 0;
+                                            break;
+
+                                        case 5:
+                                            // BTS Ev, Ib
+                                            FlagC = (value & mask) != 0;
+                                            Write_BitBase_Ev(bitOffset, (ushort)(value | mask));
+                                            break;
+
+                                        case 6:
+                                            // BTR Ev, Ib
+                                            FlagC = (value & mask) != 0;
+                                            Write_BitBase_Ev(bitOffset, (ushort)(value & ~mask));
+                                            break;
+
+                                        case 7:
+                                            // BTC Ev, Ib
+                                            FlagC = (value & mask) != 0;
+                                            Write_BitBase_Ev(bitOffset, (ushort)(value ^ mask));
+                                            break;
+
+                                        default:
+                                            throw new InvalidOpCodeException();
+                                    }
+                                    break;
+                                }
+
                                 case 0xB6:
                                     // MOVZX Gv, Eb
                                     Write_Gv(Read_Eb());
