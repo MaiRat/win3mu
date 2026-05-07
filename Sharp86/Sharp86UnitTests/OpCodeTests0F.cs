@@ -157,6 +157,43 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void imul_Gv_Ev_register()
+        {
+            ax = 20;
+            bx = unchecked((ushort)-10);
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xAF);
+            WriteByte(cs, (ushort)(ip + 2), 0xC3);
+
+            step();
+
+            Assert.AreEqual(unchecked((ushort)-200), ax);
+            Assert.AreEqual(unchecked((ushort)-10), bx);
+            Assert.IsFalse(FlagC);
+            Assert.IsFalse(FlagO);
+        }
+
+        [TestMethod]
+        public void imul_Gv_Ev_memory_overflow()
+        {
+            ax = 0x4000;
+            si = 0x8000;
+            WriteWord(ds, si, 4);
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xAF);
+            WriteByte(cs, (ushort)(ip + 2), 0x04);
+
+            step();
+
+            Assert.AreEqual((ushort)0x0000, ax);
+            Assert.AreEqual((ushort)4, ReadWord(ds, si));
+            Assert.IsTrue(FlagC);
+            Assert.IsTrue(FlagO);
+        }
+
+        [TestMethod]
         public void setcc_register_conditions()
         {
             assertSetcc(0x90, 0xC0, true,  true,  false, false, false, false);

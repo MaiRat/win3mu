@@ -1098,6 +1098,11 @@ namespace Sharp86
 
                             switch (opCode2)
                             {
+                                case 0xAF:
+                                    // IMUL Gv, Ev
+                                    Write_Gv((ushort)(IMul16(Read_Gv(), Read_Ev()) & 0xFFFF));
+                                    break;
+
                                 case 0xB6:
                                     // MOVZX Gv, Eb
                                     Write_Gv(Read_Eb());
