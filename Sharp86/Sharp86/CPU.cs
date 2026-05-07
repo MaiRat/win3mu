@@ -1291,6 +1291,7 @@ namespace Sharp86
                                 case 0xC0:
                                 {
                                     // XADD Eb, Gb
+                                    // Exchange the original destination into the source, then store the sum in the destination.
                                     byte source = Read_Gb();
                                     byte destination = Read_Eb();
                                     Write_Gb(destination);
@@ -1301,6 +1302,7 @@ namespace Sharp86
                                 case 0xC1:
                                 {
                                     // XADD Ev, Gv
+                                    // Exchange the original destination into the source, then store the sum in the destination.
                                     ushort source = Read_Gv();
                                     ushort destination = Read_Ev();
                                     Write_Gv(destination);
