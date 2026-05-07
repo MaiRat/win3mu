@@ -297,6 +297,11 @@ namespace Win3muCore
 
         uint _lastDay;
 
+        static byte ToBcd(int value)
+        {
+            return (byte)(((value / 10) << 4) | (value % 10));
+        }
+
         public void DispatchInt1A()
         {
             // http://www.ousob.com/ng/peter_norton/ng8edc8.php
@@ -313,9 +318,31 @@ namespace Win3muCore
 
                     _cpu.cx = clockCount.Hiword();
                     _cpu.dx = clockCount.Loword();
-                    _cpu.al = (byte)((thisDay != _lastDay) ? 1 : 0);
-                    _lastDay = thisDay;
+                     _cpu.al = (byte)((thisDay != _lastDay) ? 1 : 0);
+                     _lastDay = thisDay;
+                     break;
+
+                case 2:
+                {
+                    var rtcNow = DateTime.Now;
+                    _cpu.ch = ToBcd(rtcNow.Hour);
+                    _cpu.cl = ToBcd(rtcNow.Minute);
+                    _cpu.dh = ToBcd(rtcNow.Second);
+                    _cpu.dl = (byte)(TimeZoneInfo.Local.IsDaylightSavingTime(rtcNow) ? 1 : 0);
+                    _cpu.FlagC = false;
                     break;
+                }
+
+                case 4:
+                {
+                    var rtcNow = DateTime.Now;
+                    _cpu.ch = ToBcd(rtcNow.Year / 100);
+                    _cpu.cl = ToBcd(rtcNow.Year % 100);
+                    _cpu.dh = ToBcd(rtcNow.Month);
+                    _cpu.dl = ToBcd(rtcNow.Day);
+                    _cpu.FlagC = false;
+                    break;
+                }
 
                 default:
                     throw new NotImplementedException(string.Format("Int 1Ah, service {0} not implemented", _cpu.ah));
