@@ -74,7 +74,7 @@ namespace Win3muCoreUnitTests
         [TestMethod]
         public void Int2F_WindowsDetectionServices_ReturnNotPresent()
         {
-            foreach (ushort ax in new ushort[] { 0x1600, 0x160A, 0x4680 })
+            foreach (ushort ax in new ushort[] { 0x1600, 0x1601, 0x1602, 0x1606, 0x160A, 0x4680 })
             {
                 var cpu = new TestCpu();
                 var dos = new DosApi(cpu, new TestSite());

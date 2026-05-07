@@ -760,6 +760,9 @@ namespace Win3muCore
             switch (_cpu.ax)
             {
                 case 0x1600:
+                case 0x1601:
+                case 0x1602:
+                case 0x1606:
                 case 0x160A:
                 case 0x4680:
                     _cpu.ax = 0;
