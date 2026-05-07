@@ -337,6 +337,90 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void lar_Gv_Ev_register_loads_access_rights_for_valid_selector()
+        {
+            ax = 0xFFFF;
+            bx = 0x2468;
+            FlagC = true;
+            FlagZ = false;
+            MarkSelectorDescriptor(bx, 0x3456, 0x00F2, writable: true);
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x02);
+            WriteByte(cs, (ushort)(ip + 2), 0xC3);
+
+            step();
+
+            Assert.AreEqual((ushort)0x00F2, ax);
+            Assert.AreEqual((ushort)0x2468, bx);
+            Assert.IsTrue(FlagZ);
+            Assert.IsTrue(FlagC);
+        }
+
+        [TestMethod]
+        public void lar_Gv_Ev_register_preserves_destination_for_invalid_selector()
+        {
+            ax = 0x1234;
+            bx = 0x2468;
+            FlagZ = true;
+            FlagC = true;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x02);
+            WriteByte(cs, (ushort)(ip + 2), 0xC3);
+
+            step();
+
+            Assert.AreEqual((ushort)0x1234, ax);
+            Assert.AreEqual((ushort)0x2468, bx);
+            Assert.IsFalse(FlagZ);
+            Assert.IsTrue(FlagC);
+        }
+
+        [TestMethod]
+        public void lsl_Gv_Ev_memory_loads_selector_limit_for_valid_selector()
+        {
+            ax = 0xFFFF;
+            si = 0x8000;
+            WriteWord(ds, si, 0x1357);
+            MarkSelectorDescriptor(0x1357, 0x3456, 0x00F0, writable: false);
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x03);
+            WriteByte(cs, (ushort)(ip + 2), 0x04);
+
+            step();
+
+            Assert.AreEqual((ushort)0x3456, ax);
+            Assert.AreEqual((ushort)0x1357, ReadWord(ds, si));
+            Assert.IsTrue(FlagZ);
+        }
+
+        [TestMethod]
+        public void lar_Gv_Ev_disassembles()
+        {
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x02);
+            WriteByte(cs, (ushort)(ip + 2), 0xC3);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("lar ax,bx", disassembler.Read());
+        }
+
+        [TestMethod]
+        public void lsl_Gv_Ev_disassembles()
+        {
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x03);
+            WriteByte(cs, (ushort)(ip + 2), 0x04);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("lsl ax,word ptr [si]", disassembler.Read());
+        }
+
+        [TestMethod]
         public void movsx_Gv_Eb_memory()
         {
             si = 0x8000;

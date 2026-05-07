@@ -172,6 +172,36 @@ namespace Sharp86
             return selector != 0;
         }
 
+        protected virtual bool TryGetSelectorAccessRights(ushort selector, out ushort accessRights)
+        {
+            if (IsSelectorWritable(selector))
+            {
+                accessRights = 0x00F2;
+                return true;
+            }
+
+            if (IsSelectorReadable(selector))
+            {
+                accessRights = 0x00F0;
+                return true;
+            }
+
+            accessRights = 0;
+            return false;
+        }
+
+        protected virtual bool TryGetSelectorLimit(ushort selector, out ushort limit)
+        {
+            if (IsSelectorReadable(selector))
+            {
+                limit = 0xFFFF;
+                return true;
+            }
+
+            limit = 0;
+            return false;
+        }
+
         IMemoryBus _memoryBus;
         public IMemoryBus MemoryBus
         {
@@ -1237,6 +1267,38 @@ namespace Sharp86
 
                                         default:
                                             throw new InvalidOpCodeException();
+                                    }
+                                    break;
+                                }
+
+                                case 0x02:
+                                {
+                                    // LAR Gv, Ew
+                                    ushort selector = Read_Ev();
+                                    if (TryGetSelectorAccessRights(selector, out ushort accessRights))
+                                    {
+                                        Write_Gv(accessRights);
+                                        FlagZ = true;
+                                    }
+                                    else
+                                    {
+                                        FlagZ = false;
+                                    }
+                                    break;
+                                }
+
+                                case 0x03:
+                                {
+                                    // LSL Gv, Ew
+                                    ushort selector = Read_Ev();
+                                    if (TryGetSelectorLimit(selector, out ushort limit))
+                                    {
+                                        Write_Gv(limit);
+                                        FlagZ = true;
+                                    }
+                                    else
+                                    {
+                                        FlagZ = false;
                                     }
                                     break;
                                 }

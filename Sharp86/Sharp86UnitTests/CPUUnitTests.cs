@@ -22,6 +22,8 @@ namespace Sharp86UnitTests
         StringBuilder _emitBuffer = new StringBuilder();
         readonly HashSet<ushort> _readableSelectors = new HashSet<ushort>();
         readonly HashSet<ushort> _writableSelectors = new HashSet<ushort>();
+        readonly Dictionary<ushort, ushort> _selectorAccessRights = new Dictionary<ushort, ushort>();
+        readonly Dictionary<ushort, ushort> _selectorLimits = new Dictionary<ushort, ushort>();
 
         [TestInitialize]
         public override void Reset()
@@ -38,6 +40,8 @@ namespace Sharp86UnitTests
             _accessedPorts = new HashSet<ushort>();
             _readableSelectors.Clear();
             _writableSelectors.Clear();
+            _selectorAccessRights.Clear();
+            _selectorLimits.Clear();
         }
 
         protected override bool IsSelectorReadable(ushort selector)
@@ -50,15 +54,39 @@ namespace Sharp86UnitTests
             return _writableSelectors.Contains(selector);
         }
 
+        protected override bool TryGetSelectorAccessRights(ushort selector, out ushort accessRights)
+        {
+            return _selectorAccessRights.TryGetValue(selector, out accessRights);
+        }
+
+        protected override bool TryGetSelectorLimit(ushort selector, out ushort limit)
+        {
+            return _selectorLimits.TryGetValue(selector, out limit);
+        }
+
         protected void MarkSelectorReadable(ushort selector)
         {
             _readableSelectors.Add(selector);
+            _selectorAccessRights[selector] = 0x00F0;
+            _selectorLimits[selector] = 0xFFFF;
         }
 
         protected void MarkSelectorWritable(ushort selector)
         {
             _readableSelectors.Add(selector);
             _writableSelectors.Add(selector);
+            _selectorAccessRights[selector] = 0x00F2;
+            _selectorLimits[selector] = 0xFFFF;
+        }
+
+        protected void MarkSelectorDescriptor(ushort selector, ushort limit, ushort accessRights, bool writable)
+        {
+            _readableSelectors.Add(selector);
+            if (writable)
+                _writableSelectors.Add(selector);
+
+            _selectorLimits[selector] = limit;
+            _selectorAccessRights[selector] = accessRights;
         }
 
         public bool IsExecutableSelector(ushort seg)

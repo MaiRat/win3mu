@@ -642,6 +642,12 @@ namespace Sharp86
                                         throw new InvalidOpCodeException();
                                 }
 
+                            case 0x02:
+                                return string.Format("lar {0},{1}", Read_Gv(), Read_Ev());
+
+                            case 0x03:
+                                return string.Format("lsl {0},{1}", Read_Gv(), Read_Ev());
+
                             case 0x06:
                                 return "clts";
 

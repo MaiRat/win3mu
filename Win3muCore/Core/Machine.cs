@@ -527,6 +527,36 @@ namespace Win3muCore
             return sel != null && !sel.isCode && !sel.readOnly;
         }
 
+        protected override bool TryGetSelectorAccessRights(ushort selector, out ushort accessRights)
+        {
+            var sel = _globalHeap.GetSelector(selector);
+            if (sel == null)
+            {
+                accessRights = 0;
+                return false;
+            }
+
+            byte type = sel.isCode
+                ? (byte)0x0A
+                : (byte)(sel.readOnly ? 0x00 : 0x02);
+
+            accessRights = (ushort)(0x80 | 0x60 | 0x10 | type);
+            return true;
+        }
+
+        protected override bool TryGetSelectorLimit(ushort selector, out ushort limit)
+        {
+            var sel = _globalHeap.GetSelector(selector);
+            if (sel == null || sel.allocation == null || sel.allocation.buffer == null)
+            {
+                limit = 0;
+                return false;
+            }
+
+            limit = (ushort)Math.Min(sel.allocation.buffer.Length - 1, 0xFFFF);
+            return true;
+        }
+
         public byte ReadByte(ushort seg, ushort offset)
         {
             return _globalHeap.ReadByte(seg, offset);
