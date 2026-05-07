@@ -1371,6 +1371,7 @@ namespace Sharp86
                         switch ((_modRM >> 3) & 0x07)
                         {
                             case 0:
+                            case 1:
                                 return string.Format("{0} {1},{2}", Group3Name((_modRM >> 3) & 0x07), Read_Eb(), Read_Ib());
 
                             default:
@@ -1383,6 +1384,7 @@ namespace Sharp86
                         switch ((_modRM >> 3) & 0x07)
                         {
                             case 0:
+                            case 1:
                                 return string.Format("{0} {1},{2}", Group3Name((_modRM >> 3) & 0x07), Read_Ev(), Read_Iv());
 
                             default:

@@ -67,6 +67,18 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void test_Eb_Ib_group3_subcode1_disassembles_with_immediate()
+        {
+            WriteByte(cs, ip, 0xF6);
+            WriteByte(cs, (ushort)(ip + 1), 0x0C);
+            WriteByte(cs, (ushort)(ip + 2), 0x80);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("test byte ptr [si],0x80", disassembler.Read());
+        }
+
+        [TestMethod]
         public void not_Eb_Ib()
         {
             si = 0x8000;
@@ -162,6 +174,18 @@ namespace Sharp86UnitTests
             Assert.IsFalse(FlagZ);
             Assert.IsFalse(FlagC);
             Assert.IsFalse(FlagO);
+        }
+
+        [TestMethod]
+        public void test_Ev_Iv_group3_subcode1_disassembles_with_immediate()
+        {
+            WriteByte(cs, ip, 0xF7);
+            WriteByte(cs, (ushort)(ip + 1), 0x0C);
+            WriteWord(cs, (ushort)(ip + 2), 0x8000);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("test word ptr [si],0x8000", disassembler.Read());
         }
 
         [TestMethod]
