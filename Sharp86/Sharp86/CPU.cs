@@ -851,6 +851,32 @@ namespace Sharp86
             return false;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        bool TestCondition(byte condition)
+        {
+            switch (condition & 0x0F)
+            {
+                case 0x0: return FlagO;
+                case 0x1: return !FlagO;
+                case 0x2: return FlagC;
+                case 0x3: return !FlagC;
+                case 0x4: return FlagZ;
+                case 0x5: return !FlagZ;
+                case 0x6: return FlagC || FlagZ;
+                case 0x7: return !FlagC && !FlagZ;
+                case 0x8: return FlagS;
+                case 0x9: return !FlagS;
+                case 0xA: return FlagP;
+                case 0xB: return !FlagP;
+                case 0xC: return FlagS != FlagO;
+                case 0xD: return FlagS == FlagO;
+                case 0xE: return FlagZ || (FlagS != FlagO);
+                case 0xF: return !FlagZ && (FlagS == FlagO);
+                default:
+                    throw new InvalidOperationException();
+            }
+        }
+
         //bool _executing = false;
 
 
@@ -1045,7 +1071,16 @@ namespace Sharp86
                             break;
 
                         case 0x0F:
-                            switch (Read_Ib())
+                        {
+                            var opCode2 = Read_Ib();
+                            if (opCode2 >= 0x90 && opCode2 <= 0x9F)
+                            {
+                                // SETcc Eb
+                                Write_Eb((byte)(TestCondition((byte)(opCode2 & 0x0F)) ? 1 : 0));
+                                break;
+                            }
+
+                            switch (opCode2)
                             {
                                 case 0xB6:
                                     // MOVZX Gv, Eb
@@ -1061,6 +1096,7 @@ namespace Sharp86
                                     throw new InvalidOpCodeException();
                             }
                             break;
+                        }
 
                         case 0x10:
                             // ADC Eb, Gb

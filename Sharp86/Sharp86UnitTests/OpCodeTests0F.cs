@@ -5,6 +5,42 @@ namespace Sharp86UnitTests
     [TestClass]
     public class OpCodeTests0F : CPUUnitTests
     {
+        void assertSetcc(byte opCode2, byte modRM, bool expected, bool flagO, bool flagC, bool flagZ, bool flagS, bool flagP)
+        {
+            Reset();
+
+            FlagO = flagO;
+            FlagC = flagC;
+            FlagZ = flagZ;
+            FlagS = flagS;
+            FlagP = flagP;
+
+            ushort flags = EFlags;
+
+            if (modRM == 0x04)
+            {
+                si = 0x8000;
+                WriteByte(ds, si, 0xCC);
+            }
+            else
+            {
+                al = 0xCC;
+            }
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), opCode2);
+            WriteByte(cs, (ushort)(ip + 2), modRM);
+
+            step();
+
+            if (modRM == 0x04)
+                Assert.AreEqual((byte)(expected ? 1 : 0), ReadByte(ds, si));
+            else
+                Assert.AreEqual((byte)(expected ? 1 : 0), al);
+
+            Assert.AreEqual(flags, EFlags);
+        }
+
         [TestMethod]
         public void movzx_Gv_Eb_register()
         {
@@ -48,6 +84,53 @@ namespace Sharp86UnitTests
             Assert.IsFalse(FlagC);
             Assert.IsTrue(FlagZ);
             Assert.IsFalse(FlagO);
+        }
+
+        [TestMethod]
+        public void setcc_register_conditions()
+        {
+            assertSetcc(0x90, 0xC0, true,  true,  false, false, false, false);
+            assertSetcc(0x90, 0xC0, false, false, false, false, false, false);
+            assertSetcc(0x91, 0xC0, true,  false, false, false, false, false);
+            assertSetcc(0x91, 0xC0, false, true,  false, false, false, false);
+            assertSetcc(0x92, 0xC0, true,  false, true,  false, false, false);
+            assertSetcc(0x92, 0xC0, false, false, false, false, false, false);
+            assertSetcc(0x93, 0xC0, true,  false, false, false, false, false);
+            assertSetcc(0x93, 0xC0, false, false, true,  false, false, false);
+            assertSetcc(0x94, 0xC0, true,  false, false, true,  false, false);
+            assertSetcc(0x94, 0xC0, false, false, false, false, false, false);
+            assertSetcc(0x95, 0xC0, true,  false, false, false, false, false);
+            assertSetcc(0x95, 0xC0, false, false, false, true,  false, false);
+            assertSetcc(0x96, 0xC0, true,  false, true,  false, false, false);
+            assertSetcc(0x96, 0xC0, true,  false, false, true,  false, false);
+            assertSetcc(0x96, 0xC0, false, false, false, false, false, false);
+            assertSetcc(0x97, 0xC0, true,  false, false, false, false, false);
+            assertSetcc(0x97, 0xC0, false, false, true,  false, false, false);
+            assertSetcc(0x97, 0xC0, false, false, false, true,  false, false);
+            assertSetcc(0x98, 0xC0, true,  false, false, false, true,  false);
+            assertSetcc(0x98, 0xC0, false, false, false, false, false, false);
+            assertSetcc(0x99, 0xC0, true,  false, false, false, false, false);
+            assertSetcc(0x99, 0xC0, false, false, false, false, true,  false);
+            assertSetcc(0x9A, 0xC0, true,  false, false, false, false, true);
+            assertSetcc(0x9A, 0xC0, false, false, false, false, false, false);
+            assertSetcc(0x9B, 0xC0, true,  false, false, false, false, false);
+            assertSetcc(0x9B, 0xC0, false, false, false, false, false, true);
+            assertSetcc(0x9C, 0xC0, true,  true,  false, false, false, false);
+            assertSetcc(0x9C, 0xC0, false, false, false, false, false, false);
+            assertSetcc(0x9D, 0xC0, true,  true,  false, false, true,  false);
+            assertSetcc(0x9D, 0xC0, false, true,  false, false, false, false);
+            assertSetcc(0x9E, 0xC0, true,  false, false, true,  false, false);
+            assertSetcc(0x9E, 0xC0, true,  true,  false, false, false, false);
+            assertSetcc(0x9E, 0xC0, false, true,  false, false, true,  false);
+            assertSetcc(0x9F, 0xC0, true,  true,  false, false, true,  false);
+            assertSetcc(0x9F, 0xC0, false, false, false, true,  false, false);
+            assertSetcc(0x9F, 0xC0, false, false, false, false, false, false);
+        }
+
+        [TestMethod]
+        public void setcc_memory_destination()
+        {
+            assertSetcc(0x94, 0x04, true, false, false, true, false, false);
         }
     }
 }

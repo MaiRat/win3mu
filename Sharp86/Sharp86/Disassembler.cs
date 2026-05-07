@@ -592,7 +592,12 @@ namespace Sharp86
                         return string.Format("pop {0}", Format((RegSeg)((opCode >> 3) & 0x03)));
 
                     case 0x0F:
-                        switch (ReadByte(cs, ip++))
+                    {
+                        var opCode2 = ReadByte(cs, ip++);
+                        if (opCode2 >= 0x90 && opCode2 <= 0x9F)
+                            return string.Format("set{0} {1}", _ccNames[opCode2 & 0x0F], Read_Eb());
+
+                        switch (opCode2)
                         {
                             case 0xB6:
                                 return string.Format("movzx {0},{1}", Read_Gv(), Read_Eb());
@@ -603,6 +608,7 @@ namespace Sharp86
                             default:
                                 throw new InvalidOpCodeException();
                         }
+                    }
 
                     case 0x08:
                     case 0x09:
