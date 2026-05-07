@@ -54,6 +54,8 @@ namespace Sharp86
         CS,
         SS,
         DS,
+        FS,
+        GS,
     }
 
     public class CPUException : Exception
@@ -152,6 +154,8 @@ namespace Sharp86
             ds = 0;
             ss = 0;
             es = 0;
+            fs = 0;
+            gs = 0;
             EFlags = 0;
             MachineStatusWord = 0;
             LocalDescriptorTableSelector = 0;
@@ -250,6 +254,8 @@ namespace Sharp86
         ushort _cs;
         public ushort es;
         public ushort ds;
+        public ushort fs;
+        public ushort gs;
         public ushort ReadReg(RegSeg reg)
         {
             switch (reg)
@@ -258,6 +264,8 @@ namespace Sharp86
                 case RegSeg.DS: return ds;
                 case RegSeg.SS: return ss;
                 case RegSeg.CS: return cs;
+                case RegSeg.FS: return fs;
+                case RegSeg.GS: return gs;
             }
             throw new ArgumentException("Invalid register index");
         }
@@ -269,6 +277,8 @@ namespace Sharp86
                 case RegSeg.DS: ds = value; return;
                 case RegSeg.SS: ss = value; return;
                 case RegSeg.CS: cs = value; return;
+                case RegSeg.FS: fs = value; return;
+                case RegSeg.GS: gs = value; return;
             }
             throw new ArgumentException("Invalid register index");
         }
@@ -1356,6 +1366,30 @@ namespace Sharp86
                                     MachineStatusWord = (ushort)(MachineStatusWord & ~0x0008);
                                     break;
 
+                                case 0xA0:
+                                    // PUSH FS
+                                    sp -= 2;
+                                    _activeMemoryBus.WriteWord(ss, sp, fs);
+                                    break;
+
+                                case 0xA1:
+                                    // POP FS
+                                    fs = _activeMemoryBus.ReadWord(ss, sp);
+                                    sp += 2;
+                                    break;
+
+                                case 0xA8:
+                                    // PUSH GS
+                                    sp -= 2;
+                                    _activeMemoryBus.WriteWord(ss, sp, gs);
+                                    break;
+
+                                case 0xA9:
+                                    // POP GS
+                                    gs = _activeMemoryBus.ReadWord(ss, sp);
+                                    sp += 2;
+                                    break;
+
                                 case 0xB0:
                                 {
                                     // CMPXCHG Eb, Gb
@@ -1390,6 +1424,26 @@ namespace Sharp86
 
                                     Write_Gv(Read_Ev());
                                     ss = _activeMemoryBus.ReadWord(_modRMSeg, (ushort)(_modRMOffset + 2));
+                                    break;
+
+                                case 0xB4:
+                                    // LFS Gv, Mp
+                                    ReadModRM();
+                                    if (!_modRMIsPointer)
+                                        throw new InvalidOpCodeException();
+
+                                    Write_Gv(Read_Ev());
+                                    fs = _activeMemoryBus.ReadWord(_modRMSeg, (ushort)(_modRMOffset + 2));
+                                    break;
+
+                                case 0xB5:
+                                    // LGS Gv, Mp
+                                    ReadModRM();
+                                    if (!_modRMIsPointer)
+                                        throw new InvalidOpCodeException();
+
+                                    Write_Gv(Read_Ev());
+                                    gs = _activeMemoryBus.ReadWord(_modRMSeg, (ushort)(_modRMOffset + 2));
                                     break;
 
                                 case 0xA3:
@@ -2024,11 +2078,19 @@ namespace Sharp86
                             break;
 
                         case 0x63:
-                        case 0x64:
-                        case 0x65:
                         case 0x66:
                         case 0x67:
                             throw new InvalidOpCodeException();
+
+                        case 0x64:
+                            // FS: prefix
+                            _prefixSegment = RegSeg.FS;
+                            goto prefixHandled;
+
+                        case 0x65:
+                            // GS: prefix
+                            _prefixSegment = RegSeg.GS;
+                            goto prefixHandled;
 
                         case 0x68:
                             // Push Iv

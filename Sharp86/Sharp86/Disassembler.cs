@@ -303,6 +303,8 @@ namespace Sharp86
                 case RegSeg.DS: return "ds";
                 case RegSeg.ES: return "es";
                 case RegSeg.SS: return "ss";
+                case RegSeg.FS: return "fs";
+                case RegSeg.GS: return "gs";
             }
             throw new NotImplementedException();
         }
@@ -573,6 +575,16 @@ namespace Sharp86
                             opCode = ReadByte(cs, ip++);
                             break;
 
+                        case 0x64:
+                            _prefixSegment = RegSeg.FS;
+                            opCode = ReadByte(cs, ip++);
+                            break;
+
+                        case 0x65:
+                            _prefixSegment = RegSeg.GS;
+                            opCode = ReadByte(cs, ip++);
+                            break;
+
                         default:
                             haveOpCode = true;
                             break;
@@ -674,6 +686,18 @@ namespace Sharp86
                             case 0x06:
                                 return "clts";
 
+                            case 0xA0:
+                                return "push fs";
+
+                            case 0xA1:
+                                return "pop fs";
+
+                            case 0xA8:
+                                return "push gs";
+
+                            case 0xA9:
+                                return "pop gs";
+
                             case 0xB0:
                                 return string.Format("cmpxchg {0},{1}", Read_Eb(), Read_Gb());
 
@@ -686,6 +710,20 @@ namespace Sharp86
                                     throw new InvalidOpCodeException();
 
                                 return string.Format("lss {0},d{1}", Read_Gv(), Read_Ev());
+
+                            case 0xB4:
+                                ReadModRM();
+                                if (!_modRMIsPointer)
+                                    throw new InvalidOpCodeException();
+
+                                return string.Format("lfs {0},d{1}", Read_Gv(), Read_Ev());
+
+                            case 0xB5:
+                                ReadModRM();
+                                if (!_modRMIsPointer)
+                                    throw new InvalidOpCodeException();
+
+                                return string.Format("lgs {0},d{1}", Read_Gv(), Read_Ev());
 
                             case 0xA3:
                                 return string.Format("bt {0},{1}", Read_Ev(), Read_Gv());
@@ -906,8 +944,6 @@ namespace Sharp86
                         return string.Format("Bound {0},{1}", Read_Gv(), Read_Ev());
 
                     case 0x63:
-                    case 0x64:
-                    case 0x65:
                     case 0x66:
                     case 0x67:
                         throw new InvalidOpCodeException();

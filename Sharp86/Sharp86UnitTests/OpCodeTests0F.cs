@@ -756,6 +756,168 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void push_pop_fs_round_trips_segment_register()
+        {
+            sp = 0x1000;
+            fs = 0x3456;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xA0);
+            WriteByte(cs, (ushort)(ip + 2), 0x0F);
+            WriteByte(cs, (ushort)(ip + 3), 0xA1);
+
+            step();
+
+            Assert.AreEqual((ushort)0x0FFE, sp);
+            Assert.AreEqual((ushort)0x3456, ReadWord(ss, sp));
+
+            fs = 0;
+            step();
+
+            Assert.AreEqual((ushort)0x1000, sp);
+            Assert.AreEqual((ushort)0x3456, fs);
+        }
+
+        [TestMethod]
+        public void push_pop_gs_round_trips_segment_register()
+        {
+            sp = 0x1000;
+            gs = 0x789A;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xA8);
+            WriteByte(cs, (ushort)(ip + 2), 0x0F);
+            WriteByte(cs, (ushort)(ip + 3), 0xA9);
+
+            step();
+
+            Assert.AreEqual((ushort)0x0FFE, sp);
+            Assert.AreEqual((ushort)0x789A, ReadWord(ss, sp));
+
+            gs = 0;
+            step();
+
+            Assert.AreEqual((ushort)0x1000, sp);
+            Assert.AreEqual((ushort)0x789A, gs);
+        }
+
+        [TestMethod]
+        public void lfs_Gv_Mp_memory_loads_register_and_fs()
+        {
+            si = 0x8000;
+            WriteWord(ds, si, 0x3456);
+            WriteWord(ds, (ushort)(si + 2), 0x789A);
+            ax = 0;
+            fs = 0x1111;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xB4);
+            WriteByte(cs, (ushort)(ip + 2), 0x04);
+
+            step();
+
+            Assert.AreEqual((ushort)0x3456, ax);
+            Assert.AreEqual((ushort)0x789A, fs);
+        }
+
+        [TestMethod]
+        public void lgs_Gv_Mp_memory_loads_register_and_gs()
+        {
+            si = 0x8000;
+            WriteWord(ds, si, 0x1234);
+            WriteWord(ds, (ushort)(si + 2), 0x5678);
+            ax = 0;
+            gs = 0x1111;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xB5);
+            WriteByte(cs, (ushort)(ip + 2), 0x04);
+
+            step();
+
+            Assert.AreEqual((ushort)0x1234, ax);
+            Assert.AreEqual((ushort)0x5678, gs);
+        }
+
+        [TestMethod]
+        public void lfs_lgs_register_operand_is_invalid()
+        {
+            ax = 0x1111;
+            fs = 0x2222;
+            gs = 0x3333;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xB4);
+            WriteByte(cs, (ushort)(ip + 2), 0xC0);
+
+            try
+            {
+                step();
+                Assert.Fail("Expected invalid opcode");
+            }
+            catch (Sharp86.InvalidOpCodeException)
+            {
+            }
+
+            Assert.AreEqual((ushort)0x1111, ax);
+            Assert.AreEqual((ushort)0x2222, fs);
+            Assert.AreEqual((ushort)0x3333, gs);
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xB5);
+            WriteByte(cs, (ushort)(ip + 2), 0xC0);
+
+            try
+            {
+                step();
+                Assert.Fail("Expected invalid opcode");
+            }
+            catch (Sharp86.InvalidOpCodeException)
+            {
+            }
+
+            Assert.AreEqual((ushort)0x1111, ax);
+            Assert.AreEqual((ushort)0x2222, fs);
+            Assert.AreEqual((ushort)0x3333, gs);
+        }
+
+        [TestMethod]
+        public void push_pop_fs_gs_disassemble()
+        {
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xA0);
+            WriteByte(cs, (ushort)(ip + 2), 0x0F);
+            WriteByte(cs, (ushort)(ip + 3), 0xA1);
+            WriteByte(cs, (ushort)(ip + 4), 0x0F);
+            WriteByte(cs, (ushort)(ip + 5), 0xA8);
+            WriteByte(cs, (ushort)(ip + 6), 0x0F);
+            WriteByte(cs, (ushort)(ip + 7), 0xA9);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("push fs", disassembler.Read());
+            Assert.AreEqual("pop fs", disassembler.Read());
+            Assert.AreEqual("push gs", disassembler.Read());
+            Assert.AreEqual("pop gs", disassembler.Read());
+        }
+
+        [TestMethod]
+        public void lfs_lgs_disassemble()
+        {
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xB4);
+            WriteByte(cs, (ushort)(ip + 2), 0x04);
+            WriteByte(cs, (ushort)(ip + 3), 0x0F);
+            WriteByte(cs, (ushort)(ip + 4), 0xB5);
+            WriteByte(cs, (ushort)(ip + 5), 0x04);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("lfs ax,dword ptr [si]", disassembler.Read());
+            Assert.AreEqual("lgs ax,dword ptr [si]", disassembler.Read());
+        }
+
+        [TestMethod]
         public void bsr_Gv_Ev_memory()
         {
             ax = 0xFFFF;

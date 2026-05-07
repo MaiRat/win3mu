@@ -114,5 +114,55 @@ namespace Sharp86UnitTests
             step();
             Assert.IsFalse(_boundsExceeded);
         }
+
+        [TestMethod]
+        public void fs_segment_override_prefix_reads_from_fs()
+        {
+            fs = 0x0120;
+            ds = 0x0110;
+            WriteByte(fs, 0x1000, 0x5A);
+            WriteByte(ds, 0x1000, 0xA5);
+
+            WriteByte(cs, ip, 0x64);
+            WriteByte(cs, (ushort)(ip + 1), 0xA0);
+            WriteWord(cs, (ushort)(ip + 2), 0x1000);
+
+            step();
+
+            Assert.AreEqual((byte)0x5A, al);
+        }
+
+        [TestMethod]
+        public void gs_segment_override_prefix_reads_from_gs()
+        {
+            gs = 0x0130;
+            ds = 0x0110;
+            WriteWord(gs, 0x1000, 0xBEEF);
+            WriteWord(ds, 0x1000, 0x1234);
+
+            WriteByte(cs, ip, 0x65);
+            WriteByte(cs, (ushort)(ip + 1), 0xA1);
+            WriteWord(cs, (ushort)(ip + 2), 0x1000);
+
+            step();
+
+            Assert.AreEqual((ushort)0xBEEF, ax);
+        }
+
+        [TestMethod]
+        public void fs_gs_segment_override_prefixes_disassemble()
+        {
+            WriteByte(cs, ip, 0x64);
+            WriteByte(cs, (ushort)(ip + 1), 0xA0);
+            WriteWord(cs, (ushort)(ip + 2), 0x1000);
+            WriteByte(cs, (ushort)(ip + 4), 0x65);
+            WriteByte(cs, (ushort)(ip + 5), 0xA1);
+            WriteWord(cs, (ushort)(ip + 6), 0x1000);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("mov al,byte ptr fs:[0x1000]", disassembler.Read());
+            Assert.AreEqual("mov ax,word ptr gs:[0x1000]", disassembler.Read());
+        }
     }
 }
