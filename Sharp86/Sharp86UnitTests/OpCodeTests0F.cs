@@ -397,6 +397,93 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void cmpxchg_Eb_Gb_register_match_writes_source_to_destination()
+        {
+            al = 0x22;
+            bl = 0x22;
+            cl = 0x55;
+            FlagZ = false;
+            FlagC = true;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xB0);
+            WriteByte(cs, (ushort)(ip + 2), 0xCB);
+
+            step();
+
+            Assert.AreEqual((byte)0x22, al);
+            Assert.AreEqual((byte)0x55, bl);
+            Assert.AreEqual((byte)0x55, cl);
+            Assert.IsTrue(FlagZ);
+            Assert.IsFalse(FlagC);
+        }
+
+        [TestMethod]
+        public void cmpxchg_Ev_Gv_register_mismatch_loads_destination_into_accumulator()
+        {
+            ax = 0x1000;
+            bx = 0x1001;
+            cx = 0xABCD;
+            FlagZ = true;
+            FlagC = false;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xB1);
+            WriteByte(cs, (ushort)(ip + 2), 0xCB);
+
+            step();
+
+            Assert.AreEqual((ushort)0x1001, ax);
+            Assert.AreEqual((ushort)0x1001, bx);
+            Assert.AreEqual((ushort)0xABCD, cx);
+            Assert.IsFalse(FlagZ);
+            Assert.IsTrue(FlagC);
+        }
+
+        [TestMethod]
+        public void cmpxchg_Eb_Gb_memory_match_writes_source_to_memory()
+        {
+            si = 0x8000;
+            WriteByte(ds, si, 0x80);
+            al = 0x80;
+            bl = 0x7F;
+            FlagZ = false;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xB0);
+            WriteByte(cs, (ushort)(ip + 2), 0x1C);
+
+            step();
+
+            Assert.AreEqual((byte)0x80, al);
+            Assert.AreEqual((byte)0x7F, bl);
+            Assert.AreEqual((byte)0x7F, ReadByte(ds, si));
+            Assert.IsTrue(FlagZ);
+        }
+
+        [TestMethod]
+        public void cmpxchg_Ev_Gv_memory_mismatch_preserves_memory_and_updates_accumulator()
+        {
+            si = 0x8000;
+            WriteWord(ds, si, 0x00F0);
+            ax = 0x000F;
+            bx = 0x1234;
+            FlagZ = true;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xB1);
+            WriteByte(cs, (ushort)(ip + 2), 0x1C);
+
+            step();
+
+            Assert.AreEqual((ushort)0x00F0, ax);
+            Assert.AreEqual((ushort)0x1234, bx);
+            Assert.AreEqual((ushort)0x00F0, ReadWord(ds, si));
+            Assert.IsFalse(FlagZ);
+            Assert.IsTrue(FlagC);
+        }
+
+        [TestMethod]
         public void xadd_Eb_Gb_register_exchanges_operands_and_stores_sum()
         {
             al = 5;

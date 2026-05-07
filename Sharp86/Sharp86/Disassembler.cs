@@ -602,6 +602,12 @@ namespace Sharp86
 
                         switch (opCode2)
                         {
+                            case 0xB0:
+                                return string.Format("cmpxchg {0},{1}", Read_Eb(), Read_Gb());
+
+                            case 0xB1:
+                                return string.Format("cmpxchg {0},{1}", Read_Ev(), Read_Gv());
+
                             case 0xA3:
                                 return string.Format("bt {0},{1}", Read_Ev(), Read_Gv());
 

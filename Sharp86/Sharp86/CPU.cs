@@ -1162,6 +1162,32 @@ namespace Sharp86
 
                             switch (opCode2)
                             {
+                                case 0xB0:
+                                {
+                                    // CMPXCHG Eb, Gb
+                                    byte destination = Read_Eb();
+                                    byte source = Read_Gb();
+                                    Sub8(al, destination);
+                                    if (FlagZ)
+                                        Write_Eb(source);
+                                    else
+                                        al = destination;
+                                    break;
+                                }
+
+                                case 0xB1:
+                                {
+                                    // CMPXCHG Ev, Gv
+                                    ushort destination = Read_Ev();
+                                    ushort source = Read_Gv();
+                                    Sub16(ax, destination);
+                                    if (FlagZ)
+                                        Write_Ev(source);
+                                    else
+                                        ax = destination;
+                                    break;
+                                }
+
                                 case 0xA3:
                                 {
                                     // BT Ev, Gv
