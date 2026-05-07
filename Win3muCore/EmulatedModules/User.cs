@@ -2238,7 +2238,7 @@ namespace Win3muCore
         {
             if (hTask != _machine.ProcessModule.hModule)
             {
-                throw new NotImplementedException("Enumerating windows of other tasks not supported");
+                return true;
             }
 
             return EnumThreadWindows(GetCurrentThreadId(), (w, lp) =>
