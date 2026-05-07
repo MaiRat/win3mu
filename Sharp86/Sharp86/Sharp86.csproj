@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net461;net8.0</TargetFrameworks>
+    <TargetFramework>net8.0</TargetFramework>
     <OutputType>Library</OutputType>
     <RootNamespace>Sharp86</RootNamespace>
     <AssemblyName>Sharp86</AssemblyName>
@@ -10,6 +10,6 @@
     <Nullable>disable</Nullable>
     <Prefer32Bit>false</Prefer32Bit>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <BaseOutputPath>..\build\</BaseOutputPath>
+    <BaseOutputPath>../build/</BaseOutputPath>
   </PropertyGroup>
 </Project>
