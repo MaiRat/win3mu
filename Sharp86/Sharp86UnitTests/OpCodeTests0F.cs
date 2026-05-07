@@ -194,6 +194,61 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void bsf_Gv_Ev_register()
+        {
+            ax = 0xFFFF;
+            bx = 0x0120;
+            FlagZ = true;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xBC);
+            WriteByte(cs, (ushort)(ip + 2), 0xC3);
+
+            step();
+
+            Assert.AreEqual((ushort)5, ax);
+            Assert.AreEqual((ushort)0x0120, bx);
+            Assert.IsFalse(FlagZ);
+        }
+
+        [TestMethod]
+        public void bsr_Gv_Ev_memory()
+        {
+            ax = 0xFFFF;
+            si = 0x8000;
+            WriteWord(ds, si, 0x1200);
+            FlagZ = true;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xBD);
+            WriteByte(cs, (ushort)(ip + 2), 0x04);
+
+            step();
+
+            Assert.AreEqual((ushort)12, ax);
+            Assert.AreEqual((ushort)0x1200, ReadWord(ds, si));
+            Assert.IsFalse(FlagZ);
+        }
+
+        [TestMethod]
+        public void bit_scan_zero_source_preserves_destination()
+        {
+            ax = 0x1357;
+            bx = 0;
+            FlagZ = false;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xBC);
+            WriteByte(cs, (ushort)(ip + 2), 0xC3);
+
+            step();
+
+            Assert.AreEqual((ushort)0x1357, ax);
+            Assert.AreEqual((ushort)0, bx);
+            Assert.IsTrue(FlagZ);
+        }
+
+        [TestMethod]
         public void setcc_register_conditions()
         {
             assertSetcc(0x90, 0xC0, true,  true,  false, false, false, false);

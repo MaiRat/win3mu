@@ -884,6 +884,31 @@ namespace Sharp86
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static ushort BitScanForward16(ushort value)
+        {
+            ushort bit = 0;
+            while ((value & 1) == 0)
+            {
+                value >>= 1;
+                bit++;
+            }
+            return bit;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static ushort BitScanReverse16(ushort value)
+        {
+            ushort bit = 15;
+            ushort mask = 0x8000;
+            while ((value & mask) == 0)
+            {
+                mask >>= 1;
+                bit--;
+            }
+            return bit;
+        }
+
         //bool _executing = false;
 
 
@@ -1098,6 +1123,26 @@ namespace Sharp86
 
                             switch (opCode2)
                             {
+                                case 0xBC:
+                                {
+                                    // BSF Gv, Ev
+                                    ushort source = Read_Ev();
+                                    FlagZ = source == 0;
+                                    if (!FlagZ)
+                                        Write_Gv(BitScanForward16(source));
+                                    break;
+                                }
+
+                                case 0xBD:
+                                {
+                                    // BSR Gv, Ev
+                                    ushort source = Read_Ev();
+                                    FlagZ = source == 0;
+                                    if (!FlagZ)
+                                        Write_Gv(BitScanReverse16(source));
+                                    break;
+                                }
+
                                 case 0xAF:
                                     // IMUL Gv, Ev
                                     Write_Gv((ushort)(IMul16(Read_Gv(), Read_Ev()) & 0xFFFF));

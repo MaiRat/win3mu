@@ -602,6 +602,12 @@ namespace Sharp86
 
                         switch (opCode2)
                         {
+                            case 0xBC:
+                                return string.Format("bsf {0},{1}", Read_Gv(), Read_Ev());
+
+                            case 0xBD:
+                                return string.Format("bsr {0},{1}", Read_Gv(), Read_Ev());
+
                             case 0xAF:
                                 return string.Format("imul {0},{1}", Read_Gv(), Read_Ev());
 
