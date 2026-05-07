@@ -608,6 +608,13 @@ namespace Sharp86
                             case 0xB1:
                                 return string.Format("cmpxchg {0},{1}", Read_Ev(), Read_Gv());
 
+                            case 0xB2:
+                                ReadModRM();
+                                if (!_modRMIsPointer)
+                                    throw new InvalidOpCodeException();
+
+                                return string.Format("lss {0},d{1}", Read_Gv(), Read_Ev());
+
                             case 0xA3:
                                 return string.Format("bt {0},{1}", Read_Ev(), Read_Gv());
 

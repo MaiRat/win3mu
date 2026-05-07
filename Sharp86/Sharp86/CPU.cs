@@ -1188,6 +1188,16 @@ namespace Sharp86
                                     break;
                                 }
 
+                                case 0xB2:
+                                    // LSS Gv, Mp
+                                    ReadModRM();
+                                    if (!_modRMIsPointer)
+                                        throw new InvalidOpCodeException();
+
+                                    Write_Gv(Read_Ev());
+                                    ss = _activeMemoryBus.ReadWord(_modRMSeg, (ushort)(_modRMOffset + 2));
+                                    break;
+
                                 case 0xA3:
                                 {
                                     // BT Ev, Gv

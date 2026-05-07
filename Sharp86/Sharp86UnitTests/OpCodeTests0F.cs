@@ -212,6 +212,48 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void lss_Gv_Mp_memory_loads_register_and_stack_segment()
+        {
+            si = 0x8000;
+            WriteWord(ds, si, 0x3456);
+            WriteWord(ds, (ushort)(si + 2), 0x789A);
+            ax = 0;
+            ss = 0x1111;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xB2);
+            WriteByte(cs, (ushort)(ip + 2), 0x04);
+
+            step();
+
+            Assert.AreEqual((ushort)0x3456, ax);
+            Assert.AreEqual((ushort)0x789A, ss);
+        }
+
+        [TestMethod]
+        public void lss_Gv_Mp_register_operand_is_invalid()
+        {
+            ax = 0x1111;
+            ss = 0x2222;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xB2);
+            WriteByte(cs, (ushort)(ip + 2), 0xC0);
+
+            try
+            {
+                step();
+                Assert.Fail("Expected invalid opcode");
+            }
+            catch (Sharp86.InvalidOpCodeException)
+            {
+            }
+
+            Assert.AreEqual((ushort)0x1111, ax);
+            Assert.AreEqual((ushort)0x2222, ss);
+        }
+
+        [TestMethod]
         public void bsr_Gv_Ev_memory()
         {
             ax = 0xFFFF;
