@@ -505,34 +505,13 @@ namespace Win3muCore
 
                     case 0x11:
                     {
-                        var fcb = _cpu.MemoryBus.ReadBytes(_cpu.ds, _cpu.dx, 37);
-                        if (fcb[0]!=0xFF)
-                            throw new NotImplementedException();
-
-                        // Crack FCB
-                        byte attr = fcb[6];
-                        byte drive = fcb[7];
-                        var ansi = System.Text.Encoding.GetEncoding(1252);
-                        var filename = ansi.GetString(fcb, 8, 8).Trim();
-                        var ext = ansi.GetString(fcb, 16, 3).Trim();
-
-                        if (drive == 0)
-                            drive = (byte)_currentDrive;
-                        else
-                            drive--;
-
-                        // Find file
-                        FindFiles($"{(char)('A' + drive)}:{filename}.{ext}", attr);
-                        FindNextFileFCB(fcb);
+                        TryFindFirstFileFCB();
                         break;
                     }
 
                     case 0x12:
                     {
-                        var fcb = _cpu.MemoryBus.ReadBytes(_cpu.ds, _cpu.dx, 37);
-                        if (fcb[0] != 0xFF)
-                            throw new NotImplementedException();
-                        FindNextFileFCB(fcb);
+                        TryFindNextFileFCB();
                         break;
                     }
 
@@ -1448,6 +1427,27 @@ namespace Win3muCore
                 return str + "\\";
         }
 
+        static string GetGuestDirectoryName(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return path;
+
+            int index = path.LastIndexOf('\\');
+            if (index < 0)
+                return string.Empty;
+
+            return path.Substring(0, index + 1);
+        }
+
+        static string GetGuestFileName(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return path;
+
+            int index = path.LastIndexOf('\\');
+            return index >= 0 ? path.Substring(index + 1) : path;
+        }
+
         public void FindFiles(string spec, byte attributes)
         {
             int size = Marshal.SizeOf<FINDFILESTRUCT>();
@@ -1475,13 +1475,13 @@ namespace Win3muCore
 
             _findFiles = new Dictionary<string, FINDFILESTRUCT>();
 
-            string folder = EnsureEndsWithSlash(System.IO.Path.GetDirectoryName(fullspec));
-            string glob = System.IO.Path.GetFileName(fullspec);
+            string folder = EnsureEndsWithSlash(GetGuestDirectoryName(fullspec).TrimEnd('\\'));
+            string glob = GetGuestFileName(fullspec);
 
             // If not root folder, also include the parent folder
             if (folder.Length > 3)
             {
-                var parentFolder = System.IO.Path.GetDirectoryName(folder);
+                var parentFolder = GetGuestDirectoryName(folder.TrimEnd('\\'));
                 var readOnlyParentFolder = _site.TryMapGuestPathToHost(parentFolder, false);
                 if (readOnlyParentFolder != null)
                 {
@@ -1568,23 +1568,80 @@ namespace Win3muCore
             return fileAttributes == 0 || (fileAttributes & filterAttributes) != 0;
         }
 
-        void FindNextFileFCB(byte[] fcbRequest)
+        void TryFindFirstFileFCB()
         {
-            FINDFILESTRUCT ffs; 
+            var fcbRequest = _cpu.MemoryBus.ReadBytes(_cpu.ds, _cpu.dx, 37);
+            byte attributes;
+            string spec = GetFcbSearchSpec(fcbRequest, out attributes);
+
+            try
+            {
+                FindFiles(spec, attributes);
+                TryFindNextFileFCB();
+            }
+            catch (DosError x) when (x.errorCode == DosError.FileNotFound || x.errorCode == DosError.PathNotFound || x.errorCode == DosError.NoMoreFiles)
+            {
+                _cpu.al = 0xFF;
+                _cpu.FlagC = false;
+            }
+        }
+
+        void TryFindNextFileFCB()
+        {
+            var fcb = _cpu.MemoryBus.ReadBytes(_cpu.ds, _cpu.dx, 37);
+            try
+            {
+                FindNextFileFCB(fcb, _cpu.ds, _cpu.dx);
+                _cpu.al = 0x00;
+                _cpu.FlagC = false;
+            }
+            catch (DosError x) when (x.errorCode == DosError.NoMoreFiles)
+            {
+                _cpu.al = 0xFF;
+                _cpu.FlagC = false;
+            }
+        }
+
+        string GetFcbSearchSpec(byte[] fcbRequest, out byte attributes)
+        {
+            bool isExtended = fcbRequest[0] == 0xFF;
+            int driveOffset = isExtended ? 7 : 0;
+            int nameOffset = isExtended ? 8 : 1;
+            int extOffset = isExtended ? 16 : 9;
+
+            attributes = isExtended ? fcbRequest[6] : (byte)0;
+
+            byte drive = fcbRequest[driveOffset];
+            if (drive == 0)
+                drive = (byte)_currentDrive;
+            else
+                drive--;
+
+            var ansi = System.Text.Encoding.GetEncoding(1252);
+            var filename = ansi.GetString(fcbRequest, nameOffset, 8).TrimEnd();
+            var ext = ansi.GetString(fcbRequest, extOffset, 3).TrimEnd();
+            return $"{(char)('A' + drive)}:{filename}.{ext}";
+        }
+
+        void FindNextFileFCB(byte[] fcbRequest, ushort seg, ushort offset)
+        {
+            FINDFILESTRUCT ffs;
             if (FindNextFile(out ffs))
             {
-                byte[] fcb = new byte[45];
-                fcb[0] = 0xFF;
-                fcb[6] = ffs.attribute;
-                fcb[7] = fcbRequest[7];
+                bool isExtended = fcbRequest[0] == 0xFF;
+                int nameOffset = isExtended ? 8 : 1;
+                int extOffset = isExtended ? 16 : 9;
+
+                if (isExtended)
+                    fcbRequest[6] = ffs.attribute;
 
                 var ansi = System.Text.Encoding.GetEncoding(1252);
-                var name = ansi.GetBytes((System.IO.Path.GetFileNameWithoutExtension(ffs.name) + "        ").Substring(0, 8));
-                var ext = ansi.GetBytes((System.IO.Path.GetExtension(ffs.name) + "   ").Substring(0, 3));
+                var name = ansi.GetBytes((System.IO.Path.GetFileNameWithoutExtension(ffs.name).ToUpperInvariant() + "        ").Substring(0, 8));
+                var ext = ansi.GetBytes((System.IO.Path.GetExtension(ffs.name).TrimStart('.').ToUpperInvariant() + "   ").Substring(0, 3));
 
-                Array.Copy(name, 0, fcb, 8, 8);
-                Array.Copy(ext, 0, fcb, 16, 3);
-
+                Array.Copy(name, 0, fcbRequest, nameOffset, 8);
+                Array.Copy(ext, 0, fcbRequest, extOffset, 3);
+                _cpu.MemoryBus.WriteBytes(seg, offset, fcbRequest, fcbRequest.Length);
                 return;
             }
 

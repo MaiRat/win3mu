@@ -1,5 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Sharp86;
 using Win3muCore;
@@ -9,8 +11,37 @@ namespace Win3muCoreUnitTests
     [TestClass]
     public class DosApiTests
     {
+        static DosApiTests()
+        {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            Ansi = Encoding.GetEncoding(1252);
+        }
+
         class TestCpu : CPU
         {
+            public TestCpu()
+            {
+                MemoryBus = new TestMemoryBus();
+            }
+        }
+
+        class TestMemoryBus : IMemoryBus
+        {
+            readonly byte[] _memory = new byte[1024 * 1024];
+
+            static int ToAddress(ushort seg, ushort offset)
+            {
+                return ((seg << 4) + offset) & 0xFFFFF;
+            }
+
+            public bool IsExecutableSelector(ushort seg) => true;
+
+            public byte ReadByte(ushort seg, ushort offset) => _memory[ToAddress(seg, offset)];
+
+            public void WriteByte(ushort seg, ushort offset, byte value)
+            {
+                _memory[ToAddress(seg, offset)] = value;
+            }
         }
 
         class TestSite : DosApi.ISite
@@ -22,6 +53,82 @@ namespace Win3muCoreUnitTests
             public IEnumerable<string> GetVirtualSubFolders(string guestPath) => Array.Empty<string>();
             public uint Alloc(ushort size) => 0;
             public void Free(uint ptr) { }
+        }
+
+        sealed class TempMappedTestSite : DosApi.ISite, IDisposable
+        {
+            readonly string _rootPath = Path.Combine(Path.GetTempPath(), "win3mu-dosapi-" + Guid.NewGuid().ToString("N"));
+
+            public TempMappedTestSite()
+            {
+                Directory.CreateDirectory(_rootPath);
+            }
+
+            public void Dispose()
+            {
+                if (Directory.Exists(_rootPath))
+                    Directory.Delete(_rootPath, true);
+            }
+
+            string MapGuestPath(string path)
+            {
+                if (string.IsNullOrEmpty(path) || path.Length < 3 || path[1] != ':' || path[2] != '\\')
+                    return null;
+
+                var relativePath = path.Substring(3).Replace('\\', Path.DirectorySeparatorChar);
+                return string.IsNullOrEmpty(relativePath) ? _rootPath : Path.Combine(_rootPath, relativePath);
+            }
+
+            public void ExitProcess(short exitCode) { }
+            public bool DoesGuestDirectoryExist(string path)
+            {
+                var mapped = MapGuestPath(path);
+                return mapped != null && Directory.Exists(mapped);
+            }
+            public string TryMapGuestPathToHost(string path, bool forWrite) => MapGuestPath(path);
+            public string TryMapHostPathToGuest(string path, bool forWrite) => path;
+            public IEnumerable<string> GetVirtualSubFolders(string guestPath) => Array.Empty<string>();
+            public uint Alloc(ushort size) => 0;
+            public void Free(uint ptr) { }
+
+            public void CreateFile(string guestPath, byte[] contents)
+            {
+                var mapped = MapGuestPath(guestPath);
+                Directory.CreateDirectory(Path.GetDirectoryName(mapped));
+                File.WriteAllBytes(mapped, contents);
+            }
+        }
+
+        static readonly Encoding Ansi;
+
+        static void WriteFcb(CPU cpu, ushort seg, ushort offset, byte[] fcb)
+        {
+            cpu.MemoryBus.WriteBytes(seg, offset, fcb);
+        }
+
+        static byte[] ReadFcb(CPU cpu, ushort seg, ushort offset, int length = 37)
+        {
+            return cpu.MemoryBus.ReadBytes(seg, offset, length);
+        }
+
+        static byte[] CreateStandardFcb(byte drive, string name, string ext)
+        {
+            var fcb = new byte[37];
+            fcb[0] = drive;
+            Array.Copy(Ansi.GetBytes((name + "        ").Substring(0, 8)), 0, fcb, 1, 8);
+            Array.Copy(Ansi.GetBytes((ext + "   ").Substring(0, 3)), 0, fcb, 9, 3);
+            return fcb;
+        }
+
+        static byte[] CreateExtendedFcb(byte drive, byte attributes, string name, string ext)
+        {
+            var fcb = new byte[37];
+            fcb[0] = 0xFF;
+            fcb[6] = attributes;
+            fcb[7] = drive;
+            Array.Copy(Ansi.GetBytes((name + "        ").Substring(0, 8)), 0, fcb, 8, 8);
+            Array.Copy(Ansi.GetBytes((ext + "   ").Substring(0, 3)), 0, fcb, 16, 3);
+            return fcb;
         }
 
         static int FromBcd(byte value)
@@ -172,6 +279,78 @@ namespace Win3muCoreUnitTests
             dos.DispatchInt2f();
 
             Assert.AreEqual((byte)0, cpu.al);
+        }
+
+        [TestMethod]
+        public void Int21_FindFirstWithStandardFcb_WritesMatchedNameBackToGuestMemory()
+        {
+            using var site = new TempMappedTestSite();
+            site.CreateFile(@"A:\HELLO.TXT", new byte[] { 1, 2, 3 });
+
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, site);
+            cpu.ds = 0x1000;
+            cpu.dx = 0x0200;
+            cpu.ah = 0x11;
+
+            WriteFcb(cpu, cpu.ds, cpu.dx, CreateStandardFcb(1, "hello", "txt"));
+
+            dos.DispatchInt21();
+
+            var result = ReadFcb(cpu, cpu.ds, cpu.dx);
+            Assert.AreEqual((byte)0x00, cpu.al);
+            Assert.IsFalse(cpu.FlagC);
+            Assert.AreEqual("HELLO   ", Ansi.GetString(result, 1, 8));
+            Assert.AreEqual("TXT", Ansi.GetString(result, 9, 3));
+        }
+
+        [TestMethod]
+        public void Int21_FindFirstWithExtendedFcb_WritesMatchedNameBackToGuestMemory()
+        {
+            using var site = new TempMappedTestSite();
+            site.CreateFile(@"A:\SETUP.EXE", new byte[] { 1, 2, 3 });
+
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, site);
+            cpu.ds = 0x1000;
+            cpu.dx = 0x0200;
+            cpu.ah = 0x11;
+
+            WriteFcb(cpu, cpu.ds, cpu.dx, CreateExtendedFcb(1, 0, "setup", "exe"));
+
+            dos.DispatchInt21();
+
+            var result = ReadFcb(cpu, cpu.ds, cpu.dx);
+            Assert.AreEqual((byte)0x00, cpu.al);
+            Assert.IsFalse(cpu.FlagC);
+            Assert.AreEqual((byte)0xFF, result[0]);
+            Assert.AreEqual("SETUP   ", Ansi.GetString(result, 8, 8));
+            Assert.AreEqual("EXE", Ansi.GetString(result, 16, 3));
+        }
+
+        [TestMethod]
+        public void Int21_FindNextWithFcb_ReturnsNoMoreFilesWithoutSettingCarry()
+        {
+            using var site = new TempMappedTestSite();
+            site.CreateFile(@"A:\ONE.TXT", new byte[] { 1 });
+
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, site);
+            cpu.ds = 0x1000;
+            cpu.dx = 0x0200;
+
+            WriteFcb(cpu, cpu.ds, cpu.dx, CreateStandardFcb(1, "one", "txt"));
+
+            cpu.ah = 0x11;
+            dos.DispatchInt21();
+            Assert.AreEqual((byte)0x00, cpu.al);
+
+            cpu.ah = 0x12;
+            cpu.FlagC = true;
+            dos.DispatchInt21();
+
+            Assert.AreEqual((byte)0xFF, cpu.al);
+            Assert.IsFalse(cpu.FlagC);
         }
     }
 }
