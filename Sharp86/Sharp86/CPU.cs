@@ -153,7 +153,10 @@ namespace Sharp86
             ss = 0;
             es = 0;
             EFlags = 0;
+            MachineStatusWord = 0;
         }
+
+        public ushort MachineStatusWord { get; set; }
 
         IMemoryBus _memoryBus;
         public IMemoryBus MemoryBus
@@ -1162,6 +1165,27 @@ namespace Sharp86
 
                             switch (opCode2)
                             {
+                                case 0x01:
+                                {
+                                    ReadModRM();
+                                    switch ((_modRM >> 3) & 0x07)
+                                    {
+                                        case 4:
+                                            // SMSW Ew
+                                            Write_Ev(MachineStatusWord);
+                                            break;
+
+                                        case 6:
+                                            // LMSW Ew
+                                            MachineStatusWord = (ushort)((MachineStatusWord & 0xFFF0) | (Read_Ev() & 0x000F));
+                                            break;
+
+                                        default:
+                                            throw new InvalidOpCodeException();
+                                    }
+                                    break;
+                                }
+
                                 case 0xB0:
                                 {
                                     // CMPXCHG Eb, Gb

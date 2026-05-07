@@ -602,6 +602,20 @@ namespace Sharp86
 
                         switch (opCode2)
                         {
+                            case 0x01:
+                                ReadModRM();
+                                switch ((_modRM >> 3) & 0x07)
+                                {
+                                    case 4:
+                                        return string.Format("smsw {0}", Read_Ev());
+
+                                    case 6:
+                                        return string.Format("lmsw {0}", Read_Ev());
+
+                                    default:
+                                        throw new InvalidOpCodeException();
+                                }
+
                             case 0xB0:
                                 return string.Format("cmpxchg {0},{1}", Read_Eb(), Read_Gb());
 

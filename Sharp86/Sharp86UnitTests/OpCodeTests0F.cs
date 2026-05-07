@@ -1,4 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Sharp86;
 
 namespace Sharp86UnitTests
 {
@@ -86,6 +87,62 @@ namespace Sharp86UnitTests
             Assert.IsTrue(FlagC);
             Assert.IsFalse(FlagZ);
             Assert.IsTrue(FlagO);
+        }
+
+        [TestMethod]
+        public void smsw_Ev_register_returns_machine_status_word()
+        {
+            ax = 0xFFFF;
+            MachineStatusWord = 0x0001;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x01);
+            WriteByte(cs, (ushort)(ip + 2), 0xE0);
+
+            step();
+
+            Assert.AreEqual((ushort)0x0001, ax);
+        }
+
+        [TestMethod]
+        public void lmsw_Ev_memory_updates_low_machine_status_word_bits()
+        {
+            MachineStatusWord = 0xFFF0;
+            si = 0x8000;
+            WriteWord(ds, si, 0x0007);
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x01);
+            WriteByte(cs, (ushort)(ip + 2), 0x34);
+
+            step();
+
+            Assert.AreEqual((ushort)0xFFF7, MachineStatusWord);
+            Assert.AreEqual((ushort)0x0007, ReadWord(ds, si));
+        }
+
+        [TestMethod]
+        public void smsw_Ev_disassembles()
+        {
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x01);
+            WriteByte(cs, (ushort)(ip + 2), 0xE0);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("smsw ax", disassembler.Read());
+        }
+
+        [TestMethod]
+        public void lmsw_Ev_disassembles()
+        {
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x01);
+            WriteByte(cs, (ushort)(ip + 2), 0x34);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("lmsw word ptr [si]", disassembler.Read());
         }
 
         [TestMethod]

@@ -54,6 +54,7 @@ namespace Win3muCore
             _expressionContext.PushSymbolScope(_symbolResolver);
 
             this.MemoryBus = _globalHeap;
+            MachineStatusWord = 0x0001;
 
             RegisterVariables();
 
