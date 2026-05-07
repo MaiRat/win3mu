@@ -655,6 +655,12 @@ namespace Sharp86
                             case 0xBF:
                                 return string.Format("movsx {0},{1}", Read_Gv(), Read_Ev());
 
+                            case 0xC0:
+                                return string.Format("xadd {0},{1}", Read_Eb(), Read_Gb());
+
+                            case 0xC1:
+                                return string.Format("xadd {0},{1}", Read_Ev(), Read_Gv());
+
                             default:
                                 throw new InvalidOpCodeException();
                         }

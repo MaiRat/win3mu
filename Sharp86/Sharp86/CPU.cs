@@ -1288,6 +1288,26 @@ namespace Sharp86
                                     Write_Gv(Read_Ev());
                                     break;
 
+                                case 0xC0:
+                                {
+                                    // XADD Eb, Gb
+                                    byte source = Read_Gb();
+                                    byte destination = Read_Eb();
+                                    Write_Gb(destination);
+                                    Write_Eb(Add8(destination, source));
+                                    break;
+                                }
+
+                                case 0xC1:
+                                {
+                                    // XADD Ev, Gv
+                                    ushort source = Read_Gv();
+                                    ushort destination = Read_Ev();
+                                    Write_Gv(destination);
+                                    Write_Ev(Add16(destination, source));
+                                    break;
+                                }
+
                                 default:
                                     throw new InvalidOpCodeException();
                             }
