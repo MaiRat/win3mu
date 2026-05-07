@@ -112,6 +112,51 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void movzx_Gv_Ew_register()
+        {
+            ax = 0xFFFF;
+            bx = 0x1234;
+            FlagC = true;
+            FlagZ = false;
+            FlagO = true;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xB7);
+            WriteByte(cs, (ushort)(ip + 2), 0xC3);
+
+            step();
+
+            Assert.AreEqual((ushort)0x1234, ax);
+            Assert.AreEqual((ushort)0x1234, bx);
+            Assert.IsTrue(FlagC);
+            Assert.IsFalse(FlagZ);
+            Assert.IsTrue(FlagO);
+        }
+
+        [TestMethod]
+        public void movsx_Gv_Ew_memory()
+        {
+            si = 0x8000;
+            WriteWord(ds, si, 0x9234);
+            ax = 0;
+            FlagC = false;
+            FlagZ = true;
+            FlagO = false;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xBF);
+            WriteByte(cs, (ushort)(ip + 2), 0x04);
+
+            step();
+
+            Assert.AreEqual((ushort)0x9234, ax);
+            Assert.AreEqual((ushort)0x9234, ReadWord(ds, si));
+            Assert.IsFalse(FlagC);
+            Assert.IsTrue(FlagZ);
+            Assert.IsFalse(FlagO);
+        }
+
+        [TestMethod]
         public void setcc_register_conditions()
         {
             assertSetcc(0x90, 0xC0, true,  true,  false, false, false, false);

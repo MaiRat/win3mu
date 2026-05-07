@@ -1103,9 +1103,19 @@ namespace Sharp86
                                     Write_Gv(Read_Eb());
                                     break;
 
+                                case 0xB7:
+                                    // MOVZX Gv, Ew
+                                    Write_Gv(Read_Ev());
+                                    break;
+
                                 case 0xBE:
                                     // MOVSX Gv, Eb
                                     Write_Gv(unchecked((ushort)(short)(sbyte)Read_Eb()));
+                                    break;
+
+                                case 0xBF:
+                                    // MOVSX Gv, Ew
+                                    Write_Gv(Read_Ev());
                                     break;
 
                                 default:
