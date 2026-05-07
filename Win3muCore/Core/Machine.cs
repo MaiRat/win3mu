@@ -44,6 +44,7 @@ namespace Win3muCore
 
             _pathMapper = new PathMapper(this);
             _globalHeap = new GlobalHeap(this);
+            InterruptDescriptorTableLimit = 1023;
             _stringHeap = new StringHeap(this);
             _moduleManager = new ModuleManager(this);
             _messaging = new Messaging(this);

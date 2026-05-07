@@ -156,11 +156,13 @@ namespace Sharp86
             MachineStatusWord = 0;
             LocalDescriptorTableSelector = 0;
             TaskRegisterSelector = 0;
+            InterruptDescriptorTableLimit = 0;
         }
 
         public ushort MachineStatusWord { get; set; }
         public ushort LocalDescriptorTableSelector { get; set; }
         public ushort TaskRegisterSelector { get; set; }
+        public ushort InterruptDescriptorTableLimit { get; set; }
 
         protected virtual bool IsSelectorReadable(ushort selector)
         {
@@ -1255,6 +1257,25 @@ namespace Sharp86
                                     ReadModRM();
                                     switch ((_modRM >> 3) & 0x07)
                                     {
+                                        case 1:
+                                            // SIDT Ms
+                                            if (!_modRMIsPointer)
+                                                throw new InvalidOpCodeException();
+
+                                            _activeMemoryBus.WriteWord(_modRMSeg, _modRMOffset, InterruptDescriptorTableLimit);
+                                            _activeMemoryBus.WriteWord(_modRMSeg, (ushort)(_modRMOffset + 2), idt);
+                                            _activeMemoryBus.WriteWord(_modRMSeg, (ushort)(_modRMOffset + 4), 0);
+                                            break;
+
+                                        case 3:
+                                            // LIDT Ms
+                                            if (!_modRMIsPointer)
+                                                throw new InvalidOpCodeException();
+
+                                            InterruptDescriptorTableLimit = _activeMemoryBus.ReadWord(_modRMSeg, _modRMOffset);
+                                            idt = _activeMemoryBus.ReadWord(_modRMSeg, (ushort)(_modRMOffset + 2));
+                                            break;
+
                                         case 4:
                                             // SMSW Ew
                                             Write_Ev(MachineStatusWord);

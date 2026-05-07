@@ -343,6 +343,17 @@ namespace Sharp86
             }
         }
 
+        string Read_Ms()
+        {
+            if (!_haveReadModRM)
+                ReadModRM();
+
+            if (!_modRMIsPointer)
+                throw new InvalidOpCodeException();
+
+            return string.Format("fword ptr {0}[{1}]", _modRMSeg, _modRMOffset);
+        }
+
         string Read_Gb()
         {
             if (!_haveReadModRM)
@@ -632,6 +643,12 @@ namespace Sharp86
                                 ReadModRM();
                                 switch ((_modRM >> 3) & 0x07)
                                 {
+                                    case 1:
+                                        return string.Format("sidt {0}", Read_Ms());
+
+                                    case 3:
+                                        return string.Format("lidt {0}", Read_Ms());
+
                                     case 4:
                                         return string.Format("smsw {0}", Read_Ev());
 

@@ -284,6 +284,67 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void sidt_Ms_memory_writes_limit_and_selector()
+        {
+            si = 0x8000;
+            InterruptDescriptorTableLimit = 0x03FF;
+            idt = 0x4321;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x01);
+            WriteByte(cs, (ushort)(ip + 2), 0x0C);
+
+            step();
+
+            Assert.AreEqual((ushort)0x03FF, ReadWord(ds, si));
+            Assert.AreEqual((ushort)0x4321, ReadWord(ds, (ushort)(si + 2)));
+            Assert.AreEqual((ushort)0x0000, ReadWord(ds, (ushort)(si + 4)));
+        }
+
+        [TestMethod]
+        public void lidt_Ms_memory_updates_limit_and_selector()
+        {
+            si = 0x8000;
+            WriteWord(ds, si, 0x0123);
+            WriteWord(ds, (ushort)(si + 2), 0x4567);
+            WriteWord(ds, (ushort)(si + 4), 0x89AB);
+            InterruptDescriptorTableLimit = 0;
+            idt = 0;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x01);
+            WriteByte(cs, (ushort)(ip + 2), 0x1C);
+
+            step();
+
+            Assert.AreEqual((ushort)0x0123, InterruptDescriptorTableLimit);
+            Assert.AreEqual((ushort)0x4567, idt);
+        }
+
+        [TestMethod]
+        public void sidt_register_operand_is_invalid()
+        {
+            InterruptDescriptorTableLimit = 0x03FF;
+            idt = 0x4321;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x01);
+            WriteByte(cs, (ushort)(ip + 2), 0xC8);
+
+            try
+            {
+                step();
+                Assert.Fail("Expected invalid opcode");
+            }
+            catch (Sharp86.InvalidOpCodeException)
+            {
+            }
+
+            Assert.AreEqual((ushort)0x03FF, InterruptDescriptorTableLimit);
+            Assert.AreEqual((ushort)0x4321, idt);
+        }
+
+        [TestMethod]
         public void smsw_Ev_disassembles()
         {
             WriteByte(cs, ip, 0x0F);
@@ -293,6 +354,30 @@ namespace Sharp86UnitTests
             var disassembler = new Disassembler(this, cs, ip);
 
             Assert.AreEqual("smsw ax", disassembler.Read());
+        }
+
+        [TestMethod]
+        public void sidt_Ms_disassembles()
+        {
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x01);
+            WriteByte(cs, (ushort)(ip + 2), 0x0C);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("sidt fword ptr [si]", disassembler.Read());
+        }
+
+        [TestMethod]
+        public void lidt_Ms_disassembles()
+        {
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x01);
+            WriteByte(cs, (ushort)(ip + 2), 0x1C);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("lidt fword ptr [si]", disassembler.Read());
         }
 
         [TestMethod]
