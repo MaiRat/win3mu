@@ -1105,6 +1105,7 @@ namespace Sharp86
 
                                 case 0xB7:
                                     // MOVZX Gv, Ew
+                                    // In Sharp86's 16-bit operand-size model, zero-extension from word to word is an identity copy.
                                     Write_Gv(Read_Ev());
                                     break;
 
@@ -1115,6 +1116,7 @@ namespace Sharp86
 
                                 case 0xBF:
                                     // MOVSX Gv, Ew
+                                    // In Sharp86's 16-bit operand-size model, sign-extension from word to word is an identity copy.
                                     Write_Gv(Read_Ev());
                                     break;
 
