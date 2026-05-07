@@ -41,6 +41,31 @@ namespace Sharp86UnitTests
             Assert.AreEqual(flags, EFlags);
         }
 
+        void assertJccNear(byte opCode2, bool expected, ushort offset, bool flagO, bool flagC, bool flagZ, bool flagS, bool flagP)
+        {
+            Reset();
+
+            FlagO = flagO;
+            FlagC = flagC;
+            FlagZ = flagZ;
+            FlagS = flagS;
+            FlagP = flagP;
+
+            ushort flags = EFlags;
+            ushort startIp = ip;
+
+            WriteByte(cs, startIp, 0x0F);
+            WriteByte(cs, (ushort)(startIp + 1), opCode2);
+            WriteWord(cs, (ushort)(startIp + 2), offset);
+
+            step();
+
+            ushort fallthroughIp = (ushort)(startIp + 4);
+            ushort jumpIp = (ushort)(fallthroughIp + (ushort)(short)offset);
+            Assert.AreEqual(expected ? jumpIp : fallthroughIp, ip);
+            Assert.AreEqual(flags, EFlags);
+        }
+
         [TestMethod]
         public void movzx_Gv_Eb_register()
         {
@@ -131,6 +156,55 @@ namespace Sharp86UnitTests
         public void setcc_memory_destination()
         {
             assertSetcc(0x94, 0x04, true, false, false, true, false, false);
+        }
+
+        [TestMethod]
+        public void jcc_near_conditions()
+        {
+            const ushort offset = 0x0040;
+
+            assertJccNear(0x80, true,  offset, true,  false, false, false, false);
+            assertJccNear(0x80, false, offset, false, false, false, false, false);
+            assertJccNear(0x81, true,  offset, false, false, false, false, false);
+            assertJccNear(0x81, false, offset, true,  false, false, false, false);
+            assertJccNear(0x82, true,  offset, false, true,  false, false, false);
+            assertJccNear(0x82, false, offset, false, false, false, false, false);
+            assertJccNear(0x83, true,  offset, false, false, false, false, false);
+            assertJccNear(0x83, false, offset, false, true,  false, false, false);
+            assertJccNear(0x84, true,  offset, false, false, true,  false, false);
+            assertJccNear(0x84, false, offset, false, false, false, false, false);
+            assertJccNear(0x85, true,  offset, false, false, false, false, false);
+            assertJccNear(0x85, false, offset, false, false, true,  false, false);
+            assertJccNear(0x86, true,  offset, false, true,  false, false, false);
+            assertJccNear(0x86, true,  offset, false, false, true,  false, false);
+            assertJccNear(0x86, false, offset, false, false, false, false, false);
+            assertJccNear(0x87, true,  offset, false, false, false, false, false);
+            assertJccNear(0x87, false, offset, false, true,  false, false, false);
+            assertJccNear(0x87, false, offset, false, false, true,  false, false);
+            assertJccNear(0x88, true,  offset, false, false, false, true,  false);
+            assertJccNear(0x88, false, offset, false, false, false, false, false);
+            assertJccNear(0x89, true,  offset, false, false, false, false, false);
+            assertJccNear(0x89, false, offset, false, false, false, true,  false);
+            assertJccNear(0x8A, true,  offset, false, false, false, false, true);
+            assertJccNear(0x8A, false, offset, false, false, false, false, false);
+            assertJccNear(0x8B, true,  offset, false, false, false, false, false);
+            assertJccNear(0x8B, false, offset, false, false, false, false, true);
+            assertJccNear(0x8C, true,  offset, true,  false, false, false, false);
+            assertJccNear(0x8C, false, offset, false, false, false, false, false);
+            assertJccNear(0x8D, true,  offset, true,  false, false, true,  false);
+            assertJccNear(0x8D, false, offset, true,  false, false, false, false);
+            assertJccNear(0x8E, true,  offset, false, false, true,  false, false);
+            assertJccNear(0x8E, true,  offset, true,  false, false, false, false);
+            assertJccNear(0x8E, false, offset, true,  false, false, true,  false);
+            assertJccNear(0x8F, true,  offset, true,  false, false, true,  false);
+            assertJccNear(0x8F, false, offset, false, false, true,  false, false);
+            assertJccNear(0x8F, false, offset, false, false, false, false, false);
+        }
+
+        [TestMethod]
+        public void jcc_near_negative_offset()
+        {
+            assertJccNear(0x85, true, unchecked((ushort)0xFFFC), false, false, false, false, false);
         }
     }
 }

@@ -594,6 +594,9 @@ namespace Sharp86
                     case 0x0F:
                     {
                         var opCode2 = ReadByte(cs, ip++);
+                        if (opCode2 >= 0x80 && opCode2 <= 0x8F)
+                            return string.Format("j{0} {1}", _ccNames[opCode2 & 0x0F], Read_Jv());
+
                         if (opCode2 >= 0x90 && opCode2 <= 0x9F)
                             return string.Format("set{0} {1}", _ccNames[opCode2 & 0x0F], Read_Eb());
 

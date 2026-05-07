@@ -717,6 +717,13 @@ namespace Sharp86
             return (ushort)(ip + (ushort)(sbyte)offset);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        ushort Read_Jv()
+        {
+            ushort offset = Read_Iv();
+            return (ushort)(ip + (ushort)(short)offset);
+        }
+
         bool IsInterruptHandlerInstalled(byte interruptNumber)
         {
             // Read new location
@@ -1073,6 +1080,15 @@ namespace Sharp86
                         case 0x0F:
                         {
                             var opCode2 = Read_Ib();
+                            if (opCode2 >= 0x80 && opCode2 <= 0x8F)
+                            {
+                                if (TestCondition((byte)(opCode2 & 0x0F)))
+                                    ip = Read_Jv();
+                                else
+                                    ip += 2;
+                                break;
+                            }
+
                             if (opCode2 >= 0x90 && opCode2 <= 0x9F)
                             {
                                 // SETcc Eb
