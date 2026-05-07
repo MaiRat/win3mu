@@ -105,6 +105,91 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void sldt_Ev_register_returns_ldt_selector()
+        {
+            ax = 0xFFFF;
+            LocalDescriptorTableSelector = 0x1234;
+            FlagC = true;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x00);
+            WriteByte(cs, (ushort)(ip + 2), 0xC0);
+
+            step();
+
+            Assert.AreEqual((ushort)0x1234, ax);
+            Assert.IsTrue(FlagC);
+        }
+
+        [TestMethod]
+        public void str_Ev_memory_returns_task_register_selector()
+        {
+            TaskRegisterSelector = 0x5678;
+            si = 0x8000;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x00);
+            WriteByte(cs, (ushort)(ip + 2), 0x0C);
+
+            step();
+
+            Assert.AreEqual((ushort)0x5678, ReadWord(ds, si));
+        }
+
+        [TestMethod]
+        public void lldt_Ev_memory_updates_ldt_selector()
+        {
+            si = 0x8000;
+            WriteWord(ds, si, 0x9ABC);
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x00);
+            WriteByte(cs, (ushort)(ip + 2), 0x14);
+
+            step();
+
+            Assert.AreEqual((ushort)0x9ABC, LocalDescriptorTableSelector);
+        }
+
+        [TestMethod]
+        public void ltr_Ev_register_updates_task_register_selector()
+        {
+            ax = 0xDEF0;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x00);
+            WriteByte(cs, (ushort)(ip + 2), 0xD8);
+
+            step();
+
+            Assert.AreEqual((ushort)0xDEF0, TaskRegisterSelector);
+        }
+
+        [TestMethod]
+        public void sldt_Ev_disassembles()
+        {
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x00);
+            WriteByte(cs, (ushort)(ip + 2), 0xC0);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("sldt ax", disassembler.Read());
+        }
+
+        [TestMethod]
+        public void ltr_Ev_disassembles()
+        {
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x00);
+            WriteByte(cs, (ushort)(ip + 2), 0xD8);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("ltr ax", disassembler.Read());
+        }
+
+        [TestMethod]
         public void lmsw_Ev_memory_updates_low_machine_status_word_bits()
         {
             MachineStatusWord = 0xFFF0;

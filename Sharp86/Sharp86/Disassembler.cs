@@ -602,6 +602,26 @@ namespace Sharp86
 
                         switch (opCode2)
                         {
+                            case 0x00:
+                                ReadModRM();
+                                switch ((_modRM >> 3) & 0x07)
+                                {
+                                    case 0:
+                                        return string.Format("sldt {0}", Read_Ev());
+
+                                    case 1:
+                                        return string.Format("str {0}", Read_Ev());
+
+                                    case 2:
+                                        return string.Format("lldt {0}", Read_Ev());
+
+                                    case 3:
+                                        return string.Format("ltr {0}", Read_Ev());
+
+                                    default:
+                                        throw new InvalidOpCodeException();
+                                }
+
                             case 0x01:
                                 ReadModRM();
                                 switch ((_modRM >> 3) & 0x07)

@@ -154,9 +154,13 @@ namespace Sharp86
             es = 0;
             EFlags = 0;
             MachineStatusWord = 0;
+            LocalDescriptorTableSelector = 0;
+            TaskRegisterSelector = 0;
         }
 
         public ushort MachineStatusWord { get; set; }
+        public ushort LocalDescriptorTableSelector { get; set; }
+        public ushort TaskRegisterSelector { get; set; }
 
         IMemoryBus _memoryBus;
         public IMemoryBus MemoryBus
@@ -1165,6 +1169,37 @@ namespace Sharp86
 
                             switch (opCode2)
                             {
+                                case 0x00:
+                                {
+                                    ReadModRM();
+                                    switch ((_modRM >> 3) & 0x07)
+                                    {
+                                        case 0:
+                                            // SLDT Ew
+                                            Write_Ev(LocalDescriptorTableSelector);
+                                            break;
+
+                                        case 1:
+                                            // STR Ew
+                                            Write_Ev(TaskRegisterSelector);
+                                            break;
+
+                                        case 2:
+                                            // LLDT Ew
+                                            LocalDescriptorTableSelector = Read_Ev();
+                                            break;
+
+                                        case 3:
+                                            // LTR Ew
+                                            TaskRegisterSelector = Read_Ev();
+                                            break;
+
+                                        default:
+                                            throw new InvalidOpCodeException();
+                                    }
+                                    break;
+                                }
+
                                 case 0x01:
                                 {
                                     ReadModRM();
