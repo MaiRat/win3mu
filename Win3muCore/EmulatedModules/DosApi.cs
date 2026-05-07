@@ -291,15 +291,51 @@ namespace Win3muCore
         {
             get
             {
-                return (uint)(Math.Floor(DateTime.Now.ToOADate()));
+                return (uint)(Math.Floor(CurrentDateTime.ToOADate()));
             }
         }
 
         uint _lastDay;
+        TimeSpan _clockOffset = TimeSpan.Zero;
+
+        DateTime CurrentDateTime => DateTime.Now + _clockOffset;
 
         static byte ToBcd(int value)
         {
             return (byte)(((value / 10) << 4) | (value % 10));
+        }
+
+        static int FromBcd(byte value)
+        {
+            return ((value >> 4) * 10) + (value & 0x0F);
+        }
+
+        static uint ToClockCount(DateTime now)
+        {
+            return (uint)(now.Hour * 65543 + now.Minute * 1092 + now.Second * 18.2);
+        }
+
+        static TimeSpan ClockCountToTimeOfDay(uint clockCount)
+        {
+            var hours = (int)(clockCount / 65543);
+            clockCount -= (uint)(hours * 65543);
+
+            var minutes = (int)(clockCount / 1092);
+            clockCount -= (uint)(minutes * 1092);
+
+            var seconds = (int)Math.Round(clockCount / 18.2);
+            if (seconds >= 60)
+            {
+                seconds -= 60;
+                minutes++;
+            }
+            if (minutes >= 60)
+            {
+                minutes -= 60;
+                hours++;
+            }
+
+            return new TimeSpan(hours % 24, minutes, seconds);
         }
 
         public void DispatchInt1A()
@@ -313,18 +349,27 @@ namespace Win3muCore
                     var thisDay = CurrentDay;
 
                     // Get current clock count
-                    var now = DateTime.Now;
-                    var clockCount = (uint)(now.Hour * 65543 + now.Minute * 1092 + now.Second * 18.2);
+                    var now = CurrentDateTime;
+                    var clockCount = ToClockCount(now);
 
                     _cpu.cx = clockCount.Hiword();
                     _cpu.dx = clockCount.Loword();
-                     _cpu.al = (byte)((thisDay != _lastDay) ? 1 : 0);
-                     _lastDay = thisDay;
-                     break;
+                      _cpu.al = (byte)((thisDay != _lastDay) ? 1 : 0);
+                      _lastDay = thisDay;
+                      break;
+
+                case 1:
+                {
+                    var targetClockCount = ((uint)_cpu.cx << 16) | _cpu.dx;
+                    var target = DateTime.Now.Date + ClockCountToTimeOfDay(targetClockCount);
+                    _clockOffset = target - DateTime.Now;
+                    _cpu.FlagC = false;
+                    break;
+                }
 
                 case 2:
                 {
-                    var rtcNow = DateTime.Now;
+                    var rtcNow = CurrentDateTime;
                     _cpu.ch = ToBcd(rtcNow.Hour);
                     _cpu.cl = ToBcd(rtcNow.Minute);
                     _cpu.dh = ToBcd(rtcNow.Second);
@@ -333,13 +378,44 @@ namespace Win3muCore
                     break;
                 }
 
+                case 3:
+                {
+                    var current = CurrentDateTime;
+                    var target = new DateTime(
+                        current.Year,
+                        current.Month,
+                        current.Day,
+                        FromBcd(_cpu.ch),
+                        FromBcd(_cpu.cl),
+                        FromBcd(_cpu.dh));
+                    _clockOffset = target - DateTime.Now;
+                    _cpu.FlagC = false;
+                    break;
+                }
+
                 case 4:
                 {
-                    var rtcNow = DateTime.Now;
+                    var rtcNow = CurrentDateTime;
                     _cpu.ch = ToBcd(rtcNow.Year / 100);
                     _cpu.cl = ToBcd(rtcNow.Year % 100);
                     _cpu.dh = ToBcd(rtcNow.Month);
                     _cpu.dl = ToBcd(rtcNow.Day);
+                    _cpu.FlagC = false;
+                    break;
+                }
+
+                case 5:
+                {
+                    var current = CurrentDateTime;
+                    var target = new DateTime(
+                        (FromBcd(_cpu.ch) * 100) + FromBcd(_cpu.cl),
+                        FromBcd(_cpu.dh),
+                        FromBcd(_cpu.dl),
+                        current.Hour,
+                        current.Minute,
+                        current.Second);
+                    _clockOffset = target - DateTime.Now;
+                    _lastDay = CurrentDay;
                     _cpu.FlagC = false;
                     break;
                 }

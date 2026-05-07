@@ -29,6 +29,11 @@ namespace Win3muCoreUnitTests
             return ((value >> 4) * 10) + (value & 0x0F);
         }
 
+        static uint ToClockCount(int hour, int minute, int second)
+        {
+            return (uint)(hour * 65543 + minute * 1092 + second * 18.2);
+        }
+
         [TestMethod]
         public void Int1A_GetRealTimeClockTime_ReturnsCurrentLocalTimeInBcd()
         {
@@ -69,6 +74,76 @@ namespace Win3muCoreUnitTests
 
             Assert.IsFalse(cpu.FlagC);
             Assert.IsTrue(decoded == before || decoded == after);
+        }
+
+        [TestMethod]
+        public void Int1A_SetClockCount_UpdatesSubsequentClockReads()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            var target = ToClockCount(6, 30, 0);
+            cpu.ah = 1;
+            cpu.cx = (ushort)(target >> 16);
+            cpu.dx = (ushort)target;
+            cpu.FlagC = true;
+
+            dos.DispatchInt1A();
+
+            Assert.IsFalse(cpu.FlagC);
+
+            cpu.ah = 0;
+            dos.DispatchInt1A();
+
+            var actual = ((uint)cpu.cx << 16) | cpu.dx;
+            Assert.IsTrue(Math.Abs((long)actual - target) <= 36);
+        }
+
+        [TestMethod]
+        public void Int1A_SetRealTimeClockTime_UpdatesSubsequentReads()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 3;
+            cpu.ch = 0x12;
+            cpu.cl = 0x34;
+            cpu.dh = 0x56;
+            cpu.FlagC = true;
+
+            dos.DispatchInt1A();
+
+            Assert.IsFalse(cpu.FlagC);
+
+            cpu.ah = 2;
+            dos.DispatchInt1A();
+
+            var decodedSeconds = (FromBcd(cpu.ch) * 3600) + (FromBcd(cpu.cl) * 60) + FromBcd(cpu.dh);
+            var expectedSeconds = (12 * 3600) + (34 * 60) + 56;
+            Assert.IsTrue(Math.Abs(decodedSeconds - expectedSeconds) <= 1);
+        }
+
+        [TestMethod]
+        public void Int1A_SetRealTimeClockDate_UpdatesSubsequentReads()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 5;
+            cpu.ch = 0x20;
+            cpu.cl = 0x24;
+            cpu.dh = 0x12;
+            cpu.dl = 0x31;
+            cpu.FlagC = true;
+
+            dos.DispatchInt1A();
+
+            Assert.IsFalse(cpu.FlagC);
+
+            cpu.ah = 4;
+            dos.DispatchInt1A();
+
+            Assert.AreEqual((byte)0x20, cpu.ch);
+            Assert.AreEqual((byte)0x24, cpu.cl);
+            Assert.AreEqual((byte)0x12, cpu.dh);
+            Assert.AreEqual((byte)0x31, cpu.dl);
         }
 
         [TestMethod]
