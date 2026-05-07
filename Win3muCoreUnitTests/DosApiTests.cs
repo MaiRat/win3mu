@@ -70,5 +70,33 @@ namespace Win3muCoreUnitTests
             Assert.IsFalse(cpu.FlagC);
             Assert.IsTrue(decoded == before || decoded == after);
         }
+
+        [TestMethod]
+        public void Int2F_WindowsDetectionServices_ReturnNotPresent()
+        {
+            foreach (ushort ax in new ushort[] { 0x1600, 0x160A, 0x4680 })
+            {
+                var cpu = new TestCpu();
+                var dos = new DosApi(cpu, new TestSite());
+                cpu.ax = ax;
+
+                dos.DispatchInt2f();
+
+                Assert.AreEqual((ushort)0, cpu.ax);
+            }
+        }
+
+        [TestMethod]
+        public void Int2F_MscdexInstallationCheck_StillReportsNotInstalled()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0x15;
+            cpu.al = 0x00;
+
+            dos.DispatchInt2f();
+
+            Assert.AreEqual((byte)0, cpu.al);
+        }
     }
 }

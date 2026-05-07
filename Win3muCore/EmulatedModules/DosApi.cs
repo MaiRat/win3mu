@@ -757,6 +757,15 @@ namespace Win3muCore
         {
             // Multiplex services
             // http://www.techhelpmanual.com/681-int_2fh__multiplex_interrupt.html
+            switch (_cpu.ax)
+            {
+                case 0x1600:
+                case 0x160A:
+                case 0x4680:
+                    _cpu.ax = 0;
+                    return;
+            }
+
             switch (_cpu.ah)
             {
                 case 0x15:
