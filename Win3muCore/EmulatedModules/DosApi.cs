@@ -312,13 +312,13 @@ namespace Win3muCore
 
         static uint ToClockCount(DateTime now)
         {
-            return (uint)(now.Hour * 65543 + now.Minute * 1092 + now.Second * 18.2);
+            return (uint)(now.Hour * 65520 + now.Minute * 1092 + now.Second * 18.2);
         }
 
         static TimeSpan ClockCountToTimeOfDay(uint clockCount)
         {
-            var hours = (int)(clockCount / 65543);
-            clockCount -= (uint)(hours * 65543);
+            var hours = (int)(clockCount / 65520);
+            clockCount -= (uint)(hours * 65520);
 
             var minutes = (int)(clockCount / 1092);
             clockCount -= (uint)(minutes * 1092);
@@ -354,9 +354,9 @@ namespace Win3muCore
 
                     _cpu.cx = clockCount.Hiword();
                     _cpu.dx = clockCount.Loword();
-                      _cpu.al = (byte)((thisDay != _lastDay) ? 1 : 0);
-                      _lastDay = thisDay;
-                      break;
+                    _cpu.al = (byte)((thisDay != _lastDay) ? 1 : 0);
+                    _lastDay = thisDay;
+                    break;
 
                 case 1:
                 {

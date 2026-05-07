@@ -31,7 +31,7 @@ namespace Win3muCoreUnitTests
 
         static uint ToClockCount(int hour, int minute, int second)
         {
-            return (uint)(hour * 65543 + minute * 1092 + second * 18.2);
+            return (uint)(hour * 65520 + minute * 1092 + second * 18.2);
         }
 
         [TestMethod]
