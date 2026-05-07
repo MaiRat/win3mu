@@ -887,7 +887,6 @@ namespace Sharp86
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static ushort BitScanForward16(ushort value)
         {
-            System.Diagnostics.Debug.Assert(value != 0);
             if (value == 0)
                 return 0;
 
@@ -903,7 +902,6 @@ namespace Sharp86
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static ushort BitScanReverse16(ushort value)
         {
-            System.Diagnostics.Debug.Assert(value != 0);
             if (value == 0)
                 return 0;
 
