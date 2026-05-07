@@ -1208,7 +1208,7 @@ namespace Win3muCore
                     });
 
                     if (!retval.HasValue)
-                        return 0;
+                        return CallNextHookEx(hookInfo.hhook, code, (IntPtr)wParam16, IntPtr.Zero).DWord();
 
                     return retval.Value.DWord();
 
@@ -1244,7 +1244,7 @@ namespace Win3muCore
                     var cwp16 = _machine.ReadStruct<Win16.CWPSTRUCT>(lParam16);
                     Win32.CWPSTRUCT cwp32;
                     if (!TryConvertCallWndProcHookTo32(ref cwp16, out cwp32))
-                        return 0;
+                        return CallNextHookEx(hookInfo.hhook, code, (IntPtr)wParam16, IntPtr.Zero).DWord();
 
                     unsafe
                     {
@@ -1254,7 +1254,7 @@ namespace Win3muCore
                 }
             }
 
-            return 0;
+            return CallNextHookEx(hookInfo.hhook, code, (IntPtr)wParam16, IntPtr.Zero).DWord();
         }
 
 
