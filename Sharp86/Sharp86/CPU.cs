@@ -2078,6 +2078,22 @@ namespace Sharp86
                             break;
 
                         case 0x63:
+                            // ARPL Ew, Gw
+                            ReadModRM();
+                            ushort arplDestinationSelector = Read_Ev();
+                            ushort arplSourceSelector = Read_Gv();
+                            ushort arplSourceRpl = (ushort)(arplSourceSelector & 0x0003);
+                            if ((arplDestinationSelector & 0x0003) < arplSourceRpl)
+                            {
+                                Write_Ev((ushort)((arplDestinationSelector & 0xFFFC) | arplSourceRpl));
+                                FlagZ = true;
+                            }
+                            else
+                            {
+                                FlagZ = false;
+                            }
+                            break;
+
                         case 0x66:
                         case 0x67:
                             throw new InvalidOpCodeException();

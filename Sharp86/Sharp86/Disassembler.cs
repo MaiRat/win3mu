@@ -944,6 +944,9 @@ namespace Sharp86
                         return string.Format("Bound {0},{1}", Read_Gv(), Read_Ev());
 
                     case 0x63:
+                        ReadModRM();
+                        return string.Format("arpl {0},{1}", Read_Ev(), Read_Gv());
+
                     case 0x66:
                     case 0x67:
                         throw new InvalidOpCodeException();

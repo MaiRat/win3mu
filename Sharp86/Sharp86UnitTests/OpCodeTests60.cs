@@ -116,6 +116,86 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void arpl_register_adjusts_destination_rpl_and_sets_zero()
+        {
+            ax = 0x1201;
+            cx = 0x3403;
+            FlagC = true;
+            FlagO = true;
+            FlagS = false;
+            FlagP = true;
+
+            WriteByte(cs, ip, 0x63);
+            WriteByte(cs, (ushort)(ip + 1), 0xC8);
+
+            step();
+
+            Assert.AreEqual((ushort)0x1203, ax);
+            Assert.AreEqual((ushort)0x3403, cx);
+            Assert.IsTrue(FlagZ);
+            Assert.IsTrue(FlagC);
+            Assert.IsTrue(FlagO);
+            Assert.IsFalse(FlagS);
+            Assert.IsTrue(FlagP);
+        }
+
+        [TestMethod]
+        public void arpl_register_preserves_destination_when_rpl_is_not_lower()
+        {
+            ax = 0x2203;
+            cx = 0x3301;
+            FlagC = true;
+            FlagO = false;
+            FlagS = true;
+            FlagP = false;
+            FlagZ = true;
+
+            WriteByte(cs, ip, 0x63);
+            WriteByte(cs, (ushort)(ip + 1), 0xC8);
+
+            step();
+
+            Assert.AreEqual((ushort)0x2203, ax);
+            Assert.AreEqual((ushort)0x3301, cx);
+            Assert.IsFalse(FlagZ);
+            Assert.IsTrue(FlagC);
+            Assert.IsFalse(FlagO);
+            Assert.IsTrue(FlagS);
+            Assert.IsFalse(FlagP);
+        }
+
+        [TestMethod]
+        public void arpl_memory_adjusts_destination_rpl()
+        {
+            si = 0x1000;
+            cx = 0x0002;
+            WriteWord(ds, si, 0x4440);
+            FlagZ = false;
+
+            WriteByte(cs, ip, 0x63);
+            WriteByte(cs, (ushort)(ip + 1), 0x0C);
+
+            step();
+
+            Assert.AreEqual((ushort)0x4442, ReadWord(ds, si));
+            Assert.IsTrue(FlagZ);
+        }
+
+        [TestMethod]
+        public void arpl_disassembles_register_and_memory_forms()
+        {
+            WriteByte(cs, ip, 0x63);
+            WriteByte(cs, (ushort)(ip + 1), 0xC8);
+            WriteByte(cs, (ushort)(ip + 2), 0x63);
+            WriteByte(cs, (ushort)(ip + 3), 0x0C);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("arpl ax,cx", disassembler.Read());
+            Assert.AreEqual("arpl word ptr [si],cx", disassembler.Read());
+        }
+
+        [TestMethod]
         public void fs_segment_override_prefix_reads_from_fs()
         {
             fs = 0x0120;
