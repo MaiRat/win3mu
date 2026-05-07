@@ -20,6 +20,8 @@ namespace Sharp86UnitTests
         byte[] _mem;
         ushort _emitLocation;
         StringBuilder _emitBuffer = new StringBuilder();
+        readonly HashSet<ushort> _readableSelectors = new HashSet<ushort>();
+        readonly HashSet<ushort> _writableSelectors = new HashSet<ushort>();
 
         [TestInitialize]
         public override void Reset()
@@ -34,6 +36,29 @@ namespace Sharp86UnitTests
             _portReadQueues = new Dictionary<ushort, List<byte>>();
             _portWrittenQueues = new Dictionary<ushort, List<byte>>();
             _accessedPorts = new HashSet<ushort>();
+            _readableSelectors.Clear();
+            _writableSelectors.Clear();
+        }
+
+        protected override bool IsSelectorReadable(ushort selector)
+        {
+            return _readableSelectors.Contains(selector);
+        }
+
+        protected override bool IsSelectorWritable(ushort selector)
+        {
+            return _writableSelectors.Contains(selector);
+        }
+
+        protected void MarkSelectorReadable(ushort selector)
+        {
+            _readableSelectors.Add(selector);
+        }
+
+        protected void MarkSelectorWritable(ushort selector)
+        {
+            _readableSelectors.Add(selector);
+            _writableSelectors.Add(selector);
         }
 
         public bool IsExecutableSelector(ushort seg)

@@ -515,6 +515,18 @@ namespace Win3muCore
         {
             return _globalHeap.IsExecutableSelector(seg);
         }
+
+        protected override bool IsSelectorReadable(ushort selector)
+        {
+            return _globalHeap.GetSelector(selector) != null;
+        }
+
+        protected override bool IsSelectorWritable(ushort selector)
+        {
+            var sel = _globalHeap.GetSelector(selector);
+            return sel != null && !sel.isCode && !sel.readOnly;
+        }
+
         public byte ReadByte(ushort seg, ushort offset)
         {
             return _globalHeap.ReadByte(seg, offset);

@@ -162,6 +162,16 @@ namespace Sharp86
         public ushort LocalDescriptorTableSelector { get; set; }
         public ushort TaskRegisterSelector { get; set; }
 
+        protected virtual bool IsSelectorReadable(ushort selector)
+        {
+            return selector != 0;
+        }
+
+        protected virtual bool IsSelectorWritable(ushort selector)
+        {
+            return selector != 0;
+        }
+
         IMemoryBus _memoryBus;
         public IMemoryBus MemoryBus
         {
@@ -1192,6 +1202,16 @@ namespace Sharp86
                                         case 3:
                                             // LTR Ew
                                             TaskRegisterSelector = Read_Ev();
+                                            break;
+
+                                        case 4:
+                                            // VERR Ew
+                                            FlagZ = IsSelectorReadable(Read_Ev());
+                                            break;
+
+                                        case 5:
+                                            // VERW Ew
+                                            FlagZ = IsSelectorWritable(Read_Ev());
                                             break;
 
                                         default:

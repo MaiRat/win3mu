@@ -166,6 +166,59 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void verr_Ev_register_sets_zf_for_readable_selector()
+        {
+            ax = 0x2468;
+            FlagZ = false;
+            FlagC = true;
+            MarkSelectorReadable(ax);
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x00);
+            WriteByte(cs, (ushort)(ip + 2), 0xE0);
+
+            step();
+
+            Assert.IsTrue(FlagZ);
+            Assert.IsTrue(FlagC);
+            Assert.AreEqual((ushort)0x2468, ax);
+        }
+
+        [TestMethod]
+        public void verw_Ev_memory_clears_zf_for_nonwritable_selector()
+        {
+            si = 0x8000;
+            WriteWord(ds, si, 0x1357);
+            FlagZ = true;
+            MarkSelectorReadable(0x1357);
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x00);
+            WriteByte(cs, (ushort)(ip + 2), 0x2C);
+
+            step();
+
+            Assert.IsFalse(FlagZ);
+            Assert.AreEqual((ushort)0x1357, ReadWord(ds, si));
+        }
+
+        [TestMethod]
+        public void verw_Ev_register_sets_zf_for_writable_selector()
+        {
+            ax = 0x3579;
+            FlagZ = false;
+            MarkSelectorWritable(ax);
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x00);
+            WriteByte(cs, (ushort)(ip + 2), 0xE8);
+
+            step();
+
+            Assert.IsTrue(FlagZ);
+        }
+
+        [TestMethod]
         public void sldt_Ev_disassembles()
         {
             WriteByte(cs, ip, 0x0F);
@@ -187,6 +240,30 @@ namespace Sharp86UnitTests
             var disassembler = new Disassembler(this, cs, ip);
 
             Assert.AreEqual("ltr ax", disassembler.Read());
+        }
+
+        [TestMethod]
+        public void verr_Ev_disassembles()
+        {
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x00);
+            WriteByte(cs, (ushort)(ip + 2), 0xE0);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("verr ax", disassembler.Read());
+        }
+
+        [TestMethod]
+        public void verw_Ev_disassembles()
+        {
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x00);
+            WriteByte(cs, (ushort)(ip + 2), 0x2C);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("verw word ptr [si]", disassembler.Read());
         }
 
         [TestMethod]

@@ -618,6 +618,12 @@ namespace Sharp86
                                     case 3:
                                         return string.Format("ltr {0}", Read_Ev());
 
+                                    case 4:
+                                        return string.Format("verr {0}", Read_Ev());
+
+                                    case 5:
+                                        return string.Format("verw {0}", Read_Ev());
+
                                     default:
                                         throw new InvalidOpCodeException();
                                 }
