@@ -194,6 +194,9 @@ namespace Win3muCore
         [DllImport("winmm.dll", CharSet = CharSet.Unicode, EntryPoint = "mciSendCommandW")]
         public static extern uint mciSendCommand(uint IDDevice, uint message, IntPtr fdwCommand, IntPtr dwParam);
 
+        [DllImport("winmm.dll", CharSet = CharSet.Unicode, EntryPoint = "mciGetErrorStringW")]
+        public static extern bool _mciGetErrorString(uint error, StringBuilder buffer, uint length);
+
         HandleMap _mciDeviceIdMap = new HandleMap();
 
         ushort DeviceIdTo16(uint deviceId)
@@ -204,6 +207,27 @@ namespace Win3muCore
         uint DeviceIdTo32(ushort deviceId)
         {
             return _mciDeviceIdMap.To32(deviceId).DWord();
+        }
+
+        void SetCallback(ref Win32.MCI_GENERIC_PARAMS st32, uint callback)
+        {
+            if (HWND.Map.IsValid16(callback.Loword()))
+                st32.dwCallback = HWND.Map.To32(callback.Loword());
+        }
+
+        uint SendGenericMciCommand(ushort uDeviceId, ushort uMessage, uint dwParam1, uint dwParam2)
+        {
+            if (dwParam2 == 0)
+                return mciSendCommand(DeviceIdTo32(uDeviceId), uMessage, (IntPtr)dwParam1, IntPtr.Zero);
+
+            var st16 = _machine.ReadStruct<Win16.MCI_GENERIC_PARAMS>(dwParam2);
+            var st32 = new Win32.MCI_GENERIC_PARAMS();
+            SetCallback(ref st32, st16.dwCallback);
+
+            unsafe
+            {
+                return mciSendCommand(DeviceIdTo32(uDeviceId), uMessage, (IntPtr)dwParam1, (IntPtr)(&st32));
+            }
         }
 
         [EntryPoint(0x02bd)]
@@ -323,6 +347,27 @@ namespace Win3muCore
                         return retv;
                     }
                 }
+
+                case Win16.MCI_STOP:
+                case Win16.MCI_PAUSE:
+                    return SendGenericMciCommand(uDeviceId, uMessage, dwParam1, dwParam2);
+
+                case Win16.MCI_SEEK:
+                {
+                    var st32 = new Win32.MCI_SEEK_PARAMS();
+                    if (dwParam2 != 0)
+                    {
+                        var st16 = _machine.ReadStruct<Win16.MCI_SEEK_PARAMS>(dwParam2);
+                        st32.dwTo = st16.dwTo;
+                        if (HWND.Map.IsValid16(st16.dwCallback.Loword()))
+                            st32.dwCallback = HWND.Map.To32(st16.dwCallback.Loword());
+                    }
+
+                    unsafe
+                    {
+                        return mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_SEEK, (IntPtr)dwParam1, (IntPtr)(&st32));
+                    }
+                }
             }
 
             throw new NotImplementedException($"[mciSendCommand] Unsupported MCI command: 0x{uMessage:X4}");
@@ -336,7 +381,17 @@ namespace Win3muCore
         [EntryPoint(0x02c2)]
         public bool mciGetErrorString(uint error, uint buffer, nuint length)
         {
-            throw new NotImplementedException("mciGetErrorString");
+            if (buffer == 0 || length == 0)
+                return false;
+
+            uint length32 = length;
+            var sb = new StringBuilder((int)length32);
+            var retv = _mciGetErrorString(error, sb, length32);
+            if (!retv)
+                return false;
+
+            _machine.WriteString(buffer, sb.ToString(), (ushort)Math.Min((uint)ushort.MaxValue, length32));
+            return true;
         }
 
         // 02C3 - MCISETDRIVERDATA - 02C3

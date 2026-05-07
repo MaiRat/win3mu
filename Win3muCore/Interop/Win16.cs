@@ -751,6 +751,13 @@ namespace Win3muCore
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        public struct MCI_SEEK_PARAMS
+        {
+            public uint dwCallback;
+            public uint dwTo;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
         public struct MCI_GENERIC_PARAMS
         {
             public uint dwCallback;

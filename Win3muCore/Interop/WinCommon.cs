@@ -438,10 +438,17 @@ namespace Win3muCore
         public const ushort MCI_RESUME = 0x0855;
         public const ushort MCI_DELETE = 0x0856;
 
+        public const uint MCI_NOTIFY = 0x00000001;
+        public const uint MCI_WAIT = 0x00000002;
+        public const uint MCI_FROM = 0x00000004;
+        public const uint MCI_TO = 0x00000008;
+        public const uint MCI_TEST = 0x00000020;
         public const uint MCI_OPEN_SHAREABLE = 0x00000100;
         public const uint MCI_OPEN_ELEMENT = 0x00000200;
         public const uint MCI_OPEN_ALIAS = 0x00000400;
         public const uint MCI_OPEN_ELEMENT_ID = 0x00000800;
+        public const uint MCI_SEEK_TO_START = 0x00000100;
+        public const uint MCI_SEEK_TO_END = 0x00000200;
         public const uint MCI_OPEN_TYPE_ID = 0x00001000;
         public const uint MCI_OPEN_TYPE = 0x00002000;
 
