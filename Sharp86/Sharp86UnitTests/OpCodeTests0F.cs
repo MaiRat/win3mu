@@ -284,6 +284,24 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void sgdt_Ms_memory_writes_limit_and_selector()
+        {
+            si = 0x8000;
+            GlobalDescriptorTableLimit = 0x00FF;
+            gdt = 0x2468;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x01);
+            WriteByte(cs, (ushort)(ip + 2), 0x04);
+
+            step();
+
+            Assert.AreEqual((ushort)0x00FF, ReadWord(ds, si));
+            Assert.AreEqual((ushort)0x2468, ReadWord(ds, (ushort)(si + 2)));
+            Assert.AreEqual((ushort)0x0000, ReadWord(ds, (ushort)(si + 4)));
+        }
+
+        [TestMethod]
         public void sidt_Ms_memory_writes_limit_and_selector()
         {
             si = 0x8000;
@@ -299,6 +317,26 @@ namespace Sharp86UnitTests
             Assert.AreEqual((ushort)0x03FF, ReadWord(ds, si));
             Assert.AreEqual((ushort)0x4321, ReadWord(ds, (ushort)(si + 2)));
             Assert.AreEqual((ushort)0x0000, ReadWord(ds, (ushort)(si + 4)));
+        }
+
+        [TestMethod]
+        public void lgdt_Ms_memory_updates_limit_and_selector()
+        {
+            si = 0x8000;
+            WriteWord(ds, si, 0x0123);
+            WriteWord(ds, (ushort)(si + 2), 0x4567);
+            WriteWord(ds, (ushort)(si + 4), 0x89AB);
+            GlobalDescriptorTableLimit = 0;
+            gdt = 0;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x01);
+            WriteByte(cs, (ushort)(ip + 2), 0x14);
+
+            step();
+
+            Assert.AreEqual((ushort)0x0123, GlobalDescriptorTableLimit);
+            Assert.AreEqual((ushort)0x4567, gdt);
         }
 
         [TestMethod]
@@ -319,6 +357,29 @@ namespace Sharp86UnitTests
 
             Assert.AreEqual((ushort)0x0123, InterruptDescriptorTableLimit);
             Assert.AreEqual((ushort)0x4567, idt);
+        }
+
+        [TestMethod]
+        public void sgdt_register_operand_is_invalid()
+        {
+            GlobalDescriptorTableLimit = 0x00FF;
+            gdt = 0x2468;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x01);
+            WriteByte(cs, (ushort)(ip + 2), 0xC0);
+
+            try
+            {
+                step();
+                Assert.Fail("Expected invalid opcode");
+            }
+            catch (Sharp86.InvalidOpCodeException)
+            {
+            }
+
+            Assert.AreEqual((ushort)0x00FF, GlobalDescriptorTableLimit);
+            Assert.AreEqual((ushort)0x2468, gdt);
         }
 
         [TestMethod]
@@ -357,6 +418,18 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void sgdt_Ms_disassembles()
+        {
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x01);
+            WriteByte(cs, (ushort)(ip + 2), 0x04);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("sgdt fword ptr [si]", disassembler.Read());
+        }
+
+        [TestMethod]
         public void sidt_Ms_disassembles()
         {
             WriteByte(cs, ip, 0x0F);
@@ -366,6 +439,18 @@ namespace Sharp86UnitTests
             var disassembler = new Disassembler(this, cs, ip);
 
             Assert.AreEqual("sidt fword ptr [si]", disassembler.Read());
+        }
+
+        [TestMethod]
+        public void lgdt_Ms_disassembles()
+        {
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x01);
+            WriteByte(cs, (ushort)(ip + 2), 0x14);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("lgdt fword ptr [si]", disassembler.Read());
         }
 
         [TestMethod]

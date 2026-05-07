@@ -50,6 +50,9 @@ namespace Win3muCore
 
             // Allocate the interrupt descriptor table
             _machine.idt = Alloc("Interrupt Descriptor Table", 0, 1024);
+
+            // Allocate a minimal compatibility-first global descriptor table
+            _machine.gdt = Alloc("Global Descriptor Table", 0, 8);
         }
 
         private Machine _machine;

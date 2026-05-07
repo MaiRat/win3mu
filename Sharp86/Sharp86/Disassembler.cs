@@ -643,8 +643,14 @@ namespace Sharp86
                                 ReadModRM();
                                 switch ((_modRM >> 3) & 0x07)
                                 {
+                                    case 0:
+                                        return string.Format("sgdt {0}", Read_Ms());
+
                                     case 1:
                                         return string.Format("sidt {0}", Read_Ms());
+
+                                    case 2:
+                                        return string.Format("lgdt {0}", Read_Ms());
 
                                     case 3:
                                         return string.Format("lidt {0}", Read_Ms());

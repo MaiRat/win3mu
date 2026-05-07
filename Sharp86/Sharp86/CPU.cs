@@ -156,12 +156,14 @@ namespace Sharp86
             MachineStatusWord = 0;
             LocalDescriptorTableSelector = 0;
             TaskRegisterSelector = 0;
+            GlobalDescriptorTableLimit = 0;
             InterruptDescriptorTableLimit = 0;
         }
 
         public ushort MachineStatusWord { get; set; }
         public ushort LocalDescriptorTableSelector { get; set; }
         public ushort TaskRegisterSelector { get; set; }
+        public ushort GlobalDescriptorTableLimit { get; set; }
         public ushort InterruptDescriptorTableLimit { get; set; }
 
         protected virtual bool IsSelectorReadable(ushort selector)
@@ -879,6 +881,12 @@ namespace Sharp86
             set;
         }
 
+        public ushort gdt
+        {
+            get;
+            set;
+        }
+
         public virtual void RaiseHalt()
         {
             _halt = true;
@@ -1257,6 +1265,16 @@ namespace Sharp86
                                     ReadModRM();
                                     switch ((_modRM >> 3) & 0x07)
                                     {
+                                        case 0:
+                                            // SGDT Ms
+                                            if (!_modRMIsPointer)
+                                                throw new InvalidOpCodeException();
+
+                                            _activeMemoryBus.WriteWord(_modRMSeg, _modRMOffset, GlobalDescriptorTableLimit);
+                                            _activeMemoryBus.WriteWord(_modRMSeg, (ushort)(_modRMOffset + 2), gdt);
+                                            _activeMemoryBus.WriteWord(_modRMSeg, (ushort)(_modRMOffset + 4), 0);
+                                            break;
+
                                         case 1:
                                             // SIDT Ms
                                             if (!_modRMIsPointer)
@@ -1265,6 +1283,15 @@ namespace Sharp86
                                             _activeMemoryBus.WriteWord(_modRMSeg, _modRMOffset, InterruptDescriptorTableLimit);
                                             _activeMemoryBus.WriteWord(_modRMSeg, (ushort)(_modRMOffset + 2), idt);
                                             _activeMemoryBus.WriteWord(_modRMSeg, (ushort)(_modRMOffset + 4), 0);
+                                            break;
+
+                                        case 2:
+                                            // LGDT Ms
+                                            if (!_modRMIsPointer)
+                                                throw new InvalidOpCodeException();
+
+                                            GlobalDescriptorTableLimit = _activeMemoryBus.ReadWord(_modRMSeg, _modRMOffset);
+                                            gdt = _activeMemoryBus.ReadWord(_modRMSeg, (ushort)(_modRMOffset + 2));
                                             break;
 
                                         case 3:
