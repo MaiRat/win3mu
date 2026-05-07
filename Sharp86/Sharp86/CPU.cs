@@ -1241,6 +1241,11 @@ namespace Sharp86
                                     break;
                                 }
 
+                                case 0x06:
+                                    // CLTS
+                                    MachineStatusWord = (ushort)(MachineStatusWord & ~0x0008);
+                                    break;
+
                                 case 0xB0:
                                 {
                                     // CMPXCHG Eb, Gb

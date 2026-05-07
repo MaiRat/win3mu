@@ -308,6 +308,35 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void clts_clears_task_switched_bit_in_machine_status_word()
+        {
+            MachineStatusWord = 0xFFFF;
+            FlagC = true;
+            FlagZ = false;
+            FlagO = true;
+            ushort flags = EFlags;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x06);
+
+            step();
+
+            Assert.AreEqual((ushort)0xFFF7, MachineStatusWord);
+            Assert.AreEqual(flags, EFlags);
+        }
+
+        [TestMethod]
+        public void clts_disassembles()
+        {
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0x06);
+
+            var disassembler = new Disassembler(this, cs, ip);
+
+            Assert.AreEqual("clts", disassembler.Read());
+        }
+
+        [TestMethod]
         public void movsx_Gv_Eb_memory()
         {
             si = 0x8000;

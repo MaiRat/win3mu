@@ -642,6 +642,9 @@ namespace Sharp86
                                         throw new InvalidOpCodeException();
                                 }
 
+                            case 0x06:
+                                return "clts";
+
                             case 0xB0:
                                 return string.Format("cmpxchg {0},{1}", Read_Eb(), Read_Gb());
 
