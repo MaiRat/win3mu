@@ -1197,6 +1197,16 @@ namespace Sharp86
                                     break;
                                 }
 
+                                case 0xA4:
+                                    // SHLD Ev, Gv, Ib
+                                    Write_Ev(Shld16(Read_Ev(), Read_Gv(), Read_Ib()));
+                                    break;
+
+                                case 0xA5:
+                                    // SHLD Ev, Gv, CL
+                                    Write_Ev(Shld16(Read_Ev(), Read_Gv(), cl));
+                                    break;
+
                                 case 0xAB:
                                 {
                                     // BTS Ev, Gv
@@ -1249,6 +1259,16 @@ namespace Sharp86
                                     Write_BitBase_Ev(bitOffset, (ushort)(value ^ mask));
                                     break;
                                 }
+
+                                case 0xAC:
+                                    // SHRD Ev, Gv, Ib
+                                    Write_Ev(Shrd16(Read_Ev(), Read_Gv(), Read_Ib()));
+                                    break;
+
+                                case 0xAD:
+                                    // SHRD Ev, Gv, CL
+                                    Write_Ev(Shrd16(Read_Ev(), Read_Gv(), cl));
+                                    break;
 
                                 case 0xAF:
                                     // IMUL Gv, Ev

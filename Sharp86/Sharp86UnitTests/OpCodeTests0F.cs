@@ -267,6 +267,95 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void shld_Ev_Gv_Ib_register_updates_destination_and_flags()
+        {
+            ax = 0x4000;
+            bx = 0x0001;
+            FlagC = true;
+            FlagO = false;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xA4);
+            WriteByte(cs, (ushort)(ip + 2), 0xD8);
+            WriteByte(cs, (ushort)(ip + 3), 1);
+
+            step();
+
+            Assert.AreEqual((ushort)0x8000, ax);
+            Assert.AreEqual((ushort)0x0001, bx);
+            Assert.IsFalse(FlagC);
+            Assert.IsTrue(FlagO);
+            Assert.IsTrue(FlagS);
+            Assert.IsFalse(FlagZ);
+            Assert.IsTrue(FlagP);
+        }
+
+        [TestMethod]
+        public void shld_Ev_Gv_cl_memory_shifts_bits_in_from_register()
+        {
+            si = 0x8000;
+            WriteWord(ds, si, 0x1234);
+            bx = 0xABCD;
+            cl = 4;
+            FlagC = false;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xA5);
+            WriteByte(cs, (ushort)(ip + 2), 0x1C);
+
+            step();
+
+            Assert.AreEqual((ushort)0x234A, ReadWord(ds, si));
+            Assert.AreEqual((ushort)0xABCD, bx);
+            Assert.IsTrue(FlagC);
+        }
+
+        [TestMethod]
+        public void shrd_Ev_Gv_Ib_register_updates_destination_and_flags()
+        {
+            ax = 0x8001;
+            bx = 0x0000;
+            FlagC = false;
+            FlagO = false;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xAC);
+            WriteByte(cs, (ushort)(ip + 2), 0xD8);
+            WriteByte(cs, (ushort)(ip + 3), 1);
+
+            step();
+
+            Assert.AreEqual((ushort)0x4000, ax);
+            Assert.AreEqual((ushort)0x0000, bx);
+            Assert.IsTrue(FlagC);
+            Assert.IsTrue(FlagO);
+            Assert.IsFalse(FlagS);
+            Assert.IsFalse(FlagZ);
+            Assert.IsTrue(FlagP);
+        }
+
+        [TestMethod]
+        public void shrd_Ev_Gv_cl_memory_shifts_bits_in_from_register()
+        {
+            si = 0x8000;
+            WriteWord(ds, si, 0x1234);
+            bx = 0xABCD;
+            cl = 4;
+            FlagC = true;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xAD);
+            WriteByte(cs, (ushort)(ip + 2), 0x1C);
+
+            step();
+
+            Assert.AreEqual((ushort)0xD123, ReadWord(ds, si));
+            Assert.AreEqual((ushort)0xABCD, bx);
+            Assert.IsFalse(FlagC);
+            Assert.IsTrue(FlagS);
+        }
+
+        [TestMethod]
         public void bts_Ev_Gv_register_sets_selected_bit()
         {
             ax = 0x0002;

@@ -611,6 +611,12 @@ namespace Sharp86
                             case 0xA3:
                                 return string.Format("bt {0},{1}", Read_Ev(), Read_Gv());
 
+                            case 0xA4:
+                                return string.Format("shld {0},{1},{2}", Read_Ev(), Read_Gv(), Read_Ib());
+
+                            case 0xA5:
+                                return string.Format("shld {0},{1},cl", Read_Ev(), Read_Gv());
+
                             case 0xAB:
                                 return string.Format("bts {0},{1}", Read_Ev(), Read_Gv());
 
@@ -625,6 +631,12 @@ namespace Sharp86
 
                             case 0xBB:
                                 return string.Format("btc {0},{1}", Read_Ev(), Read_Gv());
+
+                            case 0xAC:
+                                return string.Format("shrd {0},{1},{2}", Read_Ev(), Read_Gv(), Read_Ib());
+
+                            case 0xAD:
+                                return string.Format("shrd {0},{1},cl", Read_Ev(), Read_Gv());
 
                             case 0xAF:
                                 return string.Format("imul {0},{1}", Read_Gv(), Read_Ev());

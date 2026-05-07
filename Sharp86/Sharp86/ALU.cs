@@ -928,6 +928,44 @@ namespace Sharp86
             }
         }
 
+        public ushort Shld16(ushort destination, ushort source, byte count)
+        {
+            count &= 0x1f;
+            if (count == 0)
+                return destination;
+
+            uint combined = ((uint)destination << 16) | source;
+            _aluResult = (combined << count) >> 16;
+
+            bool carry = ((combined << (count - 1)) & 0x80000000) != 0;
+            bool overflow = count == 1 && ((_aluResult ^ destination) & 0x8000) != 0;
+
+            _fm = fm.PFromResult | fm.SFromResult | fm.ZFromResult |
+                (carry ? fm.CFlag : 0) |
+                (overflow ? fm.OFlag : 0);
+
+            return (ushort)_aluResult;
+        }
+
+        public ushort Shrd16(ushort destination, ushort source, byte count)
+        {
+            count &= 0x1f;
+            if (count == 0)
+                return destination;
+
+            uint combined = ((uint)source << 16) | destination;
+            _aluResult = (combined >> count) & 0xFFFF;
+
+            bool carry = ((combined >> (count - 1)) & 0x00000001) != 0;
+            bool overflow = count == 1 && ((_aluResult ^ destination) & 0x8000) != 0;
+
+            _fm = fm.PFromResult | fm.SFromResult | fm.ZFromResult |
+                (carry ? fm.CFlag : 0) |
+                (overflow ? fm.OFlag : 0);
+
+            return (ushort)_aluResult;
+        }
+
         public byte Sar8(byte a, byte b)
         {
             unchecked
