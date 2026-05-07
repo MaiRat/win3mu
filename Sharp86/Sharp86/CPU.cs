@@ -678,6 +678,39 @@ namespace Sharp86
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        ushort Read_BitBase_Ev(ushort bitOffset, out byte bitIndex)
+        {
+            if (!_haveReadModRM)
+                ReadModRM();
+
+            bitIndex = (byte)(bitOffset & 0x0F);
+            if (_modRMIsPointer)
+            {
+                ushort wordOffset = (ushort)((bitOffset >> 4) << 1);
+                return _activeMemoryBus.ReadWord(_modRMSeg, (ushort)(_modRMOffset + wordOffset));
+            }
+
+            return ReadReg((Reg16)(_modRM & 0x07));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        void Write_BitBase_Ev(ushort bitOffset, ushort value)
+        {
+            if (!_haveReadModRM)
+                ReadModRM();
+
+            if (_modRMIsPointer)
+            {
+                ushort wordOffset = (ushort)((bitOffset >> 4) << 1);
+                _activeMemoryBus.WriteWord(_modRMSeg, (ushort)(_modRMOffset + wordOffset), value);
+            }
+            else
+            {
+                WriteReg((Reg16)(_modRM & 0x07), value);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         ushort Read_Sv()
         {
             if (!_haveReadModRM)
@@ -1129,6 +1162,26 @@ namespace Sharp86
 
                             switch (opCode2)
                             {
+                                case 0xA3:
+                                {
+                                    // BT Ev, Gv
+                                    ushort bitOffset = Read_Gv();
+                                    ushort value = Read_BitBase_Ev(bitOffset, out byte bitIndex);
+                                    FlagC = ((value >> bitIndex) & 1) != 0;
+                                    break;
+                                }
+
+                                case 0xAB:
+                                {
+                                    // BTS Ev, Gv
+                                    ushort bitOffset = Read_Gv();
+                                    ushort value = Read_BitBase_Ev(bitOffset, out byte bitIndex);
+                                    ushort mask = (ushort)(1 << bitIndex);
+                                    FlagC = (value & mask) != 0;
+                                    Write_BitBase_Ev(bitOffset, (ushort)(value | mask));
+                                    break;
+                                }
+
                                 case 0xBC:
                                 {
                                     // BSF Gv, Ev
@@ -1146,6 +1199,28 @@ namespace Sharp86
                                     FlagZ = source == 0;
                                     if (!FlagZ)
                                         Write_Gv(BitScanReverse16(source));
+                                    break;
+                                }
+
+                                case 0xB3:
+                                {
+                                    // BTR Ev, Gv
+                                    ushort bitOffset = Read_Gv();
+                                    ushort value = Read_BitBase_Ev(bitOffset, out byte bitIndex);
+                                    ushort mask = (ushort)(1 << bitIndex);
+                                    FlagC = (value & mask) != 0;
+                                    Write_BitBase_Ev(bitOffset, (ushort)(value & ~mask));
+                                    break;
+                                }
+
+                                case 0xBB:
+                                {
+                                    // BTC Ev, Gv
+                                    ushort bitOffset = Read_Gv();
+                                    ushort value = Read_BitBase_Ev(bitOffset, out byte bitIndex);
+                                    ushort mask = (ushort)(1 << bitIndex);
+                                    FlagC = (value & mask) != 0;
+                                    Write_BitBase_Ev(bitOffset, (ushort)(value ^ mask));
                                     break;
                                 }
 

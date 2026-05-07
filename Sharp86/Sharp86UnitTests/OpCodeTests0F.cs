@@ -249,6 +249,82 @@ namespace Sharp86UnitTests
         }
 
         [TestMethod]
+        public void bt_Ev_Gv_register_sets_carry_without_modifying_destination()
+        {
+            ax = 0x0020;
+            bx = 5;
+            FlagC = false;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xA3);
+            WriteByte(cs, (ushort)(ip + 2), 0xD8);
+
+            step();
+
+            Assert.AreEqual((ushort)0x0020, ax);
+            Assert.AreEqual((ushort)5, bx);
+            Assert.IsTrue(FlagC);
+        }
+
+        [TestMethod]
+        public void bts_Ev_Gv_register_sets_selected_bit()
+        {
+            ax = 0x0002;
+            bx = 4;
+            FlagC = true;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xAB);
+            WriteByte(cs, (ushort)(ip + 2), 0xD8);
+
+            step();
+
+            Assert.AreEqual((ushort)0x0012, ax);
+            Assert.AreEqual((ushort)4, bx);
+            Assert.IsFalse(FlagC);
+        }
+
+        [TestMethod]
+        public void btr_Ev_Gv_memory_uses_bit_offset_across_words()
+        {
+            si = 0x8000;
+            WriteWord(ds, si, 0x0000);
+            WriteWord(ds, (ushort)(si + 2), 0x0002);
+            bx = 17;
+            FlagC = false;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xB3);
+            WriteByte(cs, (ushort)(ip + 2), 0x1C);
+
+            step();
+
+            Assert.AreEqual((ushort)0x0000, ReadWord(ds, si));
+            Assert.AreEqual((ushort)0x0000, ReadWord(ds, (ushort)(si + 2)));
+            Assert.AreEqual((ushort)17, bx);
+            Assert.IsTrue(FlagC);
+        }
+
+        [TestMethod]
+        public void btc_Ev_Gv_memory_toggles_selected_bit()
+        {
+            si = 0x8000;
+            WriteWord(ds, si, 0x0000);
+            bx = 3;
+            FlagC = true;
+
+            WriteByte(cs, ip, 0x0F);
+            WriteByte(cs, (ushort)(ip + 1), 0xBB);
+            WriteByte(cs, (ushort)(ip + 2), 0x1C);
+
+            step();
+
+            Assert.AreEqual((ushort)0x0008, ReadWord(ds, si));
+            Assert.AreEqual((ushort)3, bx);
+            Assert.IsFalse(FlagC);
+        }
+
+        [TestMethod]
         public void setcc_register_conditions()
         {
             assertSetcc(0x90, 0xC0, true,  true,  false, false, false, false);
