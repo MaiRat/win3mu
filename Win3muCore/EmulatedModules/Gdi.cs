@@ -922,7 +922,7 @@ namespace Win3muCore
         [EntryPoint(0x006A)]
         public int SetBitmapBits(HGDIOBJ hBitmap, int cbBuffer, uint pBuffer)
         {
-            if (cbBuffer <= 0)
+            if (cbBuffer <= 0 || pBuffer == 0)
                 return SetBitmapBits(hBitmap.value, cbBuffer, IntPtr.Zero);
 
             using (var hp = _machine.GlobalHeap.GetHeapPointer(pBuffer, false))
@@ -1384,7 +1384,8 @@ namespace Win3muCore
 
             for (int i = 0; i < count; i++)
             {
-                _machine.WriteWord((uint)(lpBuffer + i * sizeof(ushort)), unchecked((ushort)(short)widths[i]));
+                uint entryPtr = (uint)(lpBuffer + i * sizeof(ushort));
+                _machine.WriteWord(entryPtr.Hiword(), entryPtr.Loword(), unchecked((ushort)(short)widths[i]));
             }
 
             return true;
