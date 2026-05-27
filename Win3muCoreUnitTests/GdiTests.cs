@@ -16,8 +16,8 @@ namespace Win3muCoreUnitTests
             CollectionAssert.IsSubsetOf(
                 new ushort[]
                 {
-                    0x0006, 0x0008, 0x000A, 0x001A, 0x0020, 0x0026, 0x0031, 0x0036, 0x0037, 0x003F, 0x0041, 0x0048,
-                     0x0065, 0x0069, 0x007C, 0x007D, 0x007E, 0x0086, 0x0097, 0x009B, 0x009F, 0x00A1, 0x00AD, 0x00B5, 0x00C4,
+                    0x0006, 0x0008, 0x000A, 0x000F, 0x0010, 0x0011, 0x0012, 0x001A, 0x0020, 0x0026, 0x0031, 0x0036, 0x0037, 0x003F, 0x0041, 0x0048,
+                     0x0054, 0x0059, 0x005E, 0x005F, 0x0060, 0x0061, 0x0065, 0x0069, 0x007C, 0x007D, 0x007E, 0x0086, 0x0095, 0x0097, 0x009B, 0x009F, 0x00A1, 0x00A2, 0x00A3, 0x00AD, 0x00B5, 0x00C4,
                      0x00AF, 0x00B0, 0x00C1, 0x00C2, 0x00C3,
                      0x0169, 0x016A, 0x016B, 0x016C, 0x016D, 0x016E,
                      0x016F, 0x0170, 0x0172, 0x0175, 0x0176,
@@ -35,6 +35,10 @@ namespace Win3muCoreUnitTests
             Assert.AreEqual("SetPolyFillMode", gdi.GetNameFromOrdinal(0x0006));
             Assert.AreEqual("SetTextCharacterExtra", gdi.GetNameFromOrdinal(0x0008));
             Assert.AreEqual("SetTextJustification", gdi.GetNameFromOrdinal(0x000A));
+            Assert.AreEqual("OffsetWindowOrg", gdi.GetNameFromOrdinal(0x000F));
+            Assert.AreEqual("ScaleWindowExt", gdi.GetNameFromOrdinal(0x0010));
+            Assert.AreEqual("OffsetViewportOrg", gdi.GetNameFromOrdinal(0x0011));
+            Assert.AreEqual("ScaleViewportExt", gdi.GetNameFromOrdinal(0x0012));
             Assert.AreEqual("Pie", gdi.GetNameFromOrdinal(0x001A));
             Assert.AreEqual("OffsetClipRgn", gdi.GetNameFromOrdinal(0x0020));
             Assert.AreEqual("Escape", gdi.GetNameFromOrdinal(0x0026));
@@ -44,16 +48,25 @@ namespace Win3muCoreUnitTests
             Assert.AreEqual("CreatePolygonRgn", gdi.GetNameFromOrdinal(0x003F));
             Assert.AreEqual("CreateRectRgnIndirect", gdi.GetNameFromOrdinal(0x0041));
             Assert.AreEqual("EqualRgn", gdi.GetNameFromOrdinal(0x0048));
+            Assert.AreEqual("GetPolyFillMode", gdi.GetNameFromOrdinal(0x0054));
+            Assert.AreEqual("GetTextCharacterExtra", gdi.GetNameFromOrdinal(0x0059));
+            Assert.AreEqual("GetViewportExt", gdi.GetNameFromOrdinal(0x005E));
+            Assert.AreEqual("GetViewportOrg", gdi.GetNameFromOrdinal(0x005F));
+            Assert.AreEqual("GetWindowExt", gdi.GetNameFromOrdinal(0x0060));
+            Assert.AreEqual("GetWindowOrg", gdi.GetNameFromOrdinal(0x0061));
             Assert.AreEqual("OffsetRgn", gdi.GetNameFromOrdinal(0x0065));
             Assert.AreEqual("SelectVisRgn", gdi.GetNameFromOrdinal(0x0069));
             Assert.AreEqual("GetMetaFile", gdi.GetNameFromOrdinal(0x007C));
             Assert.AreEqual("CreateMetaFile", gdi.GetNameFromOrdinal(0x007D));
             Assert.AreEqual("CloseMetaFile", gdi.GetNameFromOrdinal(0x007E));
             Assert.AreEqual("GetRgnBox", gdi.GetNameFromOrdinal(0x0086));
+            Assert.AreEqual("GetBrushOrg", gdi.GetNameFromOrdinal(0x0095));
             Assert.AreEqual("CopyMetaFile", gdi.GetNameFromOrdinal(0x0097));
             Assert.AreEqual("QueryAbort", gdi.GetNameFromOrdinal(0x009B));
             Assert.AreEqual("GetMetaFileBits", gdi.GetNameFromOrdinal(0x009F));
             Assert.AreEqual("PtInRegion", gdi.GetNameFromOrdinal(0x00A1));
+            Assert.AreEqual("GetBitmapDimension", gdi.GetNameFromOrdinal(0x00A2));
+            Assert.AreEqual("SetBitmapDimension", gdi.GetNameFromOrdinal(0x00A3));
             Assert.AreEqual("GetClipRgn", gdi.GetNameFromOrdinal(0x00AD));
             Assert.AreEqual("EnumMetaFile", gdi.GetNameFromOrdinal(0x00AF));
             Assert.AreEqual("PlayMetaFileRecord", gdi.GetNameFromOrdinal(0x00B0));

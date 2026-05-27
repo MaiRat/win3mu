@@ -125,10 +125,57 @@ namespace Win3muCore
         }
 
 
-        // 000F - OFFSETWINDOWORG
-        // 0010 - SCALEWINDOWEXT
-        // 0011 - OFFSETVIEWPORTORG
-        // 0012 - SCALEVIEWPORTEXT
+        [DllImport("gdi32.dll")]
+        public static extern bool OffsetWindowOrgEx(HDC hDC, int x, int y, out Win32.POINT pptOld);
+
+        [EntryPoint(0x000F)]
+        public uint OffsetWindowOrg(HDC hDC, short x, short y)
+        {
+            Win32.POINT old32;
+            if (!OffsetWindowOrgEx(hDC, x, y, out old32))
+                return 0;
+
+            return old32.ToDWord();
+        }
+
+        [DllImport("gdi32.dll")]
+        public static extern bool ScaleWindowExtEx(HDC hDC, int xn, int xd, int yn, int yd, out Win32.SIZE size);
+
+        [EntryPoint(0x0010)]
+        public uint ScaleWindowExt(HDC hDC, short xNum, short xDenom, short yNum, short yDenom)
+        {
+            Win32.SIZE size;
+            if (!ScaleWindowExtEx(hDC, xNum, xDenom, yNum, yDenom, out size))
+                return 0;
+
+            return BitUtils.MakeDWord((ushort)(short)size.Width, (ushort)(short)size.Height);
+        }
+
+        [DllImport("gdi32.dll")]
+        public static extern bool OffsetViewportOrgEx(HDC hDC, int x, int y, out Win32.POINT pptOld);
+
+        [EntryPoint(0x0011)]
+        public uint OffsetViewportOrg(HDC hDC, short x, short y)
+        {
+            Win32.POINT old32;
+            if (!OffsetViewportOrgEx(hDC, x, y, out old32))
+                return 0;
+
+            return old32.ToDWord();
+        }
+
+        [DllImport("gdi32.dll")]
+        public static extern bool ScaleViewportExtEx(HDC hDC, int xn, int xd, int yn, int yd, out Win32.SIZE size);
+
+        [EntryPoint(0x0012)]
+        public uint ScaleViewportExt(HDC hDC, short xNum, short xDenom, short yNum, short yDenom)
+        {
+            Win32.SIZE size;
+            if (!ScaleViewportExtEx(hDC, xNum, xDenom, yNum, yDenom, out size))
+                return 0;
+
+            return BitUtils.MakeDWord((ushort)(short)size.Width, (ushort)(short)size.Height);
+        }
 
         [EntryPoint(0x0013)]
         [DllImport("gdi32.dll")]
@@ -689,7 +736,9 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern uint GetPixel(HDC hDC, nint x, nint y);
 
-        // 0054 - GETPOLYFILLMODE
+        [EntryPoint(0x0054)]
+        [DllImport("gdi32.dll")]
+        public static extern nint GetPolyFillMode(HDC hDC);
 
         [EntryPoint(0x0055)]
         [DllImport("gdi32.dll")]
@@ -705,7 +754,9 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern nint GetStretchBltMode(HDC hDC);
 
-        // 0059 - GETTEXTCHARACTEREXTRA
+        [EntryPoint(0x0059)]
+        [DllImport("gdi32.dll")]
+        public static extern nint GetTextCharacterExtra(HDC hDC);
 
         [EntryPoint(0x005A)]
         [DllImport("gdi32.dll")]
@@ -733,10 +784,58 @@ namespace Win3muCore
         public static extern bool GetTextMetrics(HDC hdc, out Win32.TEXTMETRIC lptm);
 
 
-        // 005E - GETVIEWPORTEXT
-        // 005F - GETVIEWPORTORG
-        // 0060 - GETWINDOWEXT
-        // 0061 - GETWINDOWORG
+        [DllImport("gdi32.dll")]
+        public static extern bool GetViewportExtEx(HDC hDC, out Win32.SIZE size);
+
+        [EntryPoint(0x005E)]
+        public uint GetViewportExt(HDC hDC)
+        {
+            Win32.SIZE size;
+            if (!GetViewportExtEx(hDC, out size))
+                return 0;
+
+            return BitUtils.MakeDWord((ushort)(short)size.Width, (ushort)(short)size.Height);
+        }
+
+        [DllImport("gdi32.dll")]
+        public static extern bool GetViewportOrgEx(HDC hDC, out Win32.POINT point);
+
+        [EntryPoint(0x005F)]
+        public uint GetViewportOrg(HDC hDC)
+        {
+            Win32.POINT point;
+            if (!GetViewportOrgEx(hDC, out point))
+                return 0;
+
+            return point.ToDWord();
+        }
+
+        [DllImport("gdi32.dll")]
+        public static extern bool GetWindowExtEx(HDC hDC, out Win32.SIZE size);
+
+        [EntryPoint(0x0060)]
+        public uint GetWindowExt(HDC hDC)
+        {
+            Win32.SIZE size;
+            if (!GetWindowExtEx(hDC, out size))
+                return 0;
+
+            return BitUtils.MakeDWord((ushort)(short)size.Width, (ushort)(short)size.Height);
+        }
+
+        [DllImport("gdi32.dll")]
+        public static extern bool GetWindowOrgEx(HDC hDC, out Win32.POINT point);
+
+        [EntryPoint(0x0061)]
+        public uint GetWindowOrg(HDC hDC)
+        {
+            Win32.POINT point;
+            if (!GetWindowOrgEx(hDC, out point))
+                return 0;
+
+            return point.ToDWord();
+        }
+
         // 0062 - INTERSECTVISRECT
 
         [DllImport("gdi32.dll")]
@@ -868,7 +967,15 @@ namespace Win3muCore
             return old32.ToDWord();
         }
 
-        // 0095 - GETBRUSHORG
+        [EntryPoint(0x0095)]
+        public uint GetBrushOrg(HDC hDC)
+        {
+            Win32.POINT old32;
+            if (!GetBrushOrgEx(hDC, out old32))
+                return 0;
+
+            return old32.ToDWord();
+        }
 
         [EntryPoint(0x0096)]
         [DllImport("gdi32.dll")]
@@ -949,8 +1056,32 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern bool PtInRegion(HGDIOBJ hRgn, nint x, nint y);
 
-        // 00A2 - GETBITMAPDIMENSION
-        // 00A3 - SETBITMAPDIMENSION
+        [DllImport("gdi32.dll")]
+        public static extern bool GetBitmapDimensionEx(HGDIOBJ hBitmap, out Win32.SIZE size);
+
+        [EntryPoint(0x00A2)]
+        public uint GetBitmapDimension(HGDIOBJ hBitmap)
+        {
+            Win32.SIZE size;
+            if (!GetBitmapDimensionEx(hBitmap, out size))
+                return 0;
+
+            return BitUtils.MakeDWord((ushort)(short)size.Width, (ushort)(short)size.Height);
+        }
+
+        [DllImport("gdi32.dll")]
+        public static extern bool SetBitmapDimensionEx(HGDIOBJ hBitmap, int width, int height, out Win32.SIZE size);
+
+        [EntryPoint(0x00A3)]
+        public uint SetBitmapDimension(HGDIOBJ hBitmap, short width, short height)
+        {
+            Win32.SIZE size;
+            if (!SetBitmapDimensionEx(hBitmap, width, height, out size))
+                return 0;
+
+            return BitUtils.MakeDWord((ushort)(short)size.Width, (ushort)(short)size.Height);
+        }
+
         // 00A9 - ISDCDIRTY
         // 00AA - SETDCSTATUS
 
