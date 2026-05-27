@@ -350,7 +350,161 @@ namespace Win3muCore
 
                 case Win16.MCI_STOP:
                 case Win16.MCI_PAUSE:
+                case Win16.MCI_RESUME:
+                case Win16.MCI_SPIN:
+                case Win16.MCI_STEP:
+                case Win16.MCI_CUE:
+                case Win16.MCI_BREAK:
+                case Win16.MCI_ESCAPE:
+                case Win16.MCI_REALIZE:
+                case Win16.MCI_FREEZE:
+                case Win16.MCI_UNFREEZE:
+                case Win16.MCI_CUT:
+                case Win16.MCI_COPY:
+                case Win16.MCI_PASTE:
+                case Win16.MCI_DELETE:
                     return SendGenericMciCommand(uDeviceId, uMessage, dwParam1, dwParam2);
+
+                case Win16.MCI_SET:
+                {
+                    var st32 = new Win32.MCI_SET_PARAMS();
+                    if (dwParam2 != 0)
+                    {
+                        var st16 = _machine.ReadStruct<Win16.MCI_SET_PARAMS>(dwParam2);
+                        st32.dwTimeFormat = st16.dwTimeFormat;
+                        st32.dwAudio = st16.dwAudio;
+                        if (HWND.Map.IsValid16(st16.dwCallback.Loword()))
+                            st32.dwCallback = HWND.Map.To32(st16.dwCallback.Loword());
+                    }
+
+                    unsafe
+                    {
+                        return mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_SET, (IntPtr)dwParam1, (IntPtr)(&st32));
+                    }
+                }
+
+                case Win16.MCI_GETDEVCAPS:
+                {
+                    var st32 = new Win32.MCI_GETDEVCAPS_PARAMS();
+                    if (dwParam2 != 0)
+                    {
+                        var st16 = _machine.ReadStruct<Win16.MCI_GETDEVCAPS_PARAMS>(dwParam2);
+                        st32.dwItem = st16.dwItem;
+                        if (HWND.Map.IsValid16(st16.dwCallback.Loword()))
+                            st32.dwCallback = HWND.Map.To32(st16.dwCallback.Loword());
+                    }
+
+                    unsafe
+                    {
+                        uint retv = mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_GETDEVCAPS, (IntPtr)dwParam1, (IntPtr)(&st32));
+                        if (dwParam2 != 0)
+                        {
+                            var st16 = _machine.ReadStruct<Win16.MCI_GETDEVCAPS_PARAMS>(dwParam2);
+                            st16.dwReturn = st32.dwReturn;
+                            _machine.WriteStruct(dwParam2, st16);
+                        }
+                        return retv;
+                    }
+                }
+
+                case Win16.MCI_INFO:
+                {
+                    if (dwParam2 == 0)
+                        return mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_INFO, (IntPtr)dwParam1, IntPtr.Zero);
+
+                    var st16 = _machine.ReadStruct<Win16.MCI_INFO_PARAMS>(dwParam2);
+                    var bufferSize = (int)st16.dwRetSize;
+                    if (bufferSize <= 0)
+                        bufferSize = 256;
+
+                    var nativeBuffer = Marshal.AllocHGlobal(bufferSize * 2); // Unicode chars
+                    try
+                    {
+                        var st32 = new Win32.MCI_INFO_PARAMS();
+                        st32.lpstrReturn = nativeBuffer;
+                        st32.dwRetSize = (uint)bufferSize;
+                        if (HWND.Map.IsValid16(st16.dwCallback.Loword()))
+                            st32.dwCallback = HWND.Map.To32(st16.dwCallback.Loword());
+
+                        unsafe
+                        {
+                            uint retv = mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_INFO, (IntPtr)dwParam1, (IntPtr)(&st32));
+                            if (retv == 0 && st16.lpstrReturn != 0)
+                            {
+                                var result = Marshal.PtrToStringUni(nativeBuffer) ?? "";
+                                _machine.WriteString(st16.lpstrReturn, result, (ushort)Math.Min((uint)ushort.MaxValue, st16.dwRetSize));
+                            }
+                            return retv;
+                        }
+                    }
+                    finally
+                    {
+                        Marshal.FreeHGlobal(nativeBuffer);
+                    }
+                }
+
+                case Win16.MCI_RECORD:
+                {
+                    var st32 = new Win32.MCI_RECORD_PARAMS();
+                    if (dwParam2 != 0)
+                    {
+                        var st16 = _machine.ReadStruct<Win16.MCI_RECORD_PARAMS>(dwParam2);
+                        st32.dwFrom = st16.dwFrom;
+                        st32.dwTo = st16.dwTo;
+                        if (HWND.Map.IsValid16(st16.dwCallback.Loword()))
+                            st32.dwCallback = HWND.Map.To32(st16.dwCallback.Loword());
+                    }
+
+                    unsafe
+                    {
+                        return mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_RECORD, (IntPtr)dwParam1, (IntPtr)(&st32));
+                    }
+                }
+
+                case Win16.MCI_SAVE:
+                case Win16.MCI_LOAD:
+                {
+                    // MCI_SAVE and MCI_LOAD use MCI_SAVE_PARAMS / MCI_LOAD_PARAMS which have the same layout:
+                    // dwCallback + lpfilename
+                    // We pass them through as generic since the filename pointer requires conversion
+                    if (dwParam2 == 0)
+                        return mciSendCommand(DeviceIdTo32(uDeviceId), uMessage, (IntPtr)dwParam1, IntPtr.Zero);
+
+                    // Read the 16-bit struct: dwCallback (4 bytes) + lpfilename (4 bytes = seg:ofs)
+                    var st16Callback = _machine.ReadDWord(dwParam2);
+                    var st16Filename = _machine.ReadDWord(dwParam2 + 4);
+
+                    using (var ctx = new TempContext(_machine))
+                    {
+                        var st32 = new Win32.MCI_GENERIC_PARAMS();
+                        if (HWND.Map.IsValid16(st16Callback.Loword()))
+                            st32.dwCallback = HWND.Map.To32(st16Callback.Loword());
+
+                        // Allocate a native buffer big enough for callback + filename pointer
+                        var bufSize = IntPtr.Size * 2;
+                        var nativeBuf = Marshal.AllocHGlobal(bufSize);
+                        try
+                        {
+                            Marshal.WriteIntPtr(nativeBuf, 0, st32.dwCallback);
+                            if (st16Filename != 0)
+                            {
+                                var filename = _machine.ReadString(st16Filename);
+                                filename = ResolveMediaFile(filename);
+                                Marshal.WriteIntPtr(nativeBuf, IntPtr.Size, ctx.AllocUnmanagedString(filename));
+                            }
+                            else
+                            {
+                                Marshal.WriteIntPtr(nativeBuf, IntPtr.Size, IntPtr.Zero);
+                            }
+
+                            return mciSendCommand(DeviceIdTo32(uDeviceId), uMessage, (IntPtr)dwParam1, nativeBuf);
+                        }
+                        finally
+                        {
+                            Marshal.FreeHGlobal(nativeBuf);
+                        }
+                    }
+                }
 
                 case Win16.MCI_SEEK:
                 {
@@ -370,10 +524,39 @@ namespace Win3muCore
                 }
             }
 
-            throw new NotImplementedException($"[mciSendCommand] Unsupported MCI command: 0x{uMessage:X4}");
+            Log.WriteLine("[mciSendCommand] Unsupported MCI command: 0x{0:X4}", uMessage);
+            return 263; // MCIERR_UNSUPPORTED_FUNCTION
         }
 
-        // 02BE - MCISENDSTRING - 02BE
+        [DllImport("winmm.dll", CharSet = CharSet.Unicode, EntryPoint = "mciSendStringW")]
+        static extern uint _mciSendString(string lpstrCommand, StringBuilder lpstrReturnString, uint uReturnLength, IntPtr hwndCallback);
+
+        [EntryPoint(0x02be)]
+        public uint mciSendString(uint pszCommand, uint pszReturnString, ushort uReturnLength, ushort hwndCallback)
+        {
+            var command = _machine.ReadString(pszCommand);
+
+            StringBuilder sb = null;
+            uint returnLen = uReturnLength;
+            if (pszReturnString != 0 && uReturnLength > 0)
+            {
+                sb = new StringBuilder((int)returnLen);
+            }
+
+            IntPtr hWndCb = IntPtr.Zero;
+            if (hwndCallback != 0 && HWND.Map.IsValid16(hwndCallback))
+                hWndCb = HWND.Map.To32(hwndCallback);
+
+            uint retv = _mciSendString(command, sb, returnLen, hWndCb);
+
+            if (retv == 0 && sb != null && pszReturnString != 0)
+            {
+                _machine.WriteString(pszReturnString, sb.ToString(), uReturnLength);
+            }
+
+            return retv;
+        }
+
         // 02BF - MCIGETDEVICEID - 02BF
         // 02C0 - MCIPARSECOMMAND - 02C0
         // 02C1 - MCILOADCOMMANDRESOURCE - 02C1

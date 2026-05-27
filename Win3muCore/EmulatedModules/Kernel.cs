@@ -56,7 +56,8 @@ namespace Win3muCore
         [EntryPoint(0x0001)]
         public void FatalExit(short errorCode)
         {
-            throw new NotImplementedException();
+            Log.WriteLine("FatalExit called with error code {0}", errorCode);
+            _machine.ExitProcess(errorCode);
         }
 
         // 0002 - EXITKERNEL
@@ -986,7 +987,9 @@ namespace Win3muCore
         [EntryPoint(0x0089)]
         public void FatalAppExit(ushort reserved, string messageText)
         {
-            throw new NotImplementedException();
+            Log.WriteLine("FatalAppExit: {0}", messageText);
+            User.MessageBox(User.GetActiveWindow(), messageText, "Fatal Application Error", 0x10);
+            _machine.ExitProcess(1);
         }
 
         // 008A - GETHEAPSPACES

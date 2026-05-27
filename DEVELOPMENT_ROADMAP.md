@@ -40,12 +40,14 @@ These items are likely to unblock more real applications faster than a large CPU
 ## Priority 3: fill subsystem gaps that affect specific app classes
 
 1. ~~**Multimedia**~~ ✅ **COMPLETED**
-   - `mciSendCommand` now supports MCI_OPEN, MCI_CLOSE, MCI_PLAY, MCI_STATUS, MCI_STOP, MCI_PAUSE, and MCI_SEEK.
+   - `mciSendCommand` now supports MCI_OPEN, MCI_CLOSE, MCI_PLAY, MCI_STATUS, MCI_STOP, MCI_PAUSE, MCI_SEEK, MCI_SET, MCI_GETDEVCAPS, MCI_INFO, MCI_RECORD, MCI_RESUME, MCI_SAVE, MCI_LOAD, and many more generic MCI commands.
+   - `mciSendString` is now implemented, providing the string-based MCI interface used by many multimedia applications.
    - `mciGetErrorString` is fully implemented.
-   - Other unsupported MCI commands still throw `NotImplementedException`.
+   - Unsupported MCI commands now return MCIERR_UNSUPPORTED_FUNCTION instead of throwing.
 
 2. **DOS and multiplex interrupts** — _improved_
    - `Int 1Ah` services 0–5 (timer count get/set, RTC time get/set, RTC date get/set) are implemented.
+   - `Int 21h` now supports additional services: 0x33 (Get/Set System Values including Ctrl-C check flag and boot drive), 0x36 (Get Disk Free Space), 0x48-0x4A (memory allocation stubs), and 0x57 (Get/Set File Date and Time).
    - Unsupported `Int 1Ah` services, unsupported DOS interrupt functions (`Int 21h`), and unsupported multiplex interrupt services (`Int 2Fh`) now log a warning and return gracefully (setting carry flag / error codes) instead of throwing `NotImplementedException`.
    - **Remaining:** specific services used by installers can be added as compatibility testing reveals them.
 
@@ -53,22 +55,30 @@ These items are likely to unblock more real applications faster than a large CPU
    - `EnumTaskWindows` now succeeds without enumeration for non-current-task requests, rather than throwing.
    - **Remaining:** full cross-task enumeration is not yet emulated; the current approach virtualizes the result for compatibility.
 
+4. **GDI robustness** — _improved_
+   - `CreateBrushIndirect` now handles BS_NULL/BS_HOLLOW brush style and falls back gracefully for unknown brush styles instead of throwing.
+   - `GetObject` now logs and returns 0 for unsupported GDI object types instead of throwing.
+
+5. **Kernel process termination** — _implemented_
+   - `FatalExit` and `FatalAppExit` now log, display a message box (for FatalAppExit), and cleanly terminate the emulated process instead of throwing `NotImplementedException`.
+
 ## Recommended execution order
 
 1. ~~Add focused unit tests around the currently known `NotImplementedException` and invalid-opcode paths.~~ ✅
 2. ~~Fix runtime blockers first: hook bridging, WNDPROC return values, `lpCreateParams`, and thunking support.~~ ✅
 3. ~~Implement the missing `TEST` instruction variants.~~ ✅
 4. ~~Introduce staged `0x0F` decoding and document which extended/protected-mode instructions are intentionally still unsupported.~~ ✅
-5. Expand subsystem coverage for MCI, DOS interrupts, and cross-task window APIs based on app compatibility testing. — _in progress_
+5. ~~Expand subsystem coverage for MCI, DOS interrupts, and cross-task window APIs based on app compatibility testing.~~ ✅
 
 ## Next steps
 
 The following items represent the current frontier for further work:
 
 1. **Continue broadening thunking support** — add marshaling for parameter/return shapes encountered when testing real Win3.x applications against additional forwarded DLL exports.
-2. **Extend MCI command coverage** — implement less common MCI commands as multimedia applications reveal gaps.
-3. **Add app-driven DOS service coverage** — implement additional `Int 21h` and `Int 2Fh` subfunction handlers as installer and launcher testing identifies required services.
+2. **Extend MCI command coverage** — implement less common MCI commands (SYSINFO, WINDOW, WHERE, PUT) and device-specific extensions as multimedia applications reveal gaps.
+3. **Add app-driven DOS service coverage** — implement additional `Int 21h` subfunction handlers (e.g. IOCTL subfunctions at 0x44, remaining memory services) as installer and launcher testing identifies required services.
 4. **Evaluate cross-task window enumeration** — determine from application testing whether full enumeration is needed or the virtualized approach is sufficient.
+5. **Improve module loading robustness** — address remaining `NotImplementedException` paths in Module16.cs for unsupported relocation and fixup types encountered by real NE executables.
 
 ## Expected outcome
 

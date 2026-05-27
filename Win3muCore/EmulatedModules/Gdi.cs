@@ -295,6 +295,9 @@ namespace Win3muCore
                 case Win16.BS_SOLID:
                     return CreateSolidBrush(brush.color);
 
+                case Win16.BS_NULL:
+                    return GetStockObject(5); // NULL_BRUSH / HOLLOW_BRUSH
+
                 case Win16.BS_PATTERN:
                     return CreatePatternBrush(HGDIOBJ.To32((ushort)brush.hatch));
 
@@ -302,7 +305,8 @@ namespace Win3muCore
                     return CreateHatchBrush(brush.style, brush.color);
             }
 
-            throw new NotImplementedException();
+            Log.WriteLine("CreateBrushIndirect: unsupported brush style {0}, falling back to solid", brush.style);
+            return CreateSolidBrush(brush.color);
         }                                 
 
         [EntryPoint(0x0033)]
@@ -601,7 +605,8 @@ namespace Win3muCore
                     }
 
                     default:
-                        throw new NotImplementedException("Unsupported object type passed to GetObject");
+                        Log.WriteLine("GetObject: unsupported object type {0}", objectType);
+                        return 0;
                 }
             }
         }

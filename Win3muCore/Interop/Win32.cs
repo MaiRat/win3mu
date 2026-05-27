@@ -837,6 +837,38 @@ namespace Win3muCore
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        public struct MCI_SET_PARAMS
+        {
+            public IntPtr dwCallback;
+            public uint dwTimeFormat;
+            public uint dwAudio;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        public struct MCI_GETDEVCAPS_PARAMS
+        {
+            public IntPtr dwCallback;
+            public uint dwReturn;
+            public uint dwItem;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        public struct MCI_INFO_PARAMS
+        {
+            public IntPtr dwCallback;
+            public IntPtr lpstrReturn;
+            public uint dwRetSize;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        public struct MCI_RECORD_PARAMS
+        {
+            public IntPtr dwCallback;
+            public uint dwFrom;
+            public uint dwTo;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
         public struct MDINEXTMENU
         {
             public IntPtr hmenuIn;

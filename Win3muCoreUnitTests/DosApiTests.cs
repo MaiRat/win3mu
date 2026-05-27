@@ -391,5 +391,124 @@ namespace Win3muCoreUnitTests
 
             Assert.AreEqual((ushort)0, cpu.ax);
         }
+
+        [TestMethod]
+        public void Int21_GetCtrlCCheckFlag_ReturnsZero()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0x33;
+            cpu.al = 0x00;
+
+            dos.DispatchInt21();
+
+            Assert.IsFalse(cpu.FlagC);
+            Assert.AreEqual((byte)0, cpu.dl);
+        }
+
+        [TestMethod]
+        public void Int21_SetCtrlCCheckFlag_SucceedsWithoutError()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0x33;
+            cpu.al = 0x01;
+            cpu.dl = 1;
+
+            dos.DispatchInt21();
+
+            Assert.IsFalse(cpu.FlagC);
+        }
+
+        [TestMethod]
+        public void Int21_GetBootDrive_ReturnsDriveC()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0x33;
+            cpu.al = 0x05;
+
+            dos.DispatchInt21();
+
+            Assert.IsFalse(cpu.FlagC);
+            Assert.AreEqual((byte)3, cpu.dl); // C: drive
+        }
+
+        [TestMethod]
+        public void Int21_GetDiskFreeSpace_ReturnsValidValues()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0x36;
+            cpu.dl = 0; // Default drive
+
+            dos.DispatchInt21();
+
+            Assert.IsFalse(cpu.FlagC);
+            Assert.AreNotEqual((ushort)0xFFFF, cpu.ax); // Not invalid drive
+            Assert.IsTrue(cpu.ax > 0);     // sectors per cluster
+            Assert.IsTrue(cpu.cx > 0);     // bytes per sector
+            Assert.IsTrue(cpu.dx > 0);     // total clusters
+            Assert.IsTrue(cpu.bx > 0);     // available clusters
+        }
+
+        [TestMethod]
+        public void Int21_AllocateMemory_ReturnsInsufficientMemoryError()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0x48;
+            cpu.bx = 0x100; // Request 256 paragraphs
+
+            dos.DispatchInt21();
+
+            Assert.IsTrue(cpu.FlagC);
+            Assert.AreEqual((ushort)0x08, cpu.ax); // Insufficient memory
+        }
+
+        [TestMethod]
+        public void Int21_FreeMemory_SucceedsWithoutError()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0x49;
+            cpu.es = 0x1000;
+
+            dos.DispatchInt21();
+
+            Assert.IsFalse(cpu.FlagC);
+        }
+
+        [TestMethod]
+        public void Int21_ResizeMemoryBlock_SucceedsWithoutError()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0x4A;
+            cpu.es = 0x1000;
+            cpu.bx = 0x200;
+
+            dos.DispatchInt21();
+
+            Assert.IsFalse(cpu.FlagC);
+        }
+
+        [TestMethod]
+        public void Int21_GetFileDateTime_UnopenedFileHandle_SetsCarry()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            // Try to get date/time on an invalid handle
+            cpu.ah = 0x57;
+            cpu.al = 0x00;
+            cpu.bx = 0xFFFF; // Invalid handle
+
+            dos.DispatchInt21();
+
+            // Should set carry for invalid handle
+            Assert.IsTrue(cpu.FlagC);
+        }
+
     }
 }

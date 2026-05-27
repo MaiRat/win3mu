@@ -567,6 +567,31 @@ namespace Win3muCore
                         _cpu.ax = 0x0006;
                         break;
 
+                    case 0x33:
+                    {
+                        // Get/Set System Values (Ctrl-C check flag)
+                        switch (_cpu.al)
+                        {
+                            case 0: // Get Ctrl-C check flag
+                                _cpu.dl = 0; // Ctrl-C checking off
+                                break;
+                            case 1: // Set Ctrl-C check flag
+                                // Silently accept - no effect in emulated environment
+                                break;
+                            case 5: // Get boot drive
+                                _cpu.dl = 3; // C: drive
+                                break;
+                            case 6: // Get true DOS version
+                                _cpu.bx = 0x0006; // Major
+                                _cpu.dx = 0x0000; // Minor, revision
+                                break;
+                            default:
+                                Log.WriteLine("Unsupported Int 21h AH=33h subfunction AL=0x{0:X2}", _cpu.al);
+                                break;
+                        }
+                        break;
+                    }
+
                     case 0x32:
                     {
                         // Get Drive Parameter Block
@@ -617,6 +642,27 @@ namespace Win3muCore
                         _cpu.bx = _cpu.MemoryBus.ReadWord(_cpu.idt, (ushort)(_cpu.al * 4));
                         _cpu.es = _cpu.MemoryBus.ReadWord(_cpu.idt, (ushort)(_cpu.al * 4 + 2));
                         break;
+
+                    case 0x36:
+                    {
+                        // Get Disk Free Space
+                        int drive36 = _cpu.dl == 0 ? _currentDrive : _cpu.dl - 1;
+                        try
+                        {
+                            CheckValidDrive(drive36);
+                            // Return synthetic values for a large drive:
+                            // AX = sectors per cluster, BX = available clusters, CX = bytes per sector, DX = total clusters
+                            _cpu.ax = 8;        // sectors per cluster
+                            _cpu.cx = 512;      // bytes per sector
+                            _cpu.dx = 65535;    // total clusters (max 16-bit = ~256MB)
+                            _cpu.bx = 32768;    // available clusters (~128MB free)
+                        }
+                        catch (DosError)
+                        {
+                            _cpu.ax = 0xFFFF;   // invalid drive
+                        }
+                        break;
+                    }
 
                     case 0x3B:
                         // Set current directory
@@ -697,6 +743,31 @@ namespace Win3muCore
                         break;
                     }
 
+                    case 0x48:
+                    {
+                        // Allocate Memory - in Windows 3.x, memory is managed by Windows
+                        // Return error: insufficient memory (apps should use Windows API instead)
+                        Log.WriteLine("DOS Int 21h/48h: Allocate Memory request (unsupported, returning error)");
+                        _cpu.FlagC = true;
+                        _cpu.ax = 0x08; // Insufficient memory
+                        _cpu.bx = 0;    // Largest available block = 0
+                        break;
+                    }
+
+                    case 0x49:
+                    {
+                        // Free Memory - silently succeed
+                        Log.WriteLine("DOS Int 21h/49h: Free Memory request (no-op in emulated environment)");
+                        break;
+                    }
+
+                    case 0x4A:
+                    {
+                        // Resize Memory Block - silently succeed
+                        Log.WriteLine("DOS Int 21h/4Ah: Resize Memory Block request (no-op in emulated environment)");
+                        break;
+                    }
+
                     case 0x4c:
                         _site.ExitProcess(_cpu.al);
                         break;
@@ -744,6 +815,60 @@ namespace Win3muCore
                         string oldFile = _cpu.MemoryBus.ReadString(_cpu.ds, _cpu.dx);
                         string newFile = _cpu.MemoryBus.ReadString(_cpu.es, _cpu.di);
                         RenameFile(oldFile, newFile);
+                        break;
+                    }
+
+                    case 0x57:
+                    {
+                        // Get/Set File Date and Time
+                        var file57 = FileFromHandle(_cpu.bx);
+                        switch (_cpu.al)
+                        {
+                            case 0:
+                            {
+                                // Get file date and time
+                                DateTime lastWrite;
+                                if (file57 != null && file57.hostFilename != null && System.IO.File.Exists(file57.hostFilename))
+                                    lastWrite = System.IO.File.GetLastWriteTime(file57.hostFilename);
+                                else
+                                    lastWrite = DateTime.Now;
+
+                                // DOS time format: bits 15-11=hours, 10-5=minutes, 4-0=seconds/2
+                                _cpu.cx = (ushort)((lastWrite.Hour << 11) | (lastWrite.Minute << 5) | (lastWrite.Second / 2));
+                                // DOS date format: bits 15-9=year-1980, 8-5=month, 4-0=day
+                                _cpu.dx = (ushort)(((lastWrite.Year - 1980) << 9) | (lastWrite.Month << 5) | lastWrite.Day);
+                                break;
+                            }
+                            case 1:
+                            {
+                                // Set file date and time
+                                if (file57 != null && file57.hostFilename != null && System.IO.File.Exists(file57.hostFilename))
+                                {
+                                    int hour = (_cpu.cx >> 11) & 0x1F;
+                                    int minute = (_cpu.cx >> 5) & 0x3F;
+                                    int second = (_cpu.cx & 0x1F) * 2;
+                                    int year = ((_cpu.dx >> 9) & 0x7F) + 1980;
+                                    int month = (_cpu.dx >> 5) & 0x0F;
+                                    int day = _cpu.dx & 0x1F;
+
+                                    try
+                                    {
+                                        var dt = new DateTime(year, month, day, hour, minute, second);
+                                        System.IO.File.SetLastWriteTime(file57.hostFilename, dt);
+                                    }
+                                    catch (Exception)
+                                    {
+                                        // Silently ignore invalid date/time values
+                                    }
+                                }
+                                break;
+                            }
+                            default:
+                                Log.WriteLine("Unsupported Int 21h AH=57h subfunction AL=0x{0:X2}", _cpu.al);
+                                _cpu.FlagC = true;
+                                _cpu.ax = DosError.FunctionNumberInvalid;
+                                break;
+                        }
                         break;
                     }
 
