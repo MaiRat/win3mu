@@ -473,6 +473,12 @@ namespace Win3muCore
                     return;
                 }
 
+                if (retType == typeof(IntPtr))
+                {
+                    _machine.dxax = unchecked((uint)((IntPtr)retValue).ToInt32());
+                    return;
+                }
+
                 if (MappedTypeAttribute.Is(retType))
                 {
                     var convertMethod = retType.GetMethod("To16");
@@ -647,24 +653,20 @@ namespace Win3muCore
                 }
                 if (pt == typeof(IntPtr))
                 {
-                    if (pi!=null)
-                    {
-                        if (pi.GetCustomAttribute<MustBeNullAttribute>() == null)
-                        {
-                            throw new NotImplementedException("IntPtr parameters must have MustBeNull attribute");
-                        }
-                    }
-
                     var ptrOffset = _machine.ReadWord(_machine.ss, _paramPos);
                     var ptrSeg = _machine.ReadWord(_machine.ss, (ushort)(_paramPos + 2));
                     _paramPos += 4;
 
-                    if (ptrOffset!=0 || ptrSeg!=0)
+                    if (pi != null && pi.GetCustomAttribute<MustBeNullAttribute>() != null)
                     {
-                        throw new NotImplementedException("Non-null IntPtr parameter passed");
+                        if (ptrOffset != 0 || ptrSeg != 0)
+                        {
+                            Log.WriteLine("Non-null IntPtr parameter passed where MustBeNull expected, treating as zero");
+                        }
+                        return IntPtr.Zero;
                     }
 
-                    return IntPtr.Zero;
+                    return BitUtils.DWordToIntPtr(BitUtils.MakeDWord(ptrOffset, ptrSeg));
                 }
                 if (MappedTypeAttribute.Is(pt))
                 {

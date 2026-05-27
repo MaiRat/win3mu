@@ -352,5 +352,44 @@ namespace Win3muCoreUnitTests
             Assert.AreEqual((byte)0xFF, cpu.al);
             Assert.IsFalse(cpu.FlagC);
         }
+
+        [TestMethod]
+        public void Int1A_UnsupportedService_SetsCarryWithoutThrowing()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0x80;
+            cpu.FlagC = false;
+
+            dos.DispatchInt1A();
+
+            Assert.IsTrue(cpu.FlagC);
+        }
+
+        [TestMethod]
+        public void Int21_UnsupportedFunction_SetsCarryAndErrorCodeWithoutThrowing()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0xFE;
+            cpu.FlagC = false;
+
+            dos.DispatchInt21();
+
+            Assert.IsTrue(cpu.FlagC);
+            Assert.AreEqual(DosError.FunctionNumberInvalid, cpu.ax);
+        }
+
+        [TestMethod]
+        public void Int2F_UnsupportedMultiplexService_ReturnsZeroWithoutThrowing()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ax = 0xFF00;
+
+            dos.DispatchInt2f();
+
+            Assert.AreEqual((ushort)0, cpu.ax);
+        }
     }
 }

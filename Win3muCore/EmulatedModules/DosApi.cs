@@ -421,7 +421,9 @@ namespace Win3muCore
                 }
 
                 default:
-                    throw new NotImplementedException(string.Format("Int 1Ah, service {0} not implemented", _cpu.ah));
+                    Log.WriteLine("Int 1Ah, service {0} not implemented - ignored", _cpu.ah);
+                    _cpu.FlagC = true;
+                    break;
 
                     /*
                 case 1:
@@ -797,7 +799,11 @@ namespace Win3muCore
                         throw new DosError(DosError.FunctionNumberInvalid);
 
                     default:
-                        throw new NotImplementedException(string.Format("Unsupported DOS Interrupt - ah=0x{0:X2}", _cpu.ah));
+                        Log.WriteLine("Unsupported DOS Interrupt - ah=0x{0:X2} - ignored", _cpu.ah);
+                        _cpu.FlagC = true;
+                        _cpu.ax = DosError.FunctionNumberInvalid;
+                        _lastError = DosError.FunctionNumberInvalid;
+                        break;
                 }
             }
             catch (DosError x)
@@ -837,7 +843,8 @@ namespace Win3muCore
                     break;
             }
 
-            throw new NotImplementedException(string.Format("Unsupported Multiplex (0x2f) Interrupt - ax=0x{0:X4}", _cpu.ax));
+            Log.WriteLine("Unsupported Multiplex (0x2f) Interrupt - ax=0x{0:X4} - ignored", _cpu.ax);
+            _cpu.ax = 0;
         }
 
 

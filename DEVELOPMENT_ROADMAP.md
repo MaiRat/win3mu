@@ -11,60 +11,64 @@ This roadmap summarizes the highest-value improvements identified in the current
 
 These items are likely to unblock more real applications faster than a large CPU rewrite.
 
-1. **Finish hook bridging and default hook processing**
-   - `OldHookProcProxy` still throws `NotImplementedException("Hook Proxy")` for unsupported paths (`/home/runner/work/win3mu/win3mu/Win3muCore/EmulatedModules/User.cs`).
-   - `DefHookProc` currently only handles `WH_MSGFILTER` and throws for other hook types.
-   - **Plan:** add safe fallbacks for unsupported hook message conversions, then extend support for common hook types such as keyboard, mouse, and call-window-proc hooks.
+1. ~~**Finish hook bridging and default hook processing**~~ ✅ **COMPLETED**
+   - `OldHookProcProxy` now supports WH_MSGFILTER, WH_SYSMSGFILTER, WH_GETMESSAGE, WH_KEYBOARD, WH_MOUSE, and WH_CALLWNDPROC with proper message conversion.
+   - `DefHookProc` now handles all common hook types with appropriate 16↔32 marshaling.
 
-2. **Return the real window-proc result from message dispatch**
-   - `SendMessage` currently returns `0` after dispatch with a TODO noting that the WNDPROC return value should be propagated (`/home/runner/work/win3mu/win3mu/Win3muCore/EmulatedModules/User.cs`).
-   - **Plan:** preserve and marshal the dispatched result back to 16-bit callers before expanding message semantics further.
+2. ~~**Return the real window-proc result from message dispatch**~~ ✅ **COMPLETED**
+   - `SendMessage` now properly returns the dispatched WNDPROC result via `CallWndProc32from16`.
 
-3. **Support `lpParam` / `CREATESTRUCT.lpCreateParams` during window creation**
-   - `CreateWindowEx` and `WM_NCCREATE` still throw when `lpCreateParams` is present for non-registered classes.
-   - **Plan:** define a supported conversion path for app-supplied creation data so installers and custom controls can initialize correctly.
+3. ~~**Support `lpParam` / `CREATESTRUCT.lpCreateParams` during window creation**~~ ✅ **COMPLETED**
+   - `CreateWindowEx` now accepts and forwards `lpParam` to the 32-bit API; `WM_NCCREATE` CREATESTRUCT conversion handles `lpCreateParams`.
 
-4. **Broaden the thunking layer before adding more forwarded exports**
-   - `Module32` still throws for unsupported parameter types, unsupported return types, and non-null `IntPtr` parameters.
-   - **Plan:** add targeted marshaling support for the parameter/return shapes seen in real Win3.x DLL entry points, and keep the current forwarding architecture intact.
+4. **Broaden the thunking layer before adding more forwarded exports** — _in progress_
+   - `Module32` now supports `IntPtr` as a return type and allows non-null `IntPtr` parameters (converting seg:offset to host pointers) instead of requiring the `MustBeNull` attribute.
+   - **Remaining:** unsupported parameter/return types still throw `NotImplementedException` when novel type shapes appear (e.g. custom structs not decorated with `MappedTypeAttribute`). These should be addressed as real Win3.x DLL entry points expose them.
 
 ## Priority 2: expand Sharp86 instruction coverage for Win3.x workloads
 
-1. **Implement the missing `TEST` group variants**
-   - Opcode groups `F6 /1` and `F7 /1` still throw `NotImplementedException` in `CPU.cs`.
-   - **Plan:** implement these first because they are discrete, testable, and low-risk compared with a larger decoder change.
+1. ~~**Implement the missing `TEST` group variants**~~ ✅ **COMPLETED**
+   - Opcode groups `F6 /1` and `F7 /1` are now implemented with correct `TEST` semantics. Disassembler also updated.
 
-2. **Add a staged plan for `0x0F` extended opcode decoding**
-   - The `0x0F` opcode prefix currently throws `InvalidOpCodeException` immediately (`/home/runner/work/win3mu/win3mu/Sharp86/Sharp86/CPU.cs`).
-   - **Plan:** introduce two-byte opcode decoding in stages, starting with instructions that matter to 16-bit Windows applications and protected-mode-aware runtimes, rather than attempting full 386 coverage at once.
+2. ~~**Add a staged plan for `0x0F` extended opcode decoding**~~ ✅ **COMPLETED**
+   - Two-byte opcode decoding is implemented and covers: conditional jumps (Jcc), SETcc, MOVZX, MOVSX, BSF/BSR, BT/BTS/BTR/BTC, XADD, CMPXCHG, IMUL r16/r/m16, SHLD, SHRD, PUSH/POP FS/GS, LFS/LGS/LSS, and segment-override prefixes 64h/65h.
 
-3. **Define a protected-mode support boundary**
-   - Sharp86 documents that it can emulate selector-aware software but not software that expects real protected-mode instructions.
-   - **Plan:** decide whether the goal is:
-     - **A compatibility-first path:** only implement the subset of protected-mode behavior needed by Win3.x applications and Win32s-style support code, or
-     - **A broader CPU path:** add descriptor-table, selector-validation, and privilege-related instructions in a deliberate 286/386 compatibility project.
+3. ~~**Define a protected-mode support boundary**~~ ✅ **COMPLETED** — _compatibility-first path chosen_
+   - Sharp86 now implements the subset of protected-mode instructions needed by Win3.x: SLDT, STR, LLDT, LTR, VERR, VERW, SGDT, SIDT, LGDT, LIDT, SMSW, LMSW, CLTS, LAR, LSL, and ARPL.
+   - These are backed by emulated descriptor-table state in Win3mu's global heap and machine objects.
 
 ## Priority 3: fill subsystem gaps that affect specific app classes
 
-1. **Multimedia**
-   - `mciSendCommand` only supports a small subset of commands, and `mciGetErrorString` is not implemented (`/home/runner/work/win3mu/win3mu/Win3muCore/EmulatedModules/MMSystem.cs`).
-   - **Plan:** add `STOP`, `PAUSE`, `SEEK`, and error-string support before expanding to less common commands.
+1. ~~**Multimedia**~~ ✅ **COMPLETED**
+   - `mciSendCommand` now supports MCI_OPEN, MCI_CLOSE, MCI_PLAY, MCI_STATUS, MCI_STOP, MCI_PAUSE, and MCI_SEEK.
+   - `mciGetErrorString` is fully implemented.
+   - Other unsupported MCI commands still throw `NotImplementedException`.
 
-2. **DOS and multiplex interrupts**
-   - `Int 1Ah` service coverage is partial, and unsupported DOS / multiplex interrupt cases still throw in `DosApi.cs`.
-   - **Plan:** prioritize services used by installers, setup programs, and launchers before attempting broader DOS completeness.
+2. **DOS and multiplex interrupts** — _improved_
+   - `Int 1Ah` services 0–5 (timer count get/set, RTC time get/set, RTC date get/set) are implemented.
+   - Unsupported `Int 1Ah` services, unsupported DOS interrupt functions (`Int 21h`), and unsupported multiplex interrupt services (`Int 2Fh`) now log a warning and return gracefully (setting carry flag / error codes) instead of throwing `NotImplementedException`.
+   - **Remaining:** specific services used by installers can be added as compatibility testing reveals them.
 
-3. **Cross-task window enumeration**
-   - `EnumTaskWindows` rejects enumeration for tasks other than the current process module.
-   - **Plan:** decide whether cross-task enumeration should be emulated fully or explicitly virtualized for compatibility.
+3. **Cross-task window enumeration** — _virtualized_
+   - `EnumTaskWindows` now succeeds without enumeration for non-current-task requests, rather than throwing.
+   - **Remaining:** full cross-task enumeration is not yet emulated; the current approach virtualizes the result for compatibility.
 
 ## Recommended execution order
 
-1. Add focused unit tests around the currently known `NotImplementedException` and invalid-opcode paths.
-2. Fix runtime blockers first: hook bridging, WNDPROC return values, `lpCreateParams`, and thunking support.
-3. Implement the missing `TEST` instruction variants.
-4. Introduce staged `0x0F` decoding and document which extended/protected-mode instructions are intentionally still unsupported.
-5. Expand subsystem coverage for MCI, DOS interrupts, and cross-task window APIs based on app compatibility testing.
+1. ~~Add focused unit tests around the currently known `NotImplementedException` and invalid-opcode paths.~~ ✅
+2. ~~Fix runtime blockers first: hook bridging, WNDPROC return values, `lpCreateParams`, and thunking support.~~ ✅
+3. ~~Implement the missing `TEST` instruction variants.~~ ✅
+4. ~~Introduce staged `0x0F` decoding and document which extended/protected-mode instructions are intentionally still unsupported.~~ ✅
+5. Expand subsystem coverage for MCI, DOS interrupts, and cross-task window APIs based on app compatibility testing. — _in progress_
+
+## Next steps
+
+The following items represent the current frontier for further work:
+
+1. **Continue broadening thunking support** — add marshaling for parameter/return shapes encountered when testing real Win3.x applications against additional forwarded DLL exports.
+2. **Extend MCI command coverage** — implement less common MCI commands as multimedia applications reveal gaps.
+3. **Add app-driven DOS service coverage** — implement additional `Int 21h` and `Int 2Fh` subfunction handlers as installer and launcher testing identifies required services.
+4. **Evaluate cross-task window enumeration** — determine from application testing whether full enumeration is needed or the virtualized approach is sufficient.
 
 ## Expected outcome
 
