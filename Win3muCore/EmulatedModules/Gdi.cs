@@ -808,9 +808,17 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern bool PlayMetaFile(HDC hDC, HENHMETAFILE hMetaFile);
 
-        // 007C - GETMETAFILE
-        // 007D - CREATEMETAFILE
-        // 007E - CLOSEMETAFILE
+        [EntryPoint(0x007C)]
+        [DllImport("gdi32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetMetaFileW")]
+        public static extern HENHMETAFILE GetMetaFile([FileName(false)] string lpszMetaFile);
+
+        [EntryPoint(0x007D)]
+        [DllImport("gdi32.dll", CharSet = CharSet.Unicode, EntryPoint = "CreateMetaFileW")]
+        public static extern HDC CreateMetaFile([FileName(true)] string lpszMetaFile);
+
+        [EntryPoint(0x007E)]
+        [DllImport("gdi32.dll")]
+        public static extern HENHMETAFILE CloseMetaFile([Destroyed] HDC hDC);
 
         [EntryPoint(0x007f)]
         [DllImport("gdi32.dll")]
@@ -862,7 +870,9 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern bool UnrealizeObject(HGDIOBJ hObj);
 
-        // 0097 - COPYMETAFILE
+        [EntryPoint(0x0097)]
+        [DllImport("gdi32.dll", CharSet = CharSet.Unicode, EntryPoint = "CopyMetaFileW")]
+        public static extern HENHMETAFILE CopyMetaFile(HENHMETAFILE hSrcMetaFile, [FileName(true)] string lpszFile);
 
         [EntryPoint(0x0099)]
         [DllImport("gdi32.dll")]
@@ -872,14 +882,45 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern uint GetNearestColor(HDC hDC, uint color);
 
-        // 009B - QUERYABORT
+        [EntryPoint(0x009B)]
+        public int QueryAbort(HDC hDC, nint reserved)
+        {
+            if (_abortProcs.TryGetValue(hDC.value, out var abortProc))
+                return abortProc(hDC.value, 0);
+
+            return 1;
+        }
 
         [EntryPoint(0x009c)]
         [DllImport("gdi32.dll")]
         public static extern HGDIOBJ CreateDiscardableBitmap(HDC hDC, nint width, nint height);
 
-        // 009F - GETMETAFILEBITS
- 
+        [DllImport("gdi32.dll", EntryPoint = "GetMetaFileBitsEx")]
+        static extern uint _GetMetaFileBitsEx(HENHMETAFILE hMetaFile, uint cbBuffer, IntPtr pBuffer);
+
+        [EntryPoint(0x009F)]
+        public ushort GetMetaFileBits(HENHMETAFILE hMetaFile)
+        {
+            if (hMetaFile.value == IntPtr.Zero)
+                return 0;
+
+            uint size = _GetMetaFileBitsEx(hMetaFile, 0, IntPtr.Zero);
+            if (size == 0)
+                return 0;
+
+            ushort handle = _machine.GlobalHeap.Alloc("MetaFileBits", 0, size);
+            using (var hp = _machine.GlobalHeap.GetHeapPointer(BitUtils.MakeDWord(0, handle), true))
+            {
+                if (_GetMetaFileBitsEx(hMetaFile, size, hp) == 0)
+                {
+                    _machine.GlobalHeap.Free(handle);
+                    return 0;
+                }
+            }
+
+            return handle;
+        }
+
         [DllImport("gdi32.dll")]
         public static extern IntPtr SetMetaFileBitsEx(uint cbBuffer, IntPtr pBuffer);
 
@@ -937,7 +978,11 @@ namespace Win3muCore
         // 00C1 - SETBOUNDSRECT
         // 00C2 - GETBOUNDSRECT
         // 00C3 - SELECTBITMAP
-        // 00C4 - SETMETAFILEBITSBETTER
+        [EntryPoint(0x00C4)]
+        public ushort SetMetaFileBitsBetter(ushort handle)
+        {
+            return SetMetaFileBits(handle);
+        }
         // 00C9 - DMBITBLT
         // 00CA - DMCOLORINFO
         // 00CE - DMENUMDFONTS
@@ -1223,7 +1268,11 @@ namespace Win3muCore
         // 0195 - FINALGDIINIT
         // 0197 - CREATEUSERBITMAP
         // 0199 - CREATEUSERDISCARDABLEBITMAP
-        // 019A - ISVALIDMETAFILE
+        [EntryPoint(0x019A)]
+        public bool IsValidMetaFile(HENHMETAFILE hMetaFile)
+        {
+            return hMetaFile.value != IntPtr.Zero;
+        }
         // 019B - GETCURLOGFONT
         // 019C - ISDCCURRENTPALETTE
 

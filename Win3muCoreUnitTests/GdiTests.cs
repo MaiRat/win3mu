@@ -17,10 +17,10 @@ namespace Win3muCoreUnitTests
                 new ushort[]
                 {
                     0x0006, 0x0008, 0x000A, 0x001A, 0x0020, 0x0026, 0x0031, 0x0036, 0x0037, 0x003F, 0x0041, 0x0048,
-                    0x0065, 0x0069, 0x0086, 0x00A1, 0x00AD, 0x00B5,
+                    0x0065, 0x0069, 0x007C, 0x007D, 0x007E, 0x0086, 0x0097, 0x009B, 0x009F, 0x00A1, 0x00AD, 0x00B5, 0x00C4,
                     0x0169, 0x016A, 0x016B, 0x016C, 0x016D, 0x016E,
                     0x016F, 0x0170, 0x0172, 0x0175, 0x0176,
-                    0x0179, 0x017A, 0x017B, 0x017C, 0x017D, 0x017E, 0x0174,
+                    0x0179, 0x017A, 0x017B, 0x017C, 0x017D, 0x017E, 0x0174, 0x019A,
                     0x01B8, 0x01B9, 0x01BC, 0x01C2
                 },
                 exports);
@@ -45,10 +45,17 @@ namespace Win3muCoreUnitTests
             Assert.AreEqual("EqualRgn", gdi.GetNameFromOrdinal(0x0048));
             Assert.AreEqual("OffsetRgn", gdi.GetNameFromOrdinal(0x0065));
             Assert.AreEqual("SelectVisRgn", gdi.GetNameFromOrdinal(0x0069));
+            Assert.AreEqual("GetMetaFile", gdi.GetNameFromOrdinal(0x007C));
+            Assert.AreEqual("CreateMetaFile", gdi.GetNameFromOrdinal(0x007D));
+            Assert.AreEqual("CloseMetaFile", gdi.GetNameFromOrdinal(0x007E));
             Assert.AreEqual("GetRgnBox", gdi.GetNameFromOrdinal(0x0086));
+            Assert.AreEqual("CopyMetaFile", gdi.GetNameFromOrdinal(0x0097));
+            Assert.AreEqual("QueryAbort", gdi.GetNameFromOrdinal(0x009B));
+            Assert.AreEqual("GetMetaFileBits", gdi.GetNameFromOrdinal(0x009F));
             Assert.AreEqual("PtInRegion", gdi.GetNameFromOrdinal(0x00A1));
             Assert.AreEqual("GetClipRgn", gdi.GetNameFromOrdinal(0x00AD));
             Assert.AreEqual("RectInRegion", gdi.GetNameFromOrdinal(0x00B5));
+            Assert.AreEqual("SetMetaFileBitsBetter", gdi.GetNameFromOrdinal(0x00C4));
             Assert.AreEqual("SelectPalette", gdi.GetNameFromOrdinal(0x0169));
             Assert.AreEqual("RealizePalette", gdi.GetNameFromOrdinal(0x016A));
             Assert.AreEqual("GetPaletteEntries", gdi.GetNameFromOrdinal(0x016B));
@@ -67,6 +74,7 @@ namespace Win3muCoreUnitTests
             Assert.AreEqual("EndPage", gdi.GetNameFromOrdinal(0x017C));
             Assert.AreEqual("SetAbortProc", gdi.GetNameFromOrdinal(0x017D));
             Assert.AreEqual("AbortDoc", gdi.GetNameFromOrdinal(0x017E));
+            Assert.AreEqual("IsValidMetaFile", gdi.GetNameFromOrdinal(0x019A));
             Assert.AreEqual("SetDIBits", gdi.GetNameFromOrdinal(0x01B8));
             Assert.AreEqual("GetDIBits", gdi.GetNameFromOrdinal(0x01B9));
             Assert.AreEqual("CreateRoundRectRgn", gdi.GetNameFromOrdinal(0x01BC));

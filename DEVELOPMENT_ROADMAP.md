@@ -181,11 +181,12 @@ The following items represent the current frontier for further work:
    - Matching USER exports (ordinals `00C8`-`00D7` and `00F5`) now forward to the same stubbed comm state, avoiding unsupported-ordinal crashes for applications that import the older USER entry points directly.
    - `BuildCommDCB` now parses classic serial specs such as `COM1:96,n,8,1` into a Win16-compatible DCB structure, and `Get/SetCommState` round-trip that state.
 3. **Expand GDI coverage** — _expanded_
-    - Added additional classic drawing/bitmap exports for `SetPolyFillMode`, `SetTextCharacterExtra`, `SetTextJustification`, `Pie`, `CreateBitmapIndirect`, `SetDIBits`, `GetDIBits`, and `PolyPolygon`.
-    - Added region/drawing exports for `OffsetClipRgn`, `CreateEllipticRgn`, `CreateEllipticRgnIndirect`, `CreatePolygonRgn`, `CreateRectRgnIndirect`, `EqualRgn`, `OffsetRgn`, `SelectVisRgn`, `GetRgnBox`, `PtInRegion`, `GetClipRgn`, `RectInRegion`, `ExtFloodFill`, and `CreateRoundRectRgn`.
-    - Added palette exports for `SelectPalette`, `RealizePalette`, `GetPaletteEntries`, `SetPaletteEntries`, `RealizeDefaultPalette`, `UpdateColors`, `AnimatePalette`, `ResizePalette`, `GetNearestPaletteIndex`, `SetSystemPaletteUse`, and `GetSystemPaletteUse`.
-    - Added printer/path exports for `Escape`, `StartDoc`, `EndDoc`, `StartPage`, `EndPage`, `SetAbortProc`, and `AbortDoc`, with 16-bit `DOCINFO` marshaling and abort-proc callback bridging.
-    - **Remaining:** additional metafile and printer-driver-specific GDI exports can be added as application compatibility testing reveals specific gaps.
+   - Added additional classic drawing/bitmap exports for `SetPolyFillMode`, `SetTextCharacterExtra`, `SetTextJustification`, `Pie`, `CreateBitmapIndirect`, `SetDIBits`, `GetDIBits`, and `PolyPolygon`.
+   - Added region/drawing exports for `OffsetClipRgn`, `CreateEllipticRgn`, `CreateEllipticRgnIndirect`, `CreatePolygonRgn`, `CreateRectRgnIndirect`, `EqualRgn`, `OffsetRgn`, `SelectVisRgn`, `GetRgnBox`, `PtInRegion`, `GetClipRgn`, `RectInRegion`, `ExtFloodFill`, and `CreateRoundRectRgn`.
+   - Added classic metafile exports for `GetMetaFile`, `CreateMetaFile`, `CloseMetaFile`, `CopyMetaFile`, `GetMetaFileBits`, `SetMetaFileBitsBetter`, and `IsValidMetaFile`, plus print-abort helper `QueryAbort`.
+   - Added palette exports for `SelectPalette`, `RealizePalette`, `GetPaletteEntries`, `SetPaletteEntries`, `RealizeDefaultPalette`, `UpdateColors`, `AnimatePalette`, `ResizePalette`, `GetNearestPaletteIndex`, `SetSystemPaletteUse`, and `GetSystemPaletteUse`.
+   - Added printer/path exports for `Escape`, `StartDoc`, `EndDoc`, `StartPage`, `EndPage`, `SetAbortProc`, and `AbortDoc`, with 16-bit `DOCINFO` marshaling and abort-proc callback bridging.
+   - **Remaining:** metafile enumeration/record playback helpers and additional printer-driver-specific GDI exports can be added as application compatibility testing reveals specific gaps.
 4. ~~**Implement functional DDE string handles**~~ ✅ **COMPLETED**
    - `DdeCreateStringHandle` now maintains a real `(string, codepage)`→handle table with reference counting, allowing duplicate creates to reuse the same HSZ.
    - `DdeQueryString`, `DdeKeepStringHandle`, `DdeFreeStringHandle`, and `DdeCmpStringHandles` now operate on the stored string values instead of dummy incrementing handles.
