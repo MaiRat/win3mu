@@ -174,7 +174,9 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern uint SetPixel(HDC hDC, nint x, nint y, uint color);
 
-        // 0020 - OFFSETCLIPRGN
+        [EntryPoint(0x0020)]
+        [DllImport("gdi32.dll")]
+        public static extern nint OffsetClipRgn(HDC hDC, nint x, nint y);
 
         [DllImport("gdi32.dll")]
         public static extern bool TextOut(HDC hDC, int x, int y, string str, int length);
@@ -321,8 +323,19 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern HDC CreateDC(string lpszDriver, string lpszDevice, string lpszOutput, [MustBeNull] IntPtr lpdvmInit);
 
-        // 0036 - CREATEELLIPTICRGN
-        // 0037 - CREATEELLIPTICRGNINDIRECT
+        [EntryPoint(0x0036)]
+        [DllImport("gdi32.dll")]
+        public static extern HGDIOBJ CreateEllipticRgn(nint left, nint top, nint right, nint bottom);
+
+        [DllImport("gdi32.dll")]
+        static extern HGDIOBJ CreateEllipticRgnIndirect(ref Win32.RECT rc);
+
+        [EntryPoint(0x0037)]
+        public HGDIOBJ CreateEllipticRgnIndirect(ref Win16.RECT rc)
+        {
+            var rc32 = rc.Convert();
+            return CreateEllipticRgnIndirect(ref rc32);
+        }
 
         [DllImport("gdi32.dll", EntryPoint = "CreateFontW", CharSet = CharSet.Unicode)]
         public static extern HGDIOBJ _CreateFont(int nHeight, int nWidth, int nEscapement, int nOrientation, int fnWeight,
@@ -359,13 +372,34 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern HGDIOBJ CreatePenIndirect(ref Win32.LOGPEN lp);
 
-        // 003F - CREATEPOLYGONRGN
+        [DllImport("gdi32.dll")]
+        static extern HGDIOBJ CreatePolygonRgn(Win32.POINT[] lppt, int cPoints, int fnPolyFillMode);
+
+        [EntryPoint(0x003F)]
+        public HGDIOBJ CreatePolygonRgn(uint ppts, nint count, nint fillMode)
+        {
+            var pts = new Win32.POINT[count];
+            for (int i = 0; i < count; i++)
+            {
+                pts[i] = _machine.ReadStruct<Win16.POINT>((uint)(ppts + i * Marshal.SizeOf<Win16.POINT>())).Convert();
+            }
+
+            return CreatePolygonRgn(pts, count, fillMode);
+        }
 
         [EntryPoint(0x0040)]
         [DllImport("gdi32.dll")]
         public static extern HGDIOBJ CreateRectRgn(nint left, nint top, nint right, nint bottom);
 
-        // 0041 - CREATERECTRGNINDIRECT
+        [DllImport("gdi32.dll")]
+        static extern HGDIOBJ CreateRectRgnIndirect(ref Win32.RECT rc);
+
+        [EntryPoint(0x0041)]
+        public HGDIOBJ CreateRectRgnIndirect(ref Win16.RECT rc)
+        {
+            var rc32 = rc.Convert();
+            return CreateRectRgnIndirect(ref rc32);
+        }
 
         [EntryPoint(0x0042)]
         [DllImport("gdi32.dll")]
@@ -437,7 +471,9 @@ namespace Win3muCore
         }
 
         // 0047 - ENUMOBJECTS
-        // 0048 - EQUALRGN
+        [EntryPoint(0x0048)]
+        [DllImport("gdi32.dll")]
+        public static extern bool EqualRgn(HGDIOBJ hRgn1, HGDIOBJ hRgn2);
         // 0049 - EXCLUDEVISRECT
 
         [DllImport("gdi32.dll")]
@@ -708,7 +744,10 @@ namespace Win3muCore
             }, IntPtr.Zero);
         }
 
-        // 0065 - OFFSETRGN
+        [EntryPoint(0x0065)]
+        [DllImport("gdi32.dll")]
+        public static extern nint OffsetRgn(HGDIOBJ hRgn, nint x, nint y);
+
         // 0066 - OFFSETVISRGN
 
         [EntryPoint(0x0067)]
@@ -719,7 +758,9 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern bool RectVisible(HDC hDC, ref Win32.RECT rc);
 
-        // 0069 - SELECTVISRGN
+        [EntryPoint(0x0069)]
+        [DllImport("gdi32.dll")]
+        public static extern nint SelectVisRgn(HDC hDC, HGDIOBJ hRgn);
         // 006A - SETBITMAPBITS
         // 0075 - SETDCORG
         // 0077 - ADDFONTRESOURCE
@@ -749,7 +790,18 @@ namespace Win3muCore
         // 0083 - INQUIREVISRGN
         // 0084 - SETENVIRONMENT
         // 0085 - GETENVIRONMENT
-        // 0086 - GETRGNBOX
+        [DllImport("gdi32.dll")]
+        static extern nint GetRgnBox(HGDIOBJ hRgn, out Win32.RECT rc);
+
+        [EntryPoint(0x0086)]
+        public nint GetRgnBox(HGDIOBJ hRgn, uint pRect)
+        {
+            Win32.RECT rc;
+            var retv = GetRgnBox(hRgn, out rc);
+            if (pRect != 0)
+                _machine.WriteStruct(pRect, rc.Convert());
+            return retv;
+        }
         // 0087 - SCANLR
         // 0088 - REMOVEFONTRESOURCE
 
@@ -811,7 +863,10 @@ namespace Win3muCore
             return HENHMETAFILE.To16(hEnhMetaFile);
         }
 
-        // 00A1 - PTINREGION
+        [EntryPoint(0x00A1)]
+        [DllImport("gdi32.dll")]
+        public static extern bool PtInRegion(HGDIOBJ hRgn, nint x, nint y);
+
         // 00A2 - GETBITMAPDIMENSION
         // 00A3 - SETBITMAPDIMENSION
         // 00A9 - ISDCDIRTY
@@ -823,12 +878,22 @@ namespace Win3muCore
         public static extern void SetRectRgn(HGDIOBJ hRgn, nint l, nint t, nint r, nint b);
 
 
-        // 00AD - GETCLIPRGN
+        [EntryPoint(0x00AD)]
+        [DllImport("gdi32.dll")]
+        public static extern nint GetClipRgn(HDC hDC, HGDIOBJ hRgn);
         // 00AF - ENUMMETAFILE
         // 00B0 - PLAYMETAFILERECORD
         // 00B3 - GETDCSTATE
         // 00B4 - SETDCSTATE
-        // 00B5 - RECTINREGION
+        [DllImport("gdi32.dll")]
+        static extern bool RectInRegion(HGDIOBJ hRgn, ref Win32.RECT rc);
+
+        [EntryPoint(0x00B5)]
+        public bool RectInRegion(HGDIOBJ hRgn, ref Win16.RECT rc)
+        {
+            var rc32 = rc.Convert();
+            return RectInRegion(hRgn, ref rc32);
+        }
         // 00BE - SETDCHOOK
         // 00BF - GETDCHOOK
         // 00C0 - SETHOOKFLAGS
@@ -966,7 +1031,9 @@ namespace Win3muCore
         // 016F - ANIMATEPALETTE
         // 0170 - RESIZEPALETTE
         // 0172 - GETNEARESTPALETTEINDEX
-        // 0174 - EXTFLOODFILL
+        [EntryPoint(0x0174)]
+        [DllImport("gdi32.dll")]
+        public static extern bool ExtFloodFill(HDC hDC, nint x, nint y, uint color, nuint fillType);
         // 0175 - SETSYSTEMPALETTEUSE
         // 0176 - GETSYSTEMPALETTEUSE
 
@@ -1058,7 +1125,9 @@ namespace Win3muCore
         }
 
 
-        // 01BC - CREATEROUNDRECTRGN
+        [EntryPoint(0x01BC)]
+        [DllImport("gdi32.dll")]
+        public static extern HGDIOBJ CreateRoundRectRgn(nint left, nint top, nint right, nint bottom, nint widthEllipse, nint heightEllipse);
         // 01BD - CREATEDIBPATTERNBRUSH
         // 01C1 - DEVICECOLORMATCH
         // 01C2 - POLYPOLYGON

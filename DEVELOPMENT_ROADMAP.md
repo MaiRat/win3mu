@@ -177,7 +177,9 @@ The following items represent the current frontier for further work:
    - `COMM.DRV` now implements the standard 16 serial communication exports (`OpenComm`, `SetCommState`, `GetCommState`, `GetCommError`, `ReadComm`, `WriteComm`, `TransmitCommChar`, `CloseComm`, `SetCommEventMask`, `GetCommEventMask`, `SetCommBreak`, `ClearCommBreak`, `UngetCommChar`, `BuildCommDCB`, `EscapeCommFunction`, `FlushComm`) with compatibility-first in-memory behavior.
    - Matching USER exports (ordinals `00C8`-`00D7` and `00F5`) now forward to the same stubbed comm state, avoiding unsupported-ordinal crashes for applications that import the older USER entry points directly.
    - `BuildCommDCB` now parses classic serial specs such as `COM1:96,n,8,1` into a Win16-compatible DCB structure, and `Get/SetCommState` round-trip that state.
-3. **Expand GDI coverage** — implement remaining GDI stubs for less common drawing/region/metafile operations encountered during app testing.
+3. **Expand GDI coverage** — _expanded_
+   - Added region/drawing exports for `OffsetClipRgn`, `CreateEllipticRgn`, `CreateEllipticRgnIndirect`, `CreatePolygonRgn`, `CreateRectRgnIndirect`, `EqualRgn`, `OffsetRgn`, `SelectVisRgn`, `GetRgnBox`, `PtInRegion`, `GetClipRgn`, `RectInRegion`, `ExtFloodFill`, and `CreateRoundRectRgn`.
+   - **Remaining:** additional metafile, palette, and printer-era GDI exports can be added as application compatibility testing reveals specific gaps.
 4. ~~**Implement functional DDE string handles**~~ ✅ **COMPLETED**
    - `DdeCreateStringHandle` now maintains a real `(string, codepage)`→handle table with reference counting, allowing duplicate creates to reuse the same HSZ.
    - `DdeQueryString`, `DdeKeepStringHandle`, `DdeFreeStringHandle`, and `DdeCmpStringHandles` now operate on the stored string values instead of dummy incrementing handles.
