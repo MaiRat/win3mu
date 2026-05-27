@@ -16,10 +16,11 @@ namespace Win3muCoreUnitTests
             CollectionAssert.IsSubsetOf(
                 new ushort[]
                 {
-                    0x0020, 0x0036, 0x0037, 0x003F, 0x0041, 0x0048,
+                    0x0020, 0x0026, 0x0036, 0x0037, 0x003F, 0x0041, 0x0048,
                     0x0065, 0x0069, 0x0086, 0x00A1, 0x00AD, 0x00B5,
                     0x0169, 0x016A, 0x016B, 0x016C, 0x016D, 0x016E,
                     0x016F, 0x0170, 0x0172, 0x0175, 0x0176,
+                    0x0179, 0x017A, 0x017B, 0x017C, 0x017D, 0x017E,
                     0x0174, 0x01BC
                 },
                 exports);
@@ -31,6 +32,7 @@ namespace Win3muCoreUnitTests
             var gdi = new Gdi();
 
             Assert.AreEqual("OffsetClipRgn", gdi.GetNameFromOrdinal(0x0020));
+            Assert.AreEqual("Escape", gdi.GetNameFromOrdinal(0x0026));
             Assert.AreEqual("CreateEllipticRgn", gdi.GetNameFromOrdinal(0x0036));
             Assert.AreEqual("CreateEllipticRgnIndirect", gdi.GetNameFromOrdinal(0x0037));
             Assert.AreEqual("CreatePolygonRgn", gdi.GetNameFromOrdinal(0x003F));
@@ -54,6 +56,12 @@ namespace Win3muCoreUnitTests
             Assert.AreEqual("ExtFloodFill", gdi.GetNameFromOrdinal(0x0174));
             Assert.AreEqual("SetSystemPaletteUse", gdi.GetNameFromOrdinal(0x0175));
             Assert.AreEqual("GetSystemPaletteUse", gdi.GetNameFromOrdinal(0x0176));
+            Assert.AreEqual("StartDoc", gdi.GetNameFromOrdinal(0x0179));
+            Assert.AreEqual("EndDoc", gdi.GetNameFromOrdinal(0x017A));
+            Assert.AreEqual("StartPage", gdi.GetNameFromOrdinal(0x017B));
+            Assert.AreEqual("EndPage", gdi.GetNameFromOrdinal(0x017C));
+            Assert.AreEqual("SetAbortProc", gdi.GetNameFromOrdinal(0x017D));
+            Assert.AreEqual("AbortDoc", gdi.GetNameFromOrdinal(0x017E));
             Assert.AreEqual("CreateRoundRectRgn", gdi.GetNameFromOrdinal(0x01BC));
         }
     }

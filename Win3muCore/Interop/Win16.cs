@@ -901,6 +901,14 @@ namespace Win3muCore
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        public struct DOCINFO
+        {
+            public short cbSize;
+            public uint lpszDocName;
+            public uint lpszOutput;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
         public struct MDINEXTMENU
         {
             public ushort hmenuIn;

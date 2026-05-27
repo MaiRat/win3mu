@@ -29,6 +29,10 @@ namespace Win3muCore
     [Module("GDI", @"C:\WINDOWS\SYSTEM\GDI.EXE")]
     public class Gdi : Module32
     {
+        delegate int ABORTPROC(IntPtr hdc, int code);
+
+        readonly Dictionary<IntPtr, ABORTPROC> _abortProcs = new Dictionary<IntPtr, ABORTPROC>();
+
         [EntryPoint(0x0001)]
         [DllImport("gdi32.dll")]
         public static extern uint SetBkColor(HDC hDC, uint colorref);
@@ -241,7 +245,18 @@ namespace Win3muCore
             return Polyline(hDC, pts, nCount);
         }
 
-        // 0026 - ESCAPE
+        [DllImport("gdi32.dll", EntryPoint = "Escape")]
+        static extern int _Escape(IntPtr hDC, int escape, int cbInput, IntPtr lpInData, IntPtr lpOutData);
+
+        [EntryPoint(0x0026)]
+        public int Escape(HDC hDC, short escape, short cbInput, uint lpInData, uint lpOutData)
+        {
+            using (var hpIn = _machine.GlobalHeap.GetHeapPointer(lpInData, false))
+            using (var hpOut = _machine.GlobalHeap.GetHeapPointer(lpOutData, true))
+            {
+                return _Escape(hDC.value, escape, cbInput, hpIn, hpOut);
+            }
+        }
 
         [EntryPoint(0x0027)]
         [DllImport("gdi32.dll")]
@@ -1113,12 +1128,73 @@ namespace Win3muCore
         }
 
         // 0178 - RESETDC
-        // 0179 - STARTDOC
-        // 017A - ENDDOC
-        // 017B - STARTPAGE
-        // 017C - ENDPAGE
-        // 017D - SETABORTPROC
-        // 017E - ABORTDOC
+        [DllImport("gdi32.dll", CharSet = CharSet.Unicode, EntryPoint = "StartDocW")]
+        static extern int _StartDoc(IntPtr hDC, ref Win32.DOCINFO lpdi);
+
+        [EntryPoint(0x0179)]
+        public int StartDoc(HDC hDC, uint lpDocInfo)
+        {
+            if (lpDocInfo == 0)
+                return 0;
+
+            var docInfo16 = _machine.ReadStruct<Win16.DOCINFO>(lpDocInfo);
+            using (var ctx = new TempContext(_machine))
+            {
+                var docInfo32 = new Win32.DOCINFO()
+                {
+                    cbSize = Marshal.SizeOf<Win32.DOCINFO>(),
+                    lpszDocName = docInfo16.lpszDocName != 0 ? ctx.AllocUnmanagedString(_machine.ReadString(docInfo16.lpszDocName)) : IntPtr.Zero,
+                    lpszOutput = docInfo16.lpszOutput != 0 ? ctx.AllocUnmanagedString(_machine.ReadString(docInfo16.lpszOutput)) : IntPtr.Zero,
+                };
+                return _StartDoc(hDC.value, ref docInfo32);
+            }
+        }
+
+        [EntryPoint(0x017A)]
+        [DllImport("gdi32.dll")]
+        public static extern int EndDoc(HDC hDC);
+
+        [EntryPoint(0x017B)]
+        [DllImport("gdi32.dll")]
+        public static extern int StartPage(HDC hDC);
+
+        [EntryPoint(0x017C)]
+        [DllImport("gdi32.dll")]
+        public static extern int EndPage(HDC hDC);
+
+        [DllImport("gdi32.dll", EntryPoint = "SetAbortProc")]
+        static extern int _SetAbortProc(IntPtr hDC, ABORTPROC lpAbortProc);
+
+        [EntryPoint(0x017D)]
+        public int SetAbortProc(HDC hDC, uint lpAbortProc)
+        {
+            ABORTPROC abortProc32 = null;
+            if (lpAbortProc != 0)
+            {
+                abortProc32 = (hdc, code) =>
+                {
+                    _machine.PushWord(HDC.To16(hdc));
+                    _machine.PushWord((ushort)(short)code);
+                    _machine.CallVM(lpAbortProc, "AbortProc");
+                    return (short)_machine.ax;
+                };
+            }
+
+            int retv = _SetAbortProc(hDC.value, abortProc32);
+            if (retv > 0)
+            {
+                if (abortProc32 != null)
+                    _abortProcs[hDC.value] = abortProc32;
+                else
+                    _abortProcs.Remove(hDC.value);
+            }
+            return retv;
+        }
+
+        [EntryPoint(0x017E)]
+        [DllImport("gdi32.dll")]
+        public static extern int AbortDoc(HDC hDC);
+
         // 0190 - FASTWINDOWFRAME
         // 0191 - GDIMOVEBITMAP
         // 0193 - GDIINIT2

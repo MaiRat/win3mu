@@ -920,6 +920,16 @@ namespace Win3muCore
             public uint wDeviceType;
         }
 
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        public struct DOCINFO
+        {
+            public int cbSize;
+            public IntPtr lpszDocName;
+            public IntPtr lpszOutput;
+            public IntPtr lpszDatatype;
+            public uint fwType;
+        }
+
         [StructLayout(LayoutKind.Sequential, Pack = 4)]
         public struct MDINEXTMENU
         {

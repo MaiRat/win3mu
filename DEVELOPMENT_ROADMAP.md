@@ -183,7 +183,8 @@ The following items represent the current frontier for further work:
 3. **Expand GDI coverage** — _expanded_
     - Added region/drawing exports for `OffsetClipRgn`, `CreateEllipticRgn`, `CreateEllipticRgnIndirect`, `CreatePolygonRgn`, `CreateRectRgnIndirect`, `EqualRgn`, `OffsetRgn`, `SelectVisRgn`, `GetRgnBox`, `PtInRegion`, `GetClipRgn`, `RectInRegion`, `ExtFloodFill`, and `CreateRoundRectRgn`.
     - Added palette exports for `SelectPalette`, `RealizePalette`, `GetPaletteEntries`, `SetPaletteEntries`, `RealizeDefaultPalette`, `UpdateColors`, `AnimatePalette`, `ResizePalette`, `GetNearestPaletteIndex`, `SetSystemPaletteUse`, and `GetSystemPaletteUse`.
-    - **Remaining:** additional metafile and printer-era GDI exports can be added as application compatibility testing reveals specific gaps.
+    - Added printer/path exports for `Escape`, `StartDoc`, `EndDoc`, `StartPage`, `EndPage`, `SetAbortProc`, and `AbortDoc`, with 16-bit `DOCINFO` marshaling and abort-proc callback bridging.
+    - **Remaining:** additional metafile and printer-driver-specific GDI exports can be added as application compatibility testing reveals specific gaps.
 4. ~~**Implement functional DDE string handles**~~ ✅ **COMPLETED**
    - `DdeCreateStringHandle` now maintains a real `(string, codepage)`→handle table with reference counting, allowing duplicate creates to reuse the same HSZ.
    - `DdeQueryString`, `DdeKeepStringHandle`, `DdeFreeStringHandle`, and `DdeCmpStringHandles` now operate on the stored string values instead of dummy incrementing handles.
