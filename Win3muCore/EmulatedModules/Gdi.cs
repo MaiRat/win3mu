@@ -51,19 +51,26 @@ namespace Win3muCore
 
 
         // 0005 - SETRELABS
-        // 0006 - SETPOLYFILLMODE
+
+        [EntryPoint(0x0006)]
+        [DllImport("gdi32.dll")]
+        public static extern nint SetPolyFillMode(HDC hDC, nint mode);
 
         [EntryPoint(0x0007)]
         [DllImport("gdi32.dll")]
         public static extern nint SetStretchBltMode(HDC hDC, nint mode);
 
-        // 0008 - SETTEXTCHARACTEREXTRA
+        [EntryPoint(0x0008)]
+        [DllImport("gdi32.dll")]
+        public static extern nint SetTextCharacterExtra(HDC hDC, nint extra);
 
         [EntryPoint(0x0009)]
         [DllImport("gdi32.dll")]
         public static extern uint SetTextColor(HDC hDC, uint color);
 
-        // 000A - SETTEXTJUSTIFICATION
+        [EntryPoint(0x000A)]
+        [DllImport("gdi32.dll")]
+        public static extern bool SetTextJustification(HDC hDC, nint extra, nint count);
 
         [DllImport("gdi32.dll")]
         public static extern bool SetWindowOrgEx(HDC hDC, int x, int y, out Win32.SIZE size);
@@ -156,7 +163,10 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern bool FloodFill(HDC hDC, nint x, nint y, uint colorRef);
 
-        // 001A - PIE
+        [EntryPoint(0x001A)]
+        [DllImport("gdi32.dll", EntryPoint = "Pie")]
+        public static extern bool Pie(HDC hDC, nint left, nint top, nint right, nint bottom,
+                                                    nint xr1, nint yr1, nint xr2, nint yr2);
 
         [EntryPoint(0x001b)]
         [DllImport("gdi32.dll")]
@@ -302,7 +312,19 @@ namespace Win3muCore
             }
         }
 
-        // 0031 - CREATEBITMAPINDIRECT
+        [DllImport("gdi32.dll")]
+        static extern HGDIOBJ CreateBitmapIndirect(ref Win32.BITMAP bitmap);
+
+        [EntryPoint(0x0031)]
+        public HGDIOBJ CreateBitmapIndirect(ref Win16.BITMAP bitmap)
+        {
+            var bitmap32 = Win32.BITMAP.To32(bitmap);
+            using (var hpBits = _machine.GlobalHeap.GetHeapPointer(bitmap.bmBits, false))
+            {
+                bitmap32.bmBits = hpBits;
+                return CreateBitmapIndirect(ref bitmap32);
+            }
+        }
 
         [EntryPoint(0x0032)]
         public HGDIOBJ CreateBrushIndirect(ref Win16.LOGBRUSH brush)
@@ -1227,8 +1249,31 @@ namespace Win3muCore
             }
         }
 
-        // 01B8 - SETDIBITS
-        // 01B9 - GETDIBITS
+        [DllImport("gdi32.dll")]
+        public static extern int SetDIBits(HDC hDC, HGDIOBJ hBitmap, uint startScan, uint scanLines, IntPtr bits, IntPtr bitsInfo, uint usage);
+
+        [EntryPoint(0x01B8)]
+        public nint SetDIBits(HDC hDC, HGDIOBJ hBitmap, nuint startScan, nuint scanLines, uint bits, uint bitsInfo, nuint usage)
+        {
+            using (var hpBits = _machine.GlobalHeap.GetHeapPointer(bits, false))
+            using (var hpBitsInfo = _machine.GlobalHeap.GetHeapPointer(bitsInfo, false))
+            {
+                return SetDIBits(hDC, hBitmap, startScan, scanLines, hpBits, hpBitsInfo, usage);
+            }
+        }
+
+        [DllImport("gdi32.dll")]
+        public static extern int GetDIBits(HDC hDC, HGDIOBJ hBitmap, uint startScan, uint scanLines, IntPtr bits, IntPtr bitsInfo, uint usage);
+
+        [EntryPoint(0x01B9)]
+        public nint GetDIBits(HDC hDC, HGDIOBJ hBitmap, nuint startScan, nuint scanLines, uint bits, uint bitsInfo, nuint usage)
+        {
+            using (var hpBits = _machine.GlobalHeap.GetHeapPointer(bits, true))
+            using (var hpBitsInfo = _machine.GlobalHeap.GetHeapPointer(bitsInfo, true))
+            {
+                return GetDIBits(hDC, hBitmap, startScan, scanLines, hpBits, hpBitsInfo, usage);
+            }
+        }
 
         [DllImport("gdi32.dll")]
         public static extern HGDIOBJ CreateDIBitmap(HDC hdc, IntPtr lpbmih, uint fdwInit, IntPtr lpbInit, IntPtr lpbmi, uint fuUsage);
@@ -1269,7 +1314,28 @@ namespace Win3muCore
         public static extern HGDIOBJ CreateRoundRectRgn(nint left, nint top, nint right, nint bottom, nint widthEllipse, nint heightEllipse);
         // 01BD - CREATEDIBPATTERNBRUSH
         // 01C1 - DEVICECOLORMATCH
-        // 01C2 - POLYPOLYGON
+        [DllImport("gdi32.dll")]
+        static extern bool PolyPolygon(HDC hdc, Win32.POINT[] points, int[] polygonPointCounts, int polygonCount);
+
+        [EntryPoint(0x01C2)]
+        public bool PolyPolygon(HDC hDC, uint ppts, uint ppolyCounts, nint polygonCount)
+        {
+            var polyCounts = new int[polygonCount];
+            int totalPointCount = 0;
+            for (int i = 0; i < polygonCount; i++)
+            {
+                polyCounts[i] = _machine.ReadWord((uint)(ppolyCounts + i * sizeof(ushort)));
+                totalPointCount += polyCounts[i];
+            }
+
+            var points = new Win32.POINT[totalPointCount];
+            for (int i = 0; i < totalPointCount; i++)
+            {
+                points[i] = _machine.ReadStruct<Win16.POINT>((uint)(ppts + i * Marshal.SizeOf<Win16.POINT>())).Convert();
+            }
+
+            return PolyPolygon(hDC, points, polyCounts, polygonCount);
+        }
         // 01C3 - CREATEPOLYPOLYGONRGN
         // 01C4 - GDISEEGDIDO
         // 01CC - GDITASKTERMINATION
