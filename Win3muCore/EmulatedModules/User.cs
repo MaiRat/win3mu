@@ -2227,7 +2227,15 @@ namespace Win3muCore
             var buffer = new byte[cbRead];
             var read = _machine.Comm.ReadComm(cid, buffer, cbRead);
             if (read > 0)
-                _machine.WriteBytes(lpBuf.Hiword(), lpBuf.Loword(), buffer, 0, read);
+            {
+                if (read != buffer.Length)
+                {
+                    var trimmed = new byte[read];
+                    Array.Copy(buffer, trimmed, read);
+                    buffer = trimmed;
+                }
+                _machine.WriteBytes(lpBuf, buffer);
+            }
             return read;
         }
 
@@ -2237,7 +2245,7 @@ namespace Win3muCore
             if (lpBuf == 0 || cbWrite < 0)
                 return -1;
 
-            return _machine.Comm.WriteComm(cid, _machine.ReadBytes(lpBuf.Hiword(), lpBuf.Loword(), cbWrite), cbWrite);
+            return _machine.Comm.WriteComm(cid, _machine.ReadBytes(lpBuf, cbWrite), cbWrite);
         }
 
         [EntryPoint(0x00CE)]
@@ -2529,7 +2537,7 @@ namespace Win3muCore
         [EntryPoint(0x00F5)]
         public bool EnableCommNotification(short cid, HWND hwnd, short cbWriteNotify, short cbOutQueue)
         {
-            return _machine.Comm.EnableCommNotification(cid, hwnd.value, cbWriteNotify, cbOutQueue);
+            return _machine.Comm.EnableCommNotification(cid, HWND.To16(hwnd), cbWriteNotify, cbOutQueue);
         }
 
         // 00F6 - EXITWINDOWSEXEC

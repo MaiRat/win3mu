@@ -1,4 +1,5 @@
 ﻿using System;
+using Sharp86;
 
 namespace Win3muCore
 {
@@ -45,7 +46,15 @@ namespace Win3muCore
             var buffer = new byte[cbRead];
             var read = _machine.Comm.ReadComm(cid, buffer, cbRead);
             if (read > 0)
-                _machine.WriteBytes(lpBuf.Hiword(), lpBuf.Loword(), buffer, 0, read);
+            {
+                if (read != buffer.Length)
+                {
+                    var trimmed = new byte[read];
+                    Array.Copy(buffer, trimmed, read);
+                    buffer = trimmed;
+                }
+                _machine.WriteBytes(lpBuf, buffer);
+            }
             return read;
         }
 
@@ -55,7 +64,7 @@ namespace Win3muCore
             if (lpBuf == 0 || cbWrite < 0)
                 return -1;
 
-            return _machine.Comm.WriteComm(cid, _machine.ReadBytes(lpBuf.Hiword(), lpBuf.Loword(), cbWrite), cbWrite);
+            return _machine.Comm.WriteComm(cid, _machine.ReadBytes(lpBuf, cbWrite), cbWrite);
         }
 
         [EntryPoint(0x0007)]
