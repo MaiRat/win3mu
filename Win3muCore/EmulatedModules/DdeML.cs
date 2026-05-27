@@ -41,6 +41,92 @@ namespace Win3muCore
         const ushort DMLERR_SYS_ERROR = 0x400F;
 
         ushort _lastError = DMLERR_NO_ERROR;
+        ushort _nextStringHandle = 1;
+        readonly Dictionary<ushort, StringHandleEntry> _stringHandlesByHandle = new Dictionary<ushort, StringHandleEntry>();
+        readonly Dictionary<StringHandleKey, StringHandleEntry> _stringHandlesByValue = new Dictionary<StringHandleKey, StringHandleEntry>();
+
+        struct StringHandleKey : IEquatable<StringHandleKey>
+        {
+            public StringHandleKey(string value, short codePage)
+            {
+                Value = value ?? string.Empty;
+                CodePage = codePage;
+            }
+
+            public readonly string Value;
+            public readonly short CodePage;
+
+            public bool Equals(StringHandleKey other)
+            {
+                return CodePage == other.CodePage && string.Equals(Value, other.Value, StringComparison.Ordinal);
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is StringHandleKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return ((Value != null ? Value.GetHashCode() : 0) * 397) ^ CodePage;
+                }
+            }
+        }
+
+        sealed class StringHandleEntry
+        {
+            public ushort Handle;
+            public string Value;
+            public short CodePage;
+            public int RefCount;
+        }
+
+        StringHandleEntry GetOrCreateStringHandle(string value, short codePage)
+        {
+            var key = new StringHandleKey(value, codePage);
+            if (_stringHandlesByValue.TryGetValue(key, out var existing))
+            {
+                existing.RefCount++;
+                return existing;
+            }
+
+            while (_nextStringHandle == 0 || _stringHandlesByHandle.ContainsKey(_nextStringHandle))
+                _nextStringHandle++;
+
+            var entry = new StringHandleEntry()
+            {
+                Handle = _nextStringHandle++,
+                Value = value ?? string.Empty,
+                CodePage = codePage,
+                RefCount = 1,
+            };
+
+            _stringHandlesByHandle.Add(entry.Handle, entry);
+            _stringHandlesByValue.Add(key, entry);
+            return entry;
+        }
+
+        bool TryGetStringHandle(ushort handle, out StringHandleEntry entry)
+        {
+            return _stringHandlesByHandle.TryGetValue(handle, out entry);
+        }
+
+        bool ReleaseStringHandle(ushort handle)
+        {
+            if (!TryGetStringHandle(handle, out var entry))
+                return false;
+
+            entry.RefCount--;
+            if (entry.RefCount <= 0)
+            {
+                _stringHandlesByHandle.Remove(handle);
+                _stringHandlesByValue.Remove(new StringHandleKey(entry.Value, entry.CodePage));
+            }
+
+            return true;
+        }
 
         // Ordinal 2 - DdeInitialize
         [EntryPoint(0x0002)]
@@ -232,43 +318,63 @@ namespace Win3muCore
         public ushort DdeCreateStringHandle(uint idInst, string psz, short iCodePage)
         {
             Log.WriteLine("DdeML.DdeCreateStringHandle: inst={0}, str=\"{1}\", cp={2}", idInst, psz, iCodePage);
-            // Return a dummy handle based on a simple counter
-            return _nextStringHandle++;
+            return GetOrCreateStringHandle(psz, iCodePage).Handle;
         }
-
-        ushort _nextStringHandle = 1;
 
         // Ordinal 26 - DdeFreeStringHandle
         [EntryPoint(0x001A)]
         public bool DdeFreeStringHandle(uint idInst, ushort hsz)
         {
-            return true; // success
+            if (ReleaseStringHandle(hsz))
+                return true;
+
+            _lastError = DMLERR_INVALIDPARAMETER;
+            return false;
         }
 
         // Ordinal 27 - DdeQueryString
         [EntryPoint(0x001B)]
         public uint DdeQueryString(uint idInst, ushort hsz, uint psz, uint cchMax, short iCodePage)
         {
-            // Return 0 = empty string / handle not found
-            if (psz != 0 && cchMax > 0)
+            if (!TryGetStringHandle(hsz, out var entry))
             {
-                _machine.WriteByte(psz.Hiword(), psz.Loword(), 0); // null-terminate
+                if (_machine != null && psz != 0 && cchMax > 0)
+                    _machine.WriteByte(psz.Hiword(), psz.Loword(), 0);
+                return 0;
             }
-            return 0;
+
+            if (_machine != null && psz != 0 && cchMax > 0)
+                _machine.WriteString(psz, entry.Value, (ushort)Math.Min(cchMax, ushort.MaxValue));
+
+            return (uint)entry.Value.Length;
         }
 
         // Ordinal 28 - DdeKeepStringHandle
         [EntryPoint(0x001C)]
         public bool DdeKeepStringHandle(uint idInst, ushort hsz)
         {
-            return true; // success
+            if (!TryGetStringHandle(hsz, out var entry))
+            {
+                _lastError = DMLERR_INVALIDPARAMETER;
+                return false;
+            }
+
+            entry.RefCount++;
+            return true;
         }
 
         // Ordinal 36 - DdeCmpStringHandles
         [EntryPoint(0x0024)]
         public short DdeCmpStringHandles(ushort hsz1, ushort hsz2)
         {
-            if (hsz1 == hsz2) return 0;
+            if (hsz1 == hsz2)
+                return 0;
+
+            var found1 = TryGetStringHandle(hsz1, out var entry1);
+            var found2 = TryGetStringHandle(hsz2, out var entry2);
+            if (found1 && found2)
+                return (short)Math.Sign(string.Compare(entry1.Value, entry2.Value, StringComparison.Ordinal));
+
             return (short)(hsz1 < hsz2 ? -1 : 1);
         }
     }
