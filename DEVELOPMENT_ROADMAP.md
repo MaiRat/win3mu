@@ -183,10 +183,10 @@ The following items represent the current frontier for further work:
 3. **Expand GDI coverage** — _expanded_
    - Added additional classic drawing/bitmap exports for `SetPolyFillMode`, `SetTextCharacterExtra`, `SetTextJustification`, `Pie`, `CreateBitmapIndirect`, `SetDIBits`, `GetDIBits`, and `PolyPolygon`.
    - Added region/drawing exports for `OffsetClipRgn`, `CreateEllipticRgn`, `CreateEllipticRgnIndirect`, `CreatePolygonRgn`, `CreateRectRgnIndirect`, `EqualRgn`, `OffsetRgn`, `SelectVisRgn`, `GetRgnBox`, `PtInRegion`, `GetClipRgn`, `RectInRegion`, `ExtFloodFill`, and `CreateRoundRectRgn`.
-   - Added classic metafile exports for `GetMetaFile`, `CreateMetaFile`, `CloseMetaFile`, `CopyMetaFile`, `GetMetaFileBits`, `SetMetaFileBitsBetter`, and `IsValidMetaFile`, plus print-abort helper `QueryAbort`.
+   - Added classic metafile exports for `GetMetaFile`, `CreateMetaFile`, `CloseMetaFile`, `CopyMetaFile`, `GetMetaFileBits`, `SetMetaFileBitsBetter`, `EnumMetaFile`, `PlayMetaFileRecord`, and `IsValidMetaFile`, plus print-abort helper `QueryAbort`.
    - Added palette exports for `SelectPalette`, `RealizePalette`, `GetPaletteEntries`, `SetPaletteEntries`, `RealizeDefaultPalette`, `UpdateColors`, `AnimatePalette`, `ResizePalette`, `GetNearestPaletteIndex`, `SetSystemPaletteUse`, and `GetSystemPaletteUse`.
-   - Added printer/path exports for `Escape`, `StartDoc`, `EndDoc`, `StartPage`, `EndPage`, `SetAbortProc`, and `AbortDoc`, with 16-bit `DOCINFO` marshaling and abort-proc callback bridging.
-   - **Remaining:** metafile enumeration/record playback helpers and additional printer-driver-specific GDI exports can be added as application compatibility testing reveals specific gaps.
+   - Added printer/path exports for `Escape`, `StartDoc`, `EndDoc`, `StartPage`, `EndPage`, `SetAbortProc`, `AbortDoc`, `SetBoundsRect`, `GetBoundsRect`, and `SelectBitmap`, with 16-bit `DOCINFO` marshaling and abort-proc callback bridging.
+   - **Remaining:** additional printer-driver-specific GDI exports can be added as application compatibility testing reveals specific gaps.
 4. ~~**Implement functional DDE string handles**~~ ✅ **COMPLETED**
    - `DdeCreateStringHandle` now maintains a real `(string, codepage)`→handle table with reference counting, allowing duplicate creates to reuse the same HSZ.
    - `DdeQueryString`, `DdeKeepStringHandle`, `DdeFreeStringHandle`, and `DdeCmpStringHandles` now operate on the stored string values instead of dummy incrementing handles.

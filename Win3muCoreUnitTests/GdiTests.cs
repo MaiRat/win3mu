@@ -17,10 +17,11 @@ namespace Win3muCoreUnitTests
                 new ushort[]
                 {
                     0x0006, 0x0008, 0x000A, 0x001A, 0x0020, 0x0026, 0x0031, 0x0036, 0x0037, 0x003F, 0x0041, 0x0048,
-                    0x0065, 0x0069, 0x007C, 0x007D, 0x007E, 0x0086, 0x0097, 0x009B, 0x009F, 0x00A1, 0x00AD, 0x00B5, 0x00C4,
-                    0x0169, 0x016A, 0x016B, 0x016C, 0x016D, 0x016E,
-                    0x016F, 0x0170, 0x0172, 0x0175, 0x0176,
-                    0x0179, 0x017A, 0x017B, 0x017C, 0x017D, 0x017E, 0x0174, 0x019A,
+                     0x0065, 0x0069, 0x007C, 0x007D, 0x007E, 0x0086, 0x0097, 0x009B, 0x009F, 0x00A1, 0x00AD, 0x00B5, 0x00C4,
+                     0x00AF, 0x00B0, 0x00C1, 0x00C2, 0x00C3,
+                     0x0169, 0x016A, 0x016B, 0x016C, 0x016D, 0x016E,
+                     0x016F, 0x0170, 0x0172, 0x0175, 0x0176,
+                     0x0179, 0x017A, 0x017B, 0x017C, 0x017D, 0x017E, 0x0174, 0x019A,
                     0x01B8, 0x01B9, 0x01BC, 0x01C2
                 },
                 exports);
@@ -54,7 +55,12 @@ namespace Win3muCoreUnitTests
             Assert.AreEqual("GetMetaFileBits", gdi.GetNameFromOrdinal(0x009F));
             Assert.AreEqual("PtInRegion", gdi.GetNameFromOrdinal(0x00A1));
             Assert.AreEqual("GetClipRgn", gdi.GetNameFromOrdinal(0x00AD));
+            Assert.AreEqual("EnumMetaFile", gdi.GetNameFromOrdinal(0x00AF));
+            Assert.AreEqual("PlayMetaFileRecord", gdi.GetNameFromOrdinal(0x00B0));
             Assert.AreEqual("RectInRegion", gdi.GetNameFromOrdinal(0x00B5));
+            Assert.AreEqual("SetBoundsRect", gdi.GetNameFromOrdinal(0x00C1));
+            Assert.AreEqual("GetBoundsRect", gdi.GetNameFromOrdinal(0x00C2));
+            Assert.AreEqual("SelectBitmap", gdi.GetNameFromOrdinal(0x00C3));
             Assert.AreEqual("SetMetaFileBitsBetter", gdi.GetNameFromOrdinal(0x00C4));
             Assert.AreEqual("SelectPalette", gdi.GetNameFromOrdinal(0x0169));
             Assert.AreEqual("RealizePalette", gdi.GetNameFromOrdinal(0x016A));

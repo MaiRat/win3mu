@@ -30,6 +30,7 @@ namespace Win3muCore
     public class Gdi : Module32
     {
         delegate int ABORTPROC(IntPtr hdc, int code);
+        delegate int MFENUMPROC(IntPtr hdc, IntPtr lpHTable, IntPtr lpMFR, int nObj, IntPtr lpData);
 
         readonly Dictionary<IntPtr, ABORTPROC> _abortProcs = new Dictionary<IntPtr, ABORTPROC>();
 
@@ -808,6 +809,9 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern bool PlayMetaFile(HDC hDC, HENHMETAFILE hMetaFile);
 
+        [DllImport("gdi32.dll", EntryPoint = "EnumMetaFile")]
+        static extern bool _EnumMetaFile(IntPtr hDC, HENHMETAFILE hMetaFile, MFENUMPROC callback, IntPtr lParam);
+
         [EntryPoint(0x007C)]
         [DllImport("gdi32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetMetaFileW")]
         public static extern HENHMETAFILE GetMetaFile([FileName(false)] string lpszMetaFile);
@@ -959,8 +963,111 @@ namespace Win3muCore
         [EntryPoint(0x00AD)]
         [DllImport("gdi32.dll")]
         public static extern nint GetClipRgn(HDC hDC, HGDIOBJ hRgn);
-        // 00AF - ENUMMETAFILE
-        // 00B0 - PLAYMETAFILERECORD
+
+        [EntryPoint(0x00AF)]
+        public bool EnumMetaFile(HDC hDC, HENHMETAFILE hMetaFile, uint callback, uint lParam)
+        {
+            if (callback == 0)
+                return false;
+
+            return _EnumMetaFile(hDC.value, hMetaFile, (hdc, lpHTable, lpMFR, nObj, lpData) =>
+            {
+                uint handleTable16 = 0;
+                uint metaRecord16 = 0;
+
+                try
+                {
+                    if (nObj > 0)
+                    {
+                        uint handleTableBytes = checked((uint)nObj * sizeof(ushort));
+                        if (handleTableBytes > ushort.MaxValue)
+                        {
+                            Log.WriteLine("EnumMetaFile: handle table too large ({0} entries)", nObj);
+                            return 0;
+                        }
+
+                        handleTable16 = _machine.SysAlloc((ushort)handleTableBytes);
+                        for (int i = 0; i < nObj; i++)
+                        {
+                            var hObject = Marshal.ReadIntPtr(lpHTable, i * IntPtr.Size);
+                            _machine.WriteWord((uint)(handleTable16 + i * sizeof(ushort)), HGDIOBJ.To16(hObject));
+                        }
+                    }
+
+                    uint recordWords = unchecked((uint)Marshal.ReadInt32(lpMFR));
+                    uint recordBytes = checked(recordWords * sizeof(ushort));
+                    if (recordBytes > ushort.MaxValue)
+                    {
+                        Log.WriteLine("EnumMetaFile: record too large ({0} bytes)", recordBytes);
+                        return 0;
+                    }
+
+                    metaRecord16 = _machine.SysAlloc((ushort)recordBytes);
+                    using (var hp = _machine.GlobalHeap.GetHeapPointer(metaRecord16, true))
+                    {
+                        Marshal.Copy(lpMFR, hp, 0, (int)recordBytes);
+                    }
+
+                    _machine.PushWord(HDC.To16(hdc));
+                    _machine.PushDWord(handleTable16);
+                    _machine.PushDWord(metaRecord16);
+                    _machine.PushWord((ushort)nObj);
+                    _machine.PushDWord(lpData.DWord());
+                    _machine.CallVM(callback, "EnumMetaFileProc");
+                    return _machine.ax;
+                }
+                finally
+                {
+                    if (metaRecord16 != 0)
+                        _machine.SysFree(metaRecord16);
+                    if (handleTable16 != 0)
+                        _machine.SysFree(handleTable16);
+                }
+            }, BitUtils.DWordToIntPtr(lParam));
+        }
+
+        [DllImport("gdi32.dll", EntryPoint = "PlayMetaFileRecord")]
+        static extern bool _PlayMetaFileRecord(HDC hDC, IntPtr lpHandleTable, IntPtr lpMetaRecord, uint nHandles);
+
+        [EntryPoint(0x00B0)]
+        public bool PlayMetaFileRecord(HDC hDC, uint lpHandleTable, uint lpMetaRecord, ushort nHandles)
+        {
+            if (lpMetaRecord == 0)
+                return false;
+
+            var handleTable32 = IntPtr.Zero;
+            var metaRecord32 = IntPtr.Zero;
+
+            try
+            {
+                if (nHandles != 0 && lpHandleTable != 0)
+                {
+                    handleTable32 = Marshal.AllocHGlobal(nHandles * IntPtr.Size);
+                    for (int i = 0; i < nHandles; i++)
+                    {
+                        var hObject16 = _machine.ReadWord((uint)(lpHandleTable + i * sizeof(ushort)));
+                        Marshal.WriteIntPtr(handleTable32, i * IntPtr.Size, HGDIOBJ.To32(hObject16).value);
+                    }
+                }
+
+                uint recordWords = _machine.ReadDWord(lpMetaRecord);
+                uint recordBytes = checked(recordWords * sizeof(ushort));
+                metaRecord32 = Marshal.AllocHGlobal((int)recordBytes);
+                using (var hp = _machine.GlobalHeap.GetHeapPointer(lpMetaRecord, false))
+                {
+                    Marshal.Copy(hp, 0, metaRecord32, (int)recordBytes);
+                }
+
+                return _PlayMetaFileRecord(hDC, handleTable32, metaRecord32, nHandles);
+            }
+            finally
+            {
+                if (metaRecord32 != IntPtr.Zero)
+                    Marshal.FreeHGlobal(metaRecord32);
+                if (handleTable32 != IntPtr.Zero)
+                    Marshal.FreeHGlobal(handleTable32);
+            }
+        }
         // 00B3 - GETDCSTATE
         // 00B4 - SETDCSTATE
         [DllImport("gdi32.dll")]
@@ -975,9 +1082,46 @@ namespace Win3muCore
         // 00BE - SETDCHOOK
         // 00BF - GETDCHOOK
         // 00C0 - SETHOOKFLAGS
-        // 00C1 - SETBOUNDSRECT
-        // 00C2 - GETBOUNDSRECT
-        // 00C3 - SELECTBITMAP
+        [DllImport("gdi32.dll", EntryPoint = "SetBoundsRect")]
+        static extern uint _SetBoundsRect(HDC hDC, IntPtr lprcBounds, uint flags);
+
+        [EntryPoint(0x00C1)]
+        public uint SetBoundsRect(HDC hDC, uint lprcBounds, uint flags)
+        {
+            if (lprcBounds == 0)
+                return _SetBoundsRect(hDC, IntPtr.Zero, flags);
+
+            var rc32 = _machine.ReadStruct<Win16.RECT>(lprcBounds).Convert();
+            unsafe
+            {
+                return _SetBoundsRect(hDC, (IntPtr)(&rc32), flags);
+            }
+        }
+
+        [DllImport("gdi32.dll", EntryPoint = "GetBoundsRect")]
+        static extern uint _GetBoundsRect(HDC hDC, IntPtr lprcBounds, uint flags);
+
+        [EntryPoint(0x00C2)]
+        public uint GetBoundsRect(HDC hDC, uint lprcBounds, uint flags)
+        {
+            if (lprcBounds == 0)
+                return _GetBoundsRect(hDC, IntPtr.Zero, flags);
+
+            Win32.RECT rc32 = default;
+            unsafe
+            {
+                uint retv = _GetBoundsRect(hDC, (IntPtr)(&rc32), flags);
+                _machine.WriteStruct(lprcBounds, rc32.Convert());
+                return retv;
+            }
+        }
+
+        [EntryPoint(0x00C3)]
+        public HGDIOBJ SelectBitmap(HDC hDC, HGDIOBJ hBitmap)
+        {
+            return SelectObject(hDC, hBitmap);
+        }
+
         [EntryPoint(0x00C4)]
         public ushort SetMetaFileBitsBetter(ushort handle)
         {
