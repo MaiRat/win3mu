@@ -53,6 +53,7 @@ namespace Win3muCore
             _expressionContext = new ExpressionContext(this);
             _symbolResolver = new SymbolResolver(this);
             _stackWalker = new StackWalker(this);
+            _comm = new CommSupport();
             _expressionContext.PushSymbolScope(_symbolResolver);
 
             this.MemoryBus = _globalHeap;
@@ -79,6 +80,7 @@ namespace Win3muCore
             _moduleManager.LoadModule(new Gdi());
             _moduleManager.LoadModule(new MMSystem());
             _moduleManager.LoadModule(new Keyboard());
+            _moduleManager.LoadModule(new Comm());
 //            _moduleManager.LoadModule(new Shell());
             _moduleManager.LoadModule(new DdeML());
             _moduleManager.LoadModule(new Sound());
@@ -148,8 +150,10 @@ namespace Win3muCore
         DebuggerCore _debugger;
         StackWalker _stackWalker;
         DosApi _dos;
+        CommSupport _comm;
         Kernel _kernel;
         public Kernel Kernel { get { return _kernel; } }
+        public CommSupport Comm { get { return _comm; } }
         User _user;
         public User User { get { return _user; } }
 

@@ -173,7 +173,10 @@ The following items represent the current frontier for further work:
 The following items represent the current frontier for further work:
 
 1. **Extend MCI device-specific support** — implement device-specific MCI command extensions as multimedia applications reveal gaps.
-2. **Implement Comm module** — add basic stubs for COMM.DRV serial port communication exports as applications require them.
+2. ~~**Implement Comm module**~~ ✅ **COMPLETED**
+   - `COMM.DRV` now implements the standard 16 serial communication exports (`OpenComm`, `SetCommState`, `GetCommState`, `GetCommError`, `ReadComm`, `WriteComm`, `TransmitCommChar`, `CloseComm`, `SetCommEventMask`, `GetCommEventMask`, `SetCommBreak`, `ClearCommBreak`, `UngetCommChar`, `BuildCommDCB`, `EscapeCommFunction`, `FlushComm`) with compatibility-first in-memory behavior.
+   - Matching USER exports (ordinals `00C8`-`00D7` and `00F5`) now forward to the same stubbed comm state, avoiding unsupported-ordinal crashes for applications that import the older USER entry points directly.
+   - `BuildCommDCB` now parses classic serial specs such as `COM1:96,n,8,1` into a Win16-compatible DCB structure, and `Get/SetCommState` round-trip that state.
 3. **Expand GDI coverage** — implement remaining GDI stubs for less common drawing/region/metafile operations encountered during app testing.
 4. **Implement functional DDE string handles** — upgrade DdeML string handle stubs to maintain an actual string→handle mapping for applications that rely on round-tripping strings through DDEML.
 
