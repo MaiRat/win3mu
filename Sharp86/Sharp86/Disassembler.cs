@@ -276,7 +276,7 @@ namespace Sharp86
                 case Reg8.DL: return "dl";
             }
 
-            throw new NotImplementedException();
+            throw new NotImplementedException(string.Format("Unknown Reg8: {0}", (int)reg));
         }
 
         string Format(Reg16 reg)
@@ -292,7 +292,7 @@ namespace Sharp86
                 case Reg16.SP: return "sp";
                 case Reg16.BP: return "bp";
             }
-            throw new NotImplementedException();
+            throw new NotImplementedException(string.Format("Unknown Reg16: {0}", (int)reg));
         }
 
         string Format(RegSeg reg)
@@ -306,7 +306,7 @@ namespace Sharp86
                 case RegSeg.FS: return "fs";
                 case RegSeg.GS: return "gs";
             }
-            throw new NotImplementedException();
+            throw new NotImplementedException(string.Format("Unknown RegSeg: {0}", (int)reg));
         }
 
         static string[] _ccNames = new string[]
@@ -441,7 +441,7 @@ namespace Sharp86
                     return string.Format("{0} {1},{2}", op, "ax", Read_Iv());
             }
 
-            throw new NotImplementedException();
+            throw new NotImplementedException(string.Format("Unknown ALU mode: {0}", mode & 0x07));
         }
 
         string RepPrefix()
@@ -474,7 +474,7 @@ namespace Sharp86
                 case 6: return "xor";
                 case 7: return "cmp";
             }
-            throw new NotImplementedException();
+            throw new NotImplementedException(string.Format("Unknown Group1 subcode: {0}", subCode & 0x07));
         }
 
         string Group2Name(int subCode)
@@ -487,9 +487,10 @@ namespace Sharp86
                 case 3: return "rcr";
                 case 4: return "shl";
                 case 5: return "shr";
+                case 6: return "shl";  // undocumented alias for SHL
                 case 7: return "sar";
             }
-            throw new NotImplementedException();
+            throw new NotImplementedException(string.Format("Unknown Group2 subcode: {0}", subCode & 0x07));
         }
 
         string Group3Name(int subCode)
@@ -505,7 +506,7 @@ namespace Sharp86
                 case 6: return "div";
                 case 7: return "idiv";
             }
-            throw new NotImplementedException();
+            throw new NotImplementedException(string.Format("Unknown Group3 subcode: {0}", (_modRM >> 3) & 0x07));
         }
 
         public string Read(ushort csIn, ushort ipIn)

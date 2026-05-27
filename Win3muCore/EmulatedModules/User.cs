@@ -348,8 +348,35 @@ namespace Win3muCore
         [DllImport("user32.dll")]
         public static extern bool DestroyWindow([Destroyed] HWND hWnd);
 
-        // 0036 - ENUMWINDOWS
-        // 0037 - ENUMCHILDWINDOWS
+        [DllImport("user32.dll")]
+        static extern bool EnumWindows(Win32.ENUMTHREADWNDPROC callback, IntPtr lParam);
+
+        [EntryPoint(0x0036)]
+        public bool EnumWindows(uint callback, uint lParam)
+        {
+            return EnumWindows((w, lp) =>
+            {
+                _machine.PushWord(HWND.Map.To16(w));
+                _machine.PushDWord(lp.DWord());
+                _machine.CallVM(callback, "EnumWndProc");
+                return _machine.ax != 0;
+            }, BitUtils.DWordToIntPtr(lParam));
+        }
+
+        [DllImport("user32.dll")]
+        static extern bool EnumChildWindows(IntPtr hWndParent, Win32.ENUMTHREADWNDPROC callback, IntPtr lParam);
+
+        [EntryPoint(0x0037)]
+        public bool EnumChildWindows(HWND hWndParent, uint callback, uint lParam)
+        {
+            return EnumChildWindows(hWndParent.value, (w, lp) =>
+            {
+                _machine.PushWord(HWND.Map.To16(w));
+                _machine.PushDWord(lp.DWord());
+                _machine.CallVM(callback, "EnumChildWndProc");
+                return _machine.ax != 0;
+            }, BitUtils.DWordToIntPtr(lParam));
+        }
 
         [DllImport("user32.dll")]
         public static extern bool MoveWindow(HWND hWnd, int x, int y, int w, int h, bool repaint);
@@ -1416,6 +1443,9 @@ namespace Win3muCore
                 case Win16.GCW_HCURSOR:
                 case Win16.GCW_HICON:
                     return HGDIOBJ.To16(SetClassLongPtr(hWnd.value, index, HGDIOBJ.To32(value).value));
+
+                case Win16.GCW_STYLE:
+                    return (ushort)SetClassLong(hWnd, (int)index, value);
             }
 
             return 0;
@@ -1524,6 +1554,13 @@ namespace Win3muCore
                     var old = HWND.HInstanaceOfHWnd(hWnd.value);
                     HWND.RegisterHWndToHInstance(hWnd.value, value);
                     return old;
+                }
+
+                case Win16.GWW_HWNDPARENT:
+                {
+                    var oldParent = GetWindowLongPtr(hWnd.value, Win32.GWL_P_HWNDPARENT);
+                    SetWindowLongPtr(hWnd.value, Win32.GWL_P_HWNDPARENT, HWND.To32(value).value);
+                    return HWND.To16(oldParent);
                 }
 
                 case Win16.GWW_ID:

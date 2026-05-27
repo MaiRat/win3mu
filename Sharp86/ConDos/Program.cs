@@ -85,12 +85,11 @@ namespace ConDos
 
         public byte ReadPortByte(ushort port)
         {
-            throw new NotImplementedException();
+            return 0xFF;
         }
 
         public void WritePortByte(ushort port, byte value)
         {
-            throw new NotImplementedException();
         }
     }
 

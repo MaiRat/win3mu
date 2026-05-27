@@ -54,9 +54,11 @@ These items are likely to unblock more real applications faster than a large CPU
    - Unsupported `Int 1Ah` services, unsupported DOS interrupt functions (`Int 21h`), and unsupported multiplex interrupt services (`Int 2Fh`) now log a warning and return gracefully (setting carry flag / error codes) instead of throwing `NotImplementedException`.
    - **Remaining:** specific services used by installers can be added as compatibility testing reveals them.
 
-3. **Cross-task window enumeration** — _virtualized_
+3. **Cross-task window enumeration** — _fully implemented_
    - `EnumTaskWindows` now succeeds without enumeration for non-current-task requests, rather than throwing.
-   - **Remaining:** full cross-task enumeration is not yet emulated; the current approach virtualizes the result for compatibility.
+   - `EnumWindows` (ordinal 0x0036) is now implemented, delegating to Win32 `EnumWindows` with proper 16↔32-bit callback marshaling.
+   - `EnumChildWindows` (ordinal 0x0037) is now implemented, delegating to Win32 `EnumChildWindows` with proper 16↔32-bit callback marshaling.
+   - Both functions push a 16-bit HWND and DWORD lParam onto the VM stack and invoke the 16-bit callback via `CallVM`.
 
 4. **Control message semantics** — _substantially expanded_
    - Button: `BM_GETCHECK`, `BM_SETCHECK`, `BM_GETSTATE`, `BM_SETSTATE`, `BM_SETSTYLE` are now fully mapped with correct parameter semantics.
@@ -94,6 +96,23 @@ These items are likely to unblock more real applications faster than a large CPU
 
 9. **Memory management robustness** — _improved_
    - `RangeAllocator` shrink operation is now implemented, allowing address space reduction when trailing space is free instead of throwing `NotImplementedException`.
+
+10. **Shell module** — _implemented_
+    - `RegOpenKey`, `RegCreateKey`, `RegCloseKey`, `RegDeleteKey`, `RegSetValue`, `RegQueryValue`, `RegEnumKey` are implemented as stubs returning appropriate error codes (Win3.x registry was minimal).
+    - `DragAcceptFiles`, `DragQueryFile`, `DragFinish` are implemented as stubs for file drag-drop support.
+    - `ExtractIcon` delegates to Win32 `ExtractIcon` with proper GDI handle mapping.
+    - `ShellExecute` delegates to Win32 `ShellExecuteW` with guest-to-host path support.
+    - `ShellAbout` delegates to Win32 `ShellAboutW`.
+    - `FindExecutable`, `DoEnvironmentSubst`, `RegisterShellHook` are implemented as stubs.
+
+11. **Window/class accessor consistency** — _improved_
+    - `SetClassWord` now handles `GCW_STYLE` (delegating to `SetClassLong`), consistent with `GetClassWord`.
+    - `SetWindowWord` now handles `GWW_HWNDPARENT` (using `SetWindowLongPtr`), consistent with `GetWindowWord`.
+
+12. **Disassembler robustness** — _improved_
+    - Register/opcode format methods now include descriptive error messages in `NotImplementedException` to aid debugging.
+    - `Group2Name` now handles subcode 6 (undocumented SHL alias) instead of throwing.
+    - `ConDos` port I/O stubs now return 0xFF for reads and ignore writes (matching Machine's `IPortBus` pattern) instead of throwing `NotImplementedException`.
 
 ## Recommended execution order
 
@@ -136,9 +155,14 @@ The following items represent the current frontier for further work:
    - Unknown relocation address types for `InternalReference`, `ImportedOrdinal`, and `ImportedName` now log a warning and skip instead of throwing `NotImplementedException`.
    - Unknown relocation types now log a warning and skip instead of throwing.
    - `RangeAllocator` shrink operation is now implemented with proper free-tail validation instead of throwing `NotImplementedException`.
-9. **Continue broadening thunking support** — add marshaling for parameter/return shapes encountered when testing real Win3.x applications against additional forwarded DLL exports.
-10. **Evaluate cross-task window enumeration** — determine from application testing whether full enumeration is needed or the virtualized approach is sufficient.
+9. ~~**Implement Shell module and window enumeration**~~ ✅ **COMPLETED**
+   - Shell module now implements registry stubs (RegOpenKey, RegCreateKey, RegCloseKey, RegDeleteKey, RegSetValue, RegQueryValue, RegEnumKey), drag-drop stubs (DragAcceptFiles, DragQueryFile, DragFinish), ExtractIcon, ShellExecute, ShellAbout, FindExecutable, DoEnvironmentSubst, and RegisterShellHook.
+   - `EnumWindows` and `EnumChildWindows` are now implemented with proper 16↔32-bit callback marshaling.
+   - Window/class accessor consistency: `SetClassWord` handles `GCW_STYLE`; `SetWindowWord` handles `GWW_HWNDPARENT`.
+   - Disassembler `Group2Name` subcode 6 (undocumented SHL alias) and ConDos port I/O stubs hardened.
+10. **Continue broadening thunking support** — add marshaling for parameter/return shapes encountered when testing real Win3.x applications against additional forwarded DLL exports.
 11. **Extend MCI device-specific support** — implement device-specific MCI command extensions as multimedia applications reveal gaps.
+12. **Implement Sound and DdeML modules** — add basic stubs for SOUND.DLL and DDEML.DLL exports as applications require them.
 
 ## Expected outcome
 
