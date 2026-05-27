@@ -209,6 +209,59 @@ namespace Win3muCore
             return _mciDeviceIdMap.To32(deviceId).DWord();
         }
 
+        internal static bool UsesMciDgvOpenParams(uint flags)
+        {
+            return (flags & (WinCommon.MCI_DGV_OPEN_WS | WinCommon.MCI_DGV_OPEN_PARENT | WinCommon.MCI_DGV_OPEN_NOSTATIC | WinCommon.MCI_DGV_OPEN_16BIT | WinCommon.MCI_DGV_OPEN_32BIT)) != 0;
+        }
+
+        internal static Win32.MCI_DGV_RECT_PARMS ConvertMciDgvRectParams(Win16.MCI_DGV_RECT_PARMS st16)
+        {
+            return new Win32.MCI_DGV_RECT_PARMS()
+            {
+                rc = st16.rc.Convert(),
+            };
+        }
+
+        internal static Win16.MCI_DGV_RECT_PARMS ConvertMciDgvRectParams(Win32.MCI_DGV_RECT_PARMS st32)
+        {
+            return new Win16.MCI_DGV_RECT_PARMS()
+            {
+                rc = st32.rc.Convert(),
+            };
+        }
+
+        internal static Win32.MCI_DGV_UPDATE_PARMS ConvertMciDgvUpdateParams(Win16.MCI_DGV_UPDATE_PARMS st16)
+        {
+            return new Win32.MCI_DGV_UPDATE_PARMS()
+            {
+                rc = st16.rc.Convert(),
+            };
+        }
+
+        internal static Win16.MCI_DGV_UPDATE_PARMS ConvertMciDgvUpdateParams(Win32.MCI_DGV_UPDATE_PARMS st32)
+        {
+            return new Win16.MCI_DGV_UPDATE_PARMS()
+            {
+                rc = st32.rc.Convert(),
+            };
+        }
+
+        internal static Win32.MCI_DGV_WINDOW_PARMS ConvertMciDgvWindowParams(Win16.MCI_DGV_WINDOW_PARMS st16)
+        {
+            return new Win32.MCI_DGV_WINDOW_PARMS()
+            {
+                nCmdShow = st16.nCmdShow,
+            };
+        }
+
+        internal static Win16.MCI_DGV_WINDOW_PARMS ConvertMciDgvWindowParams(Win32.MCI_DGV_WINDOW_PARMS st32)
+        {
+            return new Win16.MCI_DGV_WINDOW_PARMS()
+            {
+                nCmdShow = unchecked((ushort)st32.nCmdShow),
+            };
+        }
+
         void SetCallback(ref Win32.MCI_GENERIC_PARAMS st32, uint callback)
         {
             if (HWND.Map.IsValid16(callback.Loword()))
@@ -239,6 +292,49 @@ namespace Win3muCore
                 {
                     using (var ctx = new TempContext(_machine))
                     {
+                        if (UsesMciDgvOpenParams(dwParam1))
+                        {
+                            var dgvOpen16 = _machine.ReadStruct<Win16.MCI_DGV_OPEN_PARAMS>(dwParam2);
+                            var dgvOpen32 = new Win32.MCI_DGV_OPEN_PARAMS();
+
+                            if ((dwParam1 & Win16.MCI_OPEN_TYPE) != 0)
+                            {
+                                if ((dwParam1 & Win16.MCI_OPEN_TYPE_ID) != 0)
+                                    dgvOpen32.lpstrDeviceName = BitUtils.DWordToIntPtr(dgvOpen16.lpstrDeviceName);
+                                else
+                                    dgvOpen32.lpstrDeviceName = ctx.AllocUnmanagedString(_machine.ReadString(dgvOpen16.lpstrDeviceName));
+                            }
+
+                            if ((dwParam1 & Win16.MCI_OPEN_ELEMENT) != 0)
+                            {
+                                if ((dwParam1 & Win16.MCI_OPEN_ELEMENT_ID) != 0)
+                                    dgvOpen32.lpstrElementName = BitUtils.DWordToIntPtr(dgvOpen16.lpstrElementName);
+                                else
+                                    dgvOpen32.lpstrElementName = ctx.AllocUnmanagedString(ResolveMediaFile(_machine.ReadString(dgvOpen16.lpstrElementName)));
+                            }
+
+                            if ((dwParam1 & Win16.MCI_OPEN_ALIAS) != 0)
+                            {
+                                dgvOpen32.lpstrAlias = Marshal.StringToHGlobalUni(_machine.ReadString(dgvOpen16.lpstrAlias));
+                            }
+
+                            dgvOpen32.dwStyle = dgvOpen16.dwStyle;
+                            if (dgvOpen16.hWndParent != 0)
+                                dgvOpen32.hWndParent = HWND.Map.To32(dgvOpen16.hWndParent);
+
+                            if (HWND.Map.IsValid16(dgvOpen16.dwCallback.Loword()))
+                                dgvOpen32.dwCallback = HWND.Map.To32(dgvOpen16.dwCallback.Loword());
+
+                            unsafe
+                            {
+                                Win32.MCI_DGV_OPEN_PARAMS* p = &dgvOpen32;
+                                uint retv = mciSendCommand(uDeviceId, Win32.MCI_OPEN, (IntPtr)dwParam1, (IntPtr)p);
+                                dgvOpen16.wDeviceID = retv == 0 ? DeviceIdTo16(dgvOpen32.wDeviceID) : (ushort)0;
+                                _machine.WriteStruct(dwParam2, dgvOpen16);
+                                return retv;
+                            }
+                        }
+
                         var op16 = _machine.ReadStruct<Win16.MCI_OPEN_PARAMS>(dwParam2);
                         var op32 = new Win32.MCI_OPEN_PARAMS();
 
@@ -572,13 +668,87 @@ namespace Win3muCore
                 }
 
                 case Win16.MCI_WINDOW:
+                {
+                    if (dwParam2 == 0)
+                        return mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_WINDOW, (IntPtr)dwParam1, IntPtr.Zero);
+
+                    using (var ctx = new TempContext(_machine))
+                    {
+                        var st16 = _machine.ReadStruct<Win16.MCI_DGV_WINDOW_PARMS>(dwParam2);
+                        var st32 = ConvertMciDgvWindowParams(st16);
+
+                        if (HWND.Map.IsValid16(st16.dwCallback.Loword()))
+                            st32.dwCallback = HWND.Map.To32(st16.dwCallback.Loword());
+                        if (st16.hWnd != 0)
+                            st32.hWnd = HWND.Map.To32(st16.hWnd);
+                        if ((dwParam1 & WinCommon.MCI_DGV_WINDOW_TEXT) != 0 && st16.lpstrText != 0)
+                            st32.lpstrText = ctx.AllocUnmanagedString(_machine.ReadString(st16.lpstrText));
+
+                        unsafe
+                        {
+                            uint retv = mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_WINDOW, (IntPtr)dwParam1, (IntPtr)(&st32));
+                            if (retv == 0)
+                            {
+                                var result16 = ConvertMciDgvWindowParams(st32);
+                                result16.dwCallback = st16.dwCallback;
+                                result16.lpstrText = st16.lpstrText;
+                                result16.hWnd = st32.hWnd == IntPtr.Zero ? (ushort)0 : HWND.To16((HWND)st32.hWnd);
+                                _machine.WriteStruct(dwParam2, result16);
+                            }
+                            return retv;
+                        }
+                    }
+                }
+
                 case Win16.MCI_PUT:
                 case Win16.MCI_WHERE:
+                {
+                    if (dwParam2 == 0)
+                        return mciSendCommand(DeviceIdTo32(uDeviceId), uMessage, (IntPtr)dwParam1, IntPtr.Zero);
+
+                    var st16 = _machine.ReadStruct<Win16.MCI_DGV_RECT_PARMS>(dwParam2);
+                    var st32 = ConvertMciDgvRectParams(st16);
+                    if (HWND.Map.IsValid16(st16.dwCallback.Loword()))
+                        st32.dwCallback = HWND.Map.To32(st16.dwCallback.Loword());
+
+                    unsafe
+                    {
+                        uint retv = mciSendCommand(DeviceIdTo32(uDeviceId), uMessage, (IntPtr)dwParam1, (IntPtr)(&st32));
+                        if (retv == 0)
+                        {
+                            var result16 = ConvertMciDgvRectParams(st32);
+                            result16.dwCallback = st16.dwCallback;
+                            _machine.WriteStruct(dwParam2, result16);
+                        }
+                        return retv;
+                    }
+                }
+
                 case Win16.MCI_UPDATE:
-                    // These commands relate to video/animation window management.
-                    // Pass through as generic commands — the host MCI driver will
-                    // handle them or return an appropriate error for audio-only devices.
-                    return SendGenericMciCommand(uDeviceId, uMessage, dwParam1, dwParam2);
+                {
+                    if (dwParam2 == 0)
+                        return mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_UPDATE, (IntPtr)dwParam1, IntPtr.Zero);
+
+                    var st16 = _machine.ReadStruct<Win16.MCI_DGV_UPDATE_PARMS>(dwParam2);
+                    var st32 = ConvertMciDgvUpdateParams(st16);
+                    if (HWND.Map.IsValid16(st16.dwCallback.Loword()))
+                        st32.dwCallback = HWND.Map.To32(st16.dwCallback.Loword());
+                    if (st16.hDC != 0)
+                        st32.hDC = HDC.To32(st16.hDC).value;
+
+                    unsafe
+                    {
+                        uint retv = mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_UPDATE, (IntPtr)dwParam1, (IntPtr)(&st32));
+                        if (retv == 0)
+                        {
+                            var result16 = ConvertMciDgvUpdateParams(st32);
+                            result16.dwCallback = st16.dwCallback;
+                            result16.hDC = st32.hDC == IntPtr.Zero ? (ushort)0 : HDC.To16((HDC)st32.hDC);
+                            _machine.WriteStruct(dwParam2, result16);
+                        }
+                        return retv;
+                    }
+                }
             }
 
             Log.WriteLine("[mciSendCommand] Unsupported MCI command: 0x{0:X4}", uMessage);

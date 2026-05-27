@@ -813,6 +813,18 @@ namespace Win3muCore
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        public struct MCI_DGV_OPEN_PARAMS
+        {
+            public IntPtr dwCallback;
+            public uint wDeviceID;
+            public IntPtr lpstrDeviceName;
+            public IntPtr lpstrElementName;
+            public IntPtr lpstrAlias;
+            public uint dwStyle;
+            public IntPtr hWndParent;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
         public struct MCI_STATUS_PARAMS
         {
             public IntPtr dwCallback;
@@ -840,6 +852,30 @@ namespace Win3muCore
         public struct MCI_GENERIC_PARAMS
         {
             public IntPtr dwCallback;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        public struct MCI_DGV_RECT_PARMS
+        {
+            public IntPtr dwCallback;
+            public RECT rc;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        public struct MCI_DGV_UPDATE_PARMS
+        {
+            public IntPtr dwCallback;
+            public RECT rc;
+            public IntPtr hDC;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        public struct MCI_DGV_WINDOW_PARMS
+        {
+            public IntPtr dwCallback;
+            public IntPtr hWnd;
+            public uint nCmdShow;
+            public IntPtr lpstrText;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 4)]

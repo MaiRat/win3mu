@@ -451,6 +451,14 @@ namespace Win3muCore
         public const uint MCI_SEEK_TO_END = 0x00000200;
         public const uint MCI_OPEN_TYPE_ID = 0x00001000;
         public const uint MCI_OPEN_TYPE = 0x00002000;
+        public const uint MCI_DGV_OPEN_WS = 0x00010000;
+        public const uint MCI_DGV_OPEN_PARENT = 0x00020000;
+        public const uint MCI_DGV_OPEN_NOSTATIC = 0x00040000;
+        public const uint MCI_DGV_OPEN_16BIT = 0x00080000;
+        public const uint MCI_DGV_OPEN_32BIT = 0x00100000;
+        public const uint MCI_DGV_WINDOW_HWND = 0x00010000;
+        public const uint MCI_DGV_WINDOW_STATE = 0x00040000;
+        public const uint MCI_DGV_WINDOW_TEXT = 0x00080000;
 
         public const uint MCI_SYSINFO_QUANTITY = 0x00000100;
         public const uint MCI_SYSINFO_OPEN = 0x00000200;
