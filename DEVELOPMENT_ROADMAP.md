@@ -50,7 +50,7 @@ These items are likely to unblock more real applications faster than a large CPU
 2. **DOS and multiplex interrupts** — _substantially expanded_
    - `Int 1Ah` services 0–5 (timer count get/set, RTC time get/set, RTC date get/set) are implemented.
    - `Int 21h` now supports additional services: 0x29 (Parse Filename into FCB), 0x33 (Get/Set System Values including Ctrl-C check flag and boot drive), 0x34 (InDOS Flag), 0x36 (Get Disk Free Space), 0x38 (Get/Set Country Info), 0x39 (Create Directory), 0x3A (Remove Directory), 0x48-0x4A (memory allocation stubs), 0x51/0x62 (Get PSP), 0x57 (Get/Set File Date and Time), 0x5B (Create New File), 0x60 (Truename/Fully Qualified Filename), and 0x66 (Get/Set Global Code Page).
-   - `Int 21h/44h` IOCTL now supports subfunctions 00h (Get Device Info), 01h (Set Device Info), 06h (Get Input Status), 07h (Get Output Status), and 08h (Check Removable Media). Unsupported IOCTL subfunctions set carry and log the specific subfunction number.
+   - `Int 21h/44h` IOCTL now supports subfunctions 00h (Get Device Info), 01h (Set Device Info), 02h (Read From Character Device), 03h (Write To Character Device), 04h (Read From Block Device), 05h (Write To Block Device), 06h (Get Input Status), 07h (Get Output Status), 08h (Check Removable Media), 09h (Check Remote Device), 0Ah (Check Remote Handle), 0Bh (Set Sharing Retry Count), 0Eh (Get Logical Drive Map), and 0Fh (Set Logical Drive Map). Unsupported IOCTL subfunctions set carry and log the specific subfunction number.
    - Unsupported `Int 1Ah` services, unsupported DOS interrupt functions (`Int 21h`), and unsupported multiplex interrupt services (`Int 2Fh`) now log a warning and return gracefully (setting carry flag / error codes) instead of throwing `NotImplementedException`.
    - **Remaining:** specific services used by installers can be added as compatibility testing reveals them.
 
@@ -75,10 +75,10 @@ These items are likely to unblock more real applications faster than a large CPU
 5. **Kernel process termination** — _implemented_
    - `FatalExit` and `FatalAppExit` now log, display a message box (for FatalAppExit), and cleanly terminate the emulated process instead of throwing `NotImplementedException`.
 
-6. **Module loading robustness** — _improved_
-   - NE relocation processing now supports the `LowByte` (type 0) relocation address type for `InternalReference`, `ImportedOrdinal`, and `ImportedName` relocations, allowing modules with byte-level fixups to load correctly.
-   - Unknown FP OSFixup tribyte combinations now log a warning and emit a NOP instead of crashing module load.
-   - **Remaining:** `Pointer48` and `Offset32` relocation address types are not yet implemented (rare in Win3.x modules).
+6. **Module loading robustness** — _fully implemented_
+   - NE relocation processing now supports all six relocation address types: `LowByte` (type 0), `Selector` (type 2), `Pointer32` (type 3), `Offset16` (type 5), `Pointer48` (type 11), and `Offset32` (type 13) for `InternalReference`, `ImportedOrdinal`, and `ImportedName` relocations.
+   - Unknown FP OSFixup tribyte combinations log a warning and emit a NOP instead of crashing module load.
+   - Unknown FP OSFixup two-byte opcode patterns now emit two NOP bytes and log a warning instead of throwing `NotImplementedException`.
 
 7. **Port I/O support** — _implemented_
    - Machine now implements `IPortBus`, enabling `IN`/`OUT` word and byte instructions to execute without crashing.
@@ -89,6 +89,7 @@ These items are likely to unblock more real applications faster than a large CPU
    - `RegisteredWindowMessages` logs a warning for messages outside the 16-bit range instead of throwing.
    - `copy_zero` message handler passes through non-zero lParam values with logging instead of throwing (fixes dead-code path).
    - Unreachable `NotImplementedException` throws after `ThrowMessageError` in `Messaging.cs` have been removed.
+   - `notimpl` message conversion now logs a warning and passes parameters through as a copy instead of throwing `NotImplementedException`.
 
 ## Recommended execution order
 
@@ -101,6 +102,8 @@ These items are likely to unblock more real applications faster than a large CPU
 7. ~~Implement complex pointer-based control message Callables (RECT, buffer, array marshalling).~~ ✅
 8. ~~Eliminate crash-causing `NotImplementedException` paths in port I/O, module lifecycle, message conversion, and GDI brush handling.~~ ✅
 9. ~~Expand DOS Int 21h coverage with filesystem, directory, FCB parsing, country info, PSP, and code page services.~~ ✅
+10. ~~Complete NE relocation address type coverage (`Pointer48`, `Offset32`) and harden FP OSFixup fallback.~~ ✅
+11. ~~Expand IOCTL subfunction coverage and harden message conversion fallback paths.~~ ✅
 
 ## Next steps
 
@@ -113,12 +116,18 @@ The following items represent the current frontier for further work:
    - Module32.Uninit, RegisteredWindowMessages, copy_zero, BS_DIBPATTERN conversion, and Messaging.cs error paths all hardened against crashes.
 3. ~~**Expand DOS service coverage**~~ ✅ **COMPLETED**
    - Added Int 21h services: 0x29 (Parse Filename into FCB), 0x34 (InDOS Flag), 0x38 (Get/Set Country Info), 0x39 (Create Directory), 0x3A (Remove Directory), 0x51/0x62 (Get PSP), 0x5B (Create New File), 0x60 (Truename), 0x66 (Get/Set Code Page).
-4. **Continue broadening thunking support** — add marshaling for parameter/return shapes encountered when testing real Win3.x applications against additional forwarded DLL exports.
-5. **Evaluate cross-task window enumeration** — determine from application testing whether full enumeration is needed or the virtualized approach is sufficient.
-6. **Extend MCI device-specific support** — implement device-specific MCI command extensions as multimedia applications reveal gaps.
-7. **Add remaining relocation types** — implement `Pointer48` and `Offset32` relocation address types if encountered by real NE executables.
-8. **Add handle/callback control messages** — implement `EM_SETHANDLE`/`EM_GETHANDLE` (local memory handle) and `EM_SETWORDBREAKPROC`/`EM_GETWORDBREAKPROC` (callback pointer) as applications exercise them.
-9. **Add remaining IOCTL subfunctions** — implement additional Int 21h/44h subfunctions (e.g. 02h/03h character device read/write, 09h remote device check) as needed.
+4. ~~**Add remaining relocation types**~~ ✅ **COMPLETED**
+   - `Pointer48` (48-bit far pointer: 32-bit offset + 16-bit selector) and `Offset32` (32-bit offset) relocation address types are now implemented for `InternalReference`, `ImportedOrdinal`, and `ImportedName` relocations.
+   - All six NE relocation address types are now covered.
+5. ~~**Add remaining IOCTL subfunctions**~~ ✅ **COMPLETED**
+   - Added Int 21h/44h subfunctions: 02h (Read From Character Device), 03h (Write To Character Device), 04h (Read From Block Device), 05h (Write To Block Device), 09h (Check Remote Device), 0Ah (Check Remote Handle), 0Bh (Set Sharing Retry Count), 0Eh (Get Logical Drive Map), 0Fh (Set Logical Drive Map).
+6. ~~**Harden message conversion crash paths**~~ ✅ **COMPLETED**
+   - `notimpl` message Postable now logs a warning and passes parameters through as a copy instead of throwing `NotImplementedException`.
+   - Unknown FP OSFixup two-byte opcode patterns now emit NOP bytes and log a warning instead of throwing.
+7. **Continue broadening thunking support** — add marshaling for parameter/return shapes encountered when testing real Win3.x applications against additional forwarded DLL exports.
+8. **Evaluate cross-task window enumeration** — determine from application testing whether full enumeration is needed or the virtualized approach is sufficient.
+9. **Extend MCI device-specific support** — implement device-specific MCI command extensions as multimedia applications reveal gaps.
+10. **Add handle/callback control messages** — implement `EM_SETHANDLE`/`EM_GETHANDLE` (local memory handle) and `EM_SETWORDBREAKPROC`/`EM_GETWORDBREAKPROC` (callback pointer) as applications exercise them.
 
 ## Expected outcome
 

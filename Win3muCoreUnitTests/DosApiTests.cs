@@ -577,5 +577,131 @@ namespace Win3muCoreUnitTests
             Assert.IsTrue(cpu.FlagC);
         }
 
+        [TestMethod]
+        public void Ioctl_ReadFromCharacterDevice_ReturnsZeroBytes()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x02; // Read from character device
+            cpu.bx = 0;    // handle
+            cpu.cx = 10;   // bytes to read
+
+            dos.DispatchInt21();
+
+            Assert.AreEqual((ushort)0, cpu.ax); // no data available
+        }
+
+        [TestMethod]
+        public void Ioctl_WriteToCharacterDevice_ReportsAllBytesWritten()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x03; // Write to character device
+            cpu.bx = 0;    // handle
+            cpu.cx = 25;   // bytes to write
+
+            dos.DispatchInt21();
+
+            Assert.AreEqual((ushort)25, cpu.ax); // all bytes written
+        }
+
+        [TestMethod]
+        public void Ioctl_ReadFromBlockDevice_ReturnsZeroBytes()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x04; // Read from block device
+            cpu.bl = 3;    // drive C:
+            cpu.cx = 512;  // bytes to read
+
+            dos.DispatchInt21();
+
+            Assert.AreEqual((ushort)0, cpu.ax); // no data available
+        }
+
+        [TestMethod]
+        public void Ioctl_WriteToBlockDevice_ReportsAllBytesWritten()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x05; // Write to block device
+            cpu.bl = 3;    // drive C:
+            cpu.cx = 512;  // bytes to write
+
+            dos.DispatchInt21();
+
+            Assert.AreEqual((ushort)512, cpu.ax); // all bytes written
+        }
+
+        [TestMethod]
+        public void Ioctl_CheckRemoteDevice_ReturnsLocal()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x09; // Check if block device is remote
+            cpu.bl = 3;    // drive C:
+
+            dos.DispatchInt21();
+
+            Assert.AreEqual((ushort)0, cpu.dx); // local (bit 12 clear)
+        }
+
+        [TestMethod]
+        public void Ioctl_CheckRemoteHandle_ReturnsLocal()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x0A; // Check if handle is remote
+            cpu.bx = 1;    // handle
+
+            dos.DispatchInt21();
+
+            Assert.AreEqual((ushort)0, cpu.dx); // local (bit 15 clear)
+        }
+
+        [TestMethod]
+        public void Ioctl_SetSharingRetryCount_Succeeds()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x0B; // Set sharing retry count
+            cpu.cx = 3;    // retries
+            cpu.dx = 1;    // pause
+
+            dos.DispatchInt21();
+
+            // Should not set carry flag (accepted)
+            Assert.IsFalse(cpu.FlagC);
+        }
+
+        [TestMethod]
+        public void Ioctl_GetLogicalDriveMap_ReturnsZero()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x0E; // Get logical drive map
+            cpu.bl = 3;    // drive C:
+
+            dos.DispatchInt21();
+
+            Assert.AreEqual((byte)0, cpu.al); // only one drive letter
+        }
+
     }
 }

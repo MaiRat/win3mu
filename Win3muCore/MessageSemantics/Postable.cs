@@ -97,12 +97,16 @@ namespace Win3muCore.MessageSemantics
     {
         public override void To32(Machine machine, ref Win16.MSG msg16, ref Win32.MSG msg32)
         {
-            throw new NotImplementedException($"Message type not implemented: {MessageNames.NameOfMessage(msg16.message)}");
+            Log.WriteLine("Warning: message conversion not implemented for {0}, passing through as copy", MessageNames.NameOfMessage(msg16.message));
+            msg32.wParam = (IntPtr)msg16.wParam;
+            msg32.lParam = (IntPtr)(int)msg16.lParam;
         }
 
         public override void To16(Machine machine, ref Win32.MSG msg32, ref Win16.MSG msg16)
         {
-            throw new NotImplementedException($"Message type not implemented: {MessageNames.NameOfMessage(msg16.message)}");
+            Log.WriteLine("Warning: message conversion not implemented for {0}, passing through as copy", MessageNames.NameOfMessage(msg16.message));
+            msg16.wParam = msg32.wParam.Loword();
+            msg16.lParam = msg32.lParam.ToUInt32();
         }
     }
 

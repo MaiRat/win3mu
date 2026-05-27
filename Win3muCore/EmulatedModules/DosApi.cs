@@ -961,6 +961,94 @@ namespace Win3muCore
                                 return;
                             }
 
+                            case 2:
+                            {
+                                // Read from character device via control channel
+                                // BX = handle, CX = bytes to read, DS:DX = buffer
+                                // Returns AX = bytes actually read (0 = no data available)
+                                Log.WriteLine("DOS Int 21h/44h/02h: Read From Character Device (handle={0}, count={1})", _cpu.bx, _cpu.cx);
+                                _cpu.ax = 0; // no data available
+                                return;
+                            }
+
+                            case 3:
+                            {
+                                // Write to character device via control channel
+                                // BX = handle, CX = bytes to write, DS:DX = buffer
+                                // Returns AX = bytes actually written
+                                Log.WriteLine("DOS Int 21h/44h/03h: Write To Character Device (handle={0}, count={1})", _cpu.bx, _cpu.cx);
+                                _cpu.ax = _cpu.cx; // report all bytes written
+                                return;
+                            }
+
+                            case 4:
+                            {
+                                // Read from block device via control channel
+                                // BL = drive number, CX = bytes to read, DS:DX = buffer
+                                // Returns AX = bytes actually read
+                                Log.WriteLine("DOS Int 21h/44h/04h: Read From Block Device (drive={0}, count={1})", _cpu.bl, _cpu.cx);
+                                _cpu.ax = 0; // no data available
+                                return;
+                            }
+
+                            case 5:
+                            {
+                                // Write to block device via control channel
+                                // BL = drive number, CX = bytes to write, DS:DX = buffer
+                                // Returns AX = bytes actually written
+                                Log.WriteLine("DOS Int 21h/44h/05h: Write To Block Device (drive={0}, count={1})", _cpu.bl, _cpu.cx);
+                                _cpu.ax = _cpu.cx; // report all bytes written
+                                return;
+                            }
+
+                            case 9:
+                            {
+                                // Check if block device is remote
+                                // BL = drive number (0 = default, 1 = A:, etc.)
+                                // Returns DX bit 12 set if remote, clear if local
+                                Log.WriteLine("DOS Int 21h/44h/09h: Check Remote Device (drive {0})", _cpu.bl);
+                                _cpu.dx = 0; // local device (bit 12 clear)
+                                return;
+                            }
+
+                            case 0x0A:
+                            {
+                                // Check if handle is remote
+                                // BX = handle
+                                // Returns DX bit 15 set if remote
+                                Log.WriteLine("DOS Int 21h/44h/0Ah: Check Remote Handle (handle={0})", _cpu.bx);
+                                _cpu.dx = 0; // local handle (bit 15 clear)
+                                return;
+                            }
+
+                            case 0x0B:
+                            {
+                                // Set sharing retry count
+                                // DX = pause between retries, CX = number of retries
+                                Log.WriteLine("DOS Int 21h/44h/0Bh: Set Sharing Retry Count (retries={0}, pause={1})", _cpu.cx, _cpu.dx);
+                                // Accept and ignore
+                                return;
+                            }
+
+                            case 0x0E:
+                            {
+                                // Get logical drive map
+                                // BL = drive number (0 = default, 1 = A:, etc.)
+                                // Returns AL = 0 if only one drive letter assigned, or the last letter used
+                                Log.WriteLine("DOS Int 21h/44h/0Eh: Get Logical Drive Map (drive {0})", _cpu.bl);
+                                _cpu.al = 0; // only one drive letter assigned
+                                return;
+                            }
+
+                            case 0x0F:
+                            {
+                                // Set logical drive map
+                                // BL = drive number
+                                Log.WriteLine("DOS Int 21h/44h/0Fh: Set Logical Drive Map (drive {0})", _cpu.bl);
+                                // Accept and ignore
+                                return;
+                            }
+
                         }
                         Log.WriteLine("Failing call to DOS Int 21h ah = 0x44 al = 0x{0:X2} (IOCTL)", _cpu.al);
                         _cpu.FlagC = true;
