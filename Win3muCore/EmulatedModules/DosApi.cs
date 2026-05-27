@@ -179,6 +179,7 @@ namespace Win3muCore
         }
 
         int _currentDrive = 0;
+        uint _inDosFlagPtr = 0;
         DriveInfo[] _driveInfo = new DriveInfo[26];
 
         // Matches Windows DRIVE_xxx constants
@@ -534,6 +535,92 @@ namespace Win3muCore
                         _cpu.MemoryBus.WriteWord(_cpu.idt, (ushort)(_cpu.al * 4 + 2), _cpu.ds);
                         break;
 
+                    case 0x29:
+                    {
+                        // Parse Filename into FCB
+                        // AL = parsing control bits, DS:SI = string to parse, ES:DI = FCB buffer
+                        // Returns AL: 0=no wildcard, 1=wildcards found, 0xFF=drive letter invalid
+                        var parseStr = _cpu.MemoryBus.ReadString(_cpu.ds, _cpu.si);
+                        byte parseCtrl = _cpu.al;
+
+                        // Skip leading separators if bit 0 set
+                        int parseIdx = 0;
+                        if ((parseCtrl & 1) != 0)
+                        {
+                            while (parseIdx < parseStr.Length && " \t;,".IndexOf(parseStr[parseIdx]) >= 0)
+                                parseIdx++;
+                        }
+
+                        // Parse drive letter
+                        byte fcbDrive = 0;
+                        if (parseIdx + 1 < parseStr.Length && parseStr[parseIdx + 1] == ':')
+                        {
+                            fcbDrive = (byte)(char.ToUpper(parseStr[parseIdx]) - 'A' + 1);
+                            parseIdx += 2;
+                        }
+
+                        // Parse filename (up to 8 chars)
+                        var fname = new byte[8];
+                        for (int i = 0; i < 8; i++) fname[i] = 0x20; // space fill
+                        bool hasWildcard = false;
+                        int fi = 0;
+                        while (parseIdx < parseStr.Length && fi < 8 && parseStr[parseIdx] != '.' && parseStr[parseIdx] != 0 && " \t;,/\\".IndexOf(parseStr[parseIdx]) < 0)
+                        {
+                            char c = char.ToUpper(parseStr[parseIdx]);
+                            if (c == '*')
+                            {
+                                hasWildcard = true;
+                                for (int j = fi; j < 8; j++) fname[j] = (byte)'?';
+                                fi = 8;
+                            }
+                            else
+                            {
+                                if (c == '?') hasWildcard = true;
+                                fname[fi++] = (byte)c;
+                            }
+                            parseIdx++;
+                        }
+
+                        // Skip '.'
+                        if (parseIdx < parseStr.Length && parseStr[parseIdx] == '.')
+                            parseIdx++;
+
+                        // Parse extension (up to 3 chars)
+                        var fext = new byte[3];
+                        for (int i = 0; i < 3; i++) fext[i] = 0x20; // space fill
+                        fi = 0;
+                        while (parseIdx < parseStr.Length && fi < 3 && parseStr[parseIdx] != 0 && " \t;,/\\".IndexOf(parseStr[parseIdx]) < 0)
+                        {
+                            char c = char.ToUpper(parseStr[parseIdx]);
+                            if (c == '*')
+                            {
+                                hasWildcard = true;
+                                for (int j = fi; j < 3; j++) fext[j] = (byte)'?';
+                                fi = 3;
+                            }
+                            else
+                            {
+                                if (c == '?') hasWildcard = true;
+                                fext[fi++] = (byte)c;
+                            }
+                            parseIdx++;
+                        }
+
+                        // Write FCB: byte 0 = drive, bytes 1-8 = filename, bytes 9-11 = extension
+                        if ((parseCtrl & 2) == 0 || fcbDrive != 0) // bit 1: set drive only if specified in string
+                            _cpu.MemoryBus.WriteByte(_cpu.es, _cpu.di, fcbDrive);
+                        for (int i = 0; i < 8; i++)
+                            _cpu.MemoryBus.WriteByte(_cpu.es, (ushort)(_cpu.di + 1 + i), fname[i]);
+                        for (int i = 0; i < 3; i++)
+                            _cpu.MemoryBus.WriteByte(_cpu.es, (ushort)(_cpu.di + 9 + i), fext[i]);
+
+                        // Update DS:SI to point past parsed characters
+                        _cpu.si = (ushort)(_cpu.si + parseIdx);
+
+                        _cpu.al = hasWildcard ? (byte)1 : (byte)0;
+                        break;
+                    }
+
                     case 0x2A:
                     {
                         // Get Date
@@ -661,6 +748,113 @@ namespace Win3muCore
                         {
                             Log.WriteLine("Int 21h/36h: invalid drive - {0}", ex.Message);
                             _cpu.ax = 0xFFFF;   // invalid drive
+                        }
+                        break;
+                    }
+
+                    case 0x34:
+                    {
+                        // Get InDOS Flag Address
+                        // Returns ES:BX pointing to a byte that is nonzero when DOS is busy
+                        // We always return 0 (DOS not busy) from a fixed location
+                        if (_inDosFlagPtr == 0)
+                        {
+                            _inDosFlagPtr = _site.Alloc(1);
+                            _cpu.MemoryBus.WriteByte(_inDosFlagPtr.Hiword(), _inDosFlagPtr.Loword(), 0);
+                        }
+                        _cpu.es = _inDosFlagPtr.Hiword();
+                        _cpu.bx = _inDosFlagPtr.Loword();
+                        break;
+                    }
+
+                    case 0x38:
+                    {
+                        // Get/Set Country Information
+                        if (_cpu.al == 0 || _cpu.al == 0xFF)
+                        {
+                            // Get Country Info — return US defaults
+                            // Write 34-byte country info structure to DS:DX
+                            ushort seg = _cpu.ds;
+                            ushort ofs = _cpu.dx;
+                            // Date format: 0 = USA (m/d/y)
+                            _cpu.MemoryBus.WriteWord(seg, ofs, 0);
+                            // Currency symbol (5 bytes, null terminated): "$"
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 2), (byte)'$');
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 3), 0);
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 4), 0);
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 5), 0);
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 6), 0);
+                            // Thousands separator (2 bytes): ","
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 7), (byte)',');
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 8), 0);
+                            // Decimal separator (2 bytes): "."
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 9), (byte)'.');
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 10), 0);
+                            // Date separator (2 bytes): "/"
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 11), (byte)'/');
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 12), 0);
+                            // Time separator (2 bytes): ":"
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 13), (byte)':');
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 14), 0);
+                            // Currency format: 0 = symbol precedes, no space
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 15), 0);
+                            // Digits after decimal in currency: 2
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 16), 2);
+                            // Time format: 0 = 12-hour
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 17), 0);
+                            // Case-map call address (4 bytes): 0
+                            _cpu.MemoryBus.WriteDWord(seg, (ushort)(ofs + 18), 0);
+                            // Data-list separator (2 bytes): ","
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 22), (byte)',');
+                            _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 23), 0);
+                            // Reserved (10 bytes): 0
+                            for (int i = 0; i < 10; i++)
+                                _cpu.MemoryBus.WriteByte(seg, (ushort)(ofs + 24 + i), 0);
+
+                            _cpu.bx = 1; // Country code = 1 (USA)
+                        }
+                        else
+                        {
+                            // Set Country Info — silently ignore
+                            Log.WriteLine("DOS Int 21h/38h: Set Country Info (ignored)");
+                        }
+                        break;
+                    }
+
+                    case 0x39:
+                    {
+                        // Create Directory
+                        var newDir = _cpu.MemoryBus.ReadString(_cpu.ds, _cpu.dx);
+                        var hostDir = _site.TryMapGuestPathToHost(newDir, true);
+                        if (hostDir == null)
+                            throw new DosError(DosError.PathNotFound);
+                        try
+                        {
+                            System.IO.Directory.CreateDirectory(hostDir);
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.WriteLine("DOS Int 21h/39h: Create Directory failed - {0}", ex.Message);
+                            throw new DosError(DosError.AccessDenied);
+                        }
+                        break;
+                    }
+
+                    case 0x3A:
+                    {
+                        // Remove Directory
+                        var rmDir = _cpu.MemoryBus.ReadString(_cpu.ds, _cpu.dx);
+                        var hostRmDir = _site.TryMapGuestPathToHost(rmDir, true);
+                        if (hostRmDir == null)
+                            throw new DosError(DosError.PathNotFound);
+                        try
+                        {
+                            System.IO.Directory.Delete(hostRmDir);
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.WriteLine("DOS Int 21h/3Ah: Remove Directory failed - {0}", ex.Message);
+                            throw new DosError(DosError.AccessDenied);
                         }
                         break;
                     }
@@ -956,6 +1150,69 @@ namespace Win3muCore
                             break;
                         }
 
+                        break;
+                    }
+
+                    case 0x5B:
+                    {
+                        // Create New File (fail if exists)
+                        var newFileName = _cpu.MemoryBus.ReadString(_cpu.ds, _cpu.dx);
+                        var hostPath5B = _site.TryMapGuestPathToHost(newFileName, true);
+                        if (hostPath5B == null)
+                            throw new DosError(DosError.PathNotFound);
+                        if (System.IO.File.Exists(hostPath5B))
+                            throw new DosError(DosError.FileAlreadyExists);
+                        _cpu.ax = CreateFile(newFileName, _cpu.cx);
+                        break;
+                    }
+
+                    case 0x51:
+                    case 0x62:
+                        // Get PSP Segment
+                        _cpu.bx = _psp;
+                        break;
+
+                    case 0x60:
+                    {
+                        // Get Fully Qualified Filename (Truename)
+                        var inPath = _cpu.MemoryBus.ReadString(_cpu.ds, _cpu.si);
+                        // Resolve to a fully qualified guest path
+                        string fullPath;
+                        if (inPath.Length >= 2 && inPath[1] == ':')
+                            fullPath = inPath.ToUpper();
+                        else if (inPath.StartsWith("\\"))
+                            fullPath = ((char)('A' + _currentDrive)).ToString() + ":" + inPath.ToUpper();
+                        else
+                            fullPath = ((char)('A' + _currentDrive)).ToString() + ":" + WorkingDirectory + "\\" + inPath.ToUpper();
+                        // Normalize path separators
+                        fullPath = fullPath.Replace("/", "\\");
+                        // Remove trailing backslash unless root
+                        if (fullPath.Length > 3 && fullPath.EndsWith("\\"))
+                            fullPath = fullPath.TrimEnd('\\');
+                        _cpu.MemoryBus.WriteString(_cpu.es, _cpu.di, fullPath, 128);
+                        break;
+                    }
+
+                    case 0x66:
+                    {
+                        // Get/Set Global Code Page
+                        switch (_cpu.al)
+                        {
+                            case 1:
+                                // Get Global Code Page
+                                _cpu.bx = 437; // US code page
+                                _cpu.dx = 437; // System code page
+                                break;
+                            case 2:
+                                // Set Global Code Page — silently accept
+                                Log.WriteLine("DOS Int 21h/66h/02h: Set Global Code Page (ignored, BX=0x{0:X4})", _cpu.bx);
+                                break;
+                            default:
+                                Log.WriteLine("Unsupported Int 21h AH=66h subfunction AL=0x{0:X2}", _cpu.al);
+                                _cpu.FlagC = true;
+                                _cpu.ax = DosError.FunctionNumberInvalid;
+                                break;
+                        }
                         break;
                     }
 

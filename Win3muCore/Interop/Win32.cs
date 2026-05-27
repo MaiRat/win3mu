@@ -622,7 +622,13 @@ namespace Win3muCore
             {
                 if (lb32.style == Win32.BS_DIBPATTERN)
                 {
-                    throw new NotImplementedException("Unsupport log brush conversion BS_DIBPATTERN");
+                    Log.WriteLine("LOGBRUSH.To16: BS_DIBPATTERN not fully supported, converting as solid brush");
+                    return new Win16.LOGBRUSH()
+                    {
+                        style = (ushort)Win32.BS_SOLID,
+                        color = lb32.color,
+                        hatch = 0,
+                    };
                 }
                 return new Win16.LOGBRUSH()
                 {

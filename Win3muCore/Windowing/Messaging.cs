@@ -456,7 +456,7 @@ namespace Win3muCore
             }
 
             MessageMap.ThrowMessageError(hWnd, message);
-            throw new NotImplementedException();
+            return IntPtr.Zero; // unreachable - ThrowMessageError always throws
         }
 
         public void Convert32to16(ref Win32.MSG msg32, Action<Win16.MSG> callback)
@@ -501,7 +501,6 @@ namespace Win3muCore
             }
 
             MessageMap.ThrowMessageError(msg32.hWnd, msg32.message);
-            throw new NotImplementedException();
         }
 
         public void Convert16to32(ref Win16.MSG msg16, Action<Win32.MSG> callback)

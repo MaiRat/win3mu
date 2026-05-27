@@ -27,7 +27,7 @@ using Sharp86;
 
 namespace Win3muCore
 {
-    public class Machine : CPU, DosApi.ISite, IMemoryBus
+    public class Machine : CPU, DosApi.ISite, IMemoryBus, IPortBus
     {
         public Machine()
         {
@@ -56,6 +56,7 @@ namespace Win3muCore
             _expressionContext.PushSymbolScope(_symbolResolver);
 
             this.MemoryBus = _globalHeap;
+            this.PortBus = this;
             MachineStatusWord = 0x0001;
 
             RegisterVariables();
@@ -964,14 +965,26 @@ namespace Win3muCore
             }
         }
 
+        public byte ReadPortByte(ushort port)
+        {
+            Log.WriteLine("ReadPortByte: port 0x{0:X4} - returning 0xFF", port);
+            return 0xFF;
+        }
+
+        public void WritePortByte(ushort port, byte value)
+        {
+            Log.WriteLine("WritePortByte: port 0x{0:X4} value 0x{1:X2} - ignored", port, value);
+        }
+
         public ushort ReadPortWord(ushort port)
         {
-            throw new NotImplementedException();
+            return (ushort)(ReadPortByte(port) | ReadPortByte((ushort)(port + 1)) << 8);
         }
 
         public void WritePortWord(ushort port, ushort value)
         {
-            throw new NotImplementedException();
+            WritePortByte(port, (byte)(value & 0xFF));
+            WritePortByte((ushort)(port + 1), (byte)(value >> 8));
         }
 
 

@@ -189,7 +189,6 @@ namespace Win3muCore
 
         public override void Uninit(Machine machine)
         {
-            throw new NotImplementedException();
         }
 
         public override ushort GetOrdinalFromName(string functionName)
