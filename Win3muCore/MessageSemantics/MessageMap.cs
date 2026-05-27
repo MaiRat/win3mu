@@ -412,6 +412,11 @@ namespace Win3muCore.MessageSemantics
             Add(WndClassKind.Edit, Win32.EM_GETFIRSTVISIBLELINE, Win16.EM_GETFIRSTVISIBLELINE, new unused());
             Add(WndClassKind.Edit, Win32.EM_SETREADONLY, Win16.EM_SETREADONLY, new copy_unused());
             Add(WndClassKind.Edit, Win32.EM_GETPASSWORDCHAR, Win16.EM_GETPASSWORDCHAR, new unused());
+            Add(WndClassKind.Edit, Win32.EM_GETRECT, Win16.EM_GETRECT, new ClassEdit.EM_GETRECT());
+            Add(WndClassKind.Edit, Win32.EM_SETRECT, Win16.EM_SETRECT, new ClassEdit.EM_SETRECT());
+            Add(WndClassKind.Edit, Win32.EM_SETRECTNP, Win16.EM_SETRECTNP, new ClassEdit.EM_SETRECT());
+            Add(WndClassKind.Edit, Win32.EM_GETLINE, Win16.EM_GETLINE, new ClassEdit.EM_GETLINE());
+            Add(WndClassKind.Edit, Win32.EM_SETTABSTOPS, Win16.EM_SETTABSTOPS, new ClassEdit.EM_SETTABSTOPS());
 
             // Listbox
             Add(WndClassKind.Listbox, Win32.LB_ADDSTRING, Win16.LB_ADDSTRING, new ClassListBox.LB_ADDSTRING());
@@ -441,6 +446,9 @@ namespace Win3muCore.MessageSemantics
             Add(WndClassKind.Listbox, Win32.LB_SETITEMHEIGHT, Win16.LB_SETITEMHEIGHT, new copy());
             Add(WndClassKind.Listbox, Win32.LB_GETITEMHEIGHT, Win16.LB_GETITEMHEIGHT, new copy_unused());
             Add(WndClassKind.Listbox, Win32.LB_FINDSTRINGEXACT, Win16.LB_FINDSTRINGEXACT, new copy_string());
+            Add(WndClassKind.Listbox, Win32.LB_GETITEMRECT, Win16.LB_GETITEMRECT, new ClassListBox.LB_GETITEMRECT());
+            Add(WndClassKind.Listbox, Win32.LB_GETSELITEMS, Win16.LB_GETSELITEMS, new ClassListBox.LB_GETSELITEMS());
+            Add(WndClassKind.Listbox, Win32.LB_SETTABSTOPS, Win16.LB_SETTABSTOPS, new ClassListBox.LB_SETTABSTOPS());
 
             // ComboBox
             Add(WndClassKind.Combobox, Win32.CB_GETEDITSEL, Win16.CB_GETEDITSEL, new unused());
@@ -467,6 +475,7 @@ namespace Win3muCore.MessageSemantics
             Add(WndClassKind.Combobox, Win32.CB_GETEXTENDEDUI, Win16.CB_GETEXTENDEDUI, new unused());
             Add(WndClassKind.Combobox, Win32.CB_GETDROPPEDSTATE, Win16.CB_GETDROPPEDSTATE, new unused());
             Add(WndClassKind.Combobox, Win32.CB_FINDSTRINGEXACT, Win16.CB_FINDSTRINGEXACT, new copy_string());
+            Add(WndClassKind.Combobox, Win32.CB_GETDROPPEDCONTROLRECT, Win16.CB_GETDROPPEDCONTROLRECT, new ClassComboBox.CB_GETDROPPEDCONTROLRECT());
         }
 
     }
