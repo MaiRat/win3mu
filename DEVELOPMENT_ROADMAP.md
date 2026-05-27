@@ -61,11 +61,11 @@ These items are likely to unblock more real applications faster than a large CPU
 4. **Control message semantics** — _substantially expanded_
    - Button: `BM_GETCHECK`, `BM_SETCHECK`, `BM_GETSTATE`, `BM_SETSTATE`, `BM_SETSTYLE` are now fully mapped with correct parameter semantics.
    - Static: `STM_SETICON` and `STM_GETICON` now use proper GDI object handle mapping.
-   - Edit: 23 messages implemented including `EM_GETSEL`, `EM_SETSEL` (with Win16 packed-lParam cracking), `EM_GETRECT` (RECT output), `EM_SETRECT`/`EM_SETRECTNP` (RECT input), `EM_LINESCROLL` (with parameter cracking), `EM_REPLACESEL` (with string conversion), `EM_GETMODIFY`, `EM_SETMODIFY`, `EM_GETLINECOUNT`, `EM_LINEINDEX`, `EM_LINELENGTH`, `EM_GETLINE` (buffer with word-length prefix), `EM_CANUNDO`, `EM_UNDO`, `EM_FMTLINES`, `EM_LINEFROMCHAR`, `EM_SETTABSTOPS` (int array marshalling), `EM_SETPASSWORDCHAR`, `EM_EMPTYUNDOBUFFER`, `EM_GETFIRSTVISIBLELINE`, `EM_SETREADONLY`, `EM_GETPASSWORDCHAR`, and `EM_SETLIMITTEXT`.
+   - Edit: 27 messages implemented including `EM_GETSEL`, `EM_SETSEL` (with Win16 packed-lParam cracking), `EM_GETRECT` (RECT output), `EM_SETRECT`/`EM_SETRECTNP` (RECT input), `EM_LINESCROLL` (with parameter cracking), `EM_REPLACESEL` (with string conversion), `EM_GETMODIFY`, `EM_SETMODIFY`, `EM_GETLINECOUNT`, `EM_LINEINDEX`, `EM_LINELENGTH`, `EM_GETLINE` (buffer with word-length prefix), `EM_CANUNDO`, `EM_UNDO`, `EM_FMTLINES`, `EM_LINEFROMCHAR`, `EM_SETTABSTOPS` (int array marshalling), `EM_SETPASSWORDCHAR`, `EM_EMPTYUNDOBUFFER`, `EM_GETFIRSTVISIBLELINE`, `EM_SETREADONLY`, `EM_GETPASSWORDCHAR`, `EM_SETLIMITTEXT`, `EM_SETHANDLE` (stub with logging), `EM_GETHANDLE` (stub with logging), `EM_SETWORDBREAKPROC` (stub with logging), and `EM_GETWORDBREAKPROC` (stub with logging).
    - ListBox: 24 messages implemented including `LB_DELETESTRING`, `LB_SETSEL`, `LB_GETSEL`, `LB_GETTEXTLEN`, `LB_GETCOUNT`, `LB_SELECTSTRING`, `LB_GETSELCOUNT`, `LB_GETHORIZONTALEXTENT`, `LB_SETHORIZONTALEXTENT`, `LB_SETCOLUMNWIDTH`, `LB_GETITEMDATA`, `LB_SETITEMDATA`, `LB_SELITEMRANGE`, `LB_SETCARETINDEX`, `LB_SETITEMHEIGHT`, `LB_GETITEMHEIGHT`, `LB_FINDSTRINGEXACT`, `LB_GETITEMRECT` (RECT output), `LB_GETSELITEMS` (int array buffer output), `LB_SETTABSTOPS` (int array marshalling), plus existing `LB_ADDSTRING`, `LB_INSERTSTRING`, `LB_GETTEXT`, `LB_FINDSTRING`, etc.
    - ComboBox: 20 messages implemented including `CB_GETEDITSEL`, `CB_LIMITTEXT`, `CB_SETEDITSEL`, `CB_DELETESTRING`, `CB_DIR`, `CB_GETLBTEXTLEN`, `CB_SELECTSTRING`, `CB_SHOWDROPDOWN`, `CB_SETITEMHEIGHT`, `CB_GETITEMHEIGHT`, `CB_SETEXTENDEDUI`, `CB_GETEXTENDEDUI`, `CB_GETDROPPEDSTATE`, `CB_FINDSTRINGEXACT`, `CB_GETDROPPEDCONTROLRECT` (RECT output), plus existing `CB_ADDSTRING`, `CB_INSERTSTRING`, `CB_GETLBTEXT`, `CB_FINDSTRING`, etc.
    - The old commented-out `notimpl()` block has been replaced entirely with proper semantics.
-   - **Remaining:** handle/callback-based messages (`EM_SETHANDLE`/`EM_GETHANDLE`, `EM_SETWORDBREAKPROC`/`EM_GETWORDBREAKPROC`) require custom Callable implementations and can be added as applications exercise them.
+   - **Remaining:** none — all standard Win3.x edit control messages are now covered. Full cross-bitness callback thunking for `EM_SETWORDBREAKPROC` can be added if applications require functional word-break callbacks.
 
 5. **GDI robustness** — _improved_
    - `CreateBrushIndirect` now handles BS_NULL/BS_HOLLOW brush style and falls back gracefully for unknown brush styles instead of throwing.
@@ -77,6 +77,7 @@ These items are likely to unblock more real applications faster than a large CPU
 
 6. **Module loading robustness** — _fully implemented_
    - NE relocation processing now supports all six relocation address types: `LowByte` (type 0), `Selector` (type 2), `Pointer32` (type 3), `Offset16` (type 5), `Pointer48` (type 11), and `Offset32` (type 13) for `InternalReference`, `ImportedOrdinal`, and `ImportedName` relocations.
+   - Unknown relocation address types and unknown relocation types now log a warning and skip instead of crashing module load.
    - Unknown FP OSFixup tribyte combinations log a warning and emit a NOP instead of crashing module load.
    - Unknown FP OSFixup two-byte opcode patterns now emit two NOP bytes and log a warning instead of throwing `NotImplementedException`.
 
@@ -91,6 +92,9 @@ These items are likely to unblock more real applications faster than a large CPU
    - Unreachable `NotImplementedException` throws after `ThrowMessageError` in `Messaging.cs` have been removed.
    - `notimpl` message conversion now logs a warning and passes parameters through as a copy instead of throwing `NotImplementedException`.
 
+9. **Memory management robustness** — _improved_
+   - `RangeAllocator` shrink operation is now implemented, allowing address space reduction when trailing space is free instead of throwing `NotImplementedException`.
+
 ## Recommended execution order
 
 1. ~~Add focused unit tests around the currently known `NotImplementedException` and invalid-opcode paths.~~ ✅
@@ -104,6 +108,7 @@ These items are likely to unblock more real applications faster than a large CPU
 9. ~~Expand DOS Int 21h coverage with filesystem, directory, FCB parsing, country info, PSP, and code page services.~~ ✅
 10. ~~Complete NE relocation address type coverage (`Pointer48`, `Offset32`) and harden FP OSFixup fallback.~~ ✅
 11. ~~Expand IOCTL subfunction coverage and harden message conversion fallback paths.~~ ✅
+12. ~~Implement handle/callback control messages (`EM_SETHANDLE`/`EM_GETHANDLE`, `EM_SETWORDBREAKPROC`/`EM_GETWORDBREAKPROC`) and harden remaining relocation/memory crash paths.~~ ✅
 
 ## Next steps
 
@@ -124,10 +129,16 @@ The following items represent the current frontier for further work:
 6. ~~**Harden message conversion crash paths**~~ ✅ **COMPLETED**
    - `notimpl` message Postable now logs a warning and passes parameters through as a copy instead of throwing `NotImplementedException`.
    - Unknown FP OSFixup two-byte opcode patterns now emit NOP bytes and log a warning instead of throwing.
-7. **Continue broadening thunking support** — add marshaling for parameter/return shapes encountered when testing real Win3.x applications against additional forwarded DLL exports.
-8. **Evaluate cross-task window enumeration** — determine from application testing whether full enumeration is needed or the virtualized approach is sufficient.
-9. **Extend MCI device-specific support** — implement device-specific MCI command extensions as multimedia applications reveal gaps.
-10. **Add handle/callback control messages** — implement `EM_SETHANDLE`/`EM_GETHANDLE` (local memory handle) and `EM_SETWORDBREAKPROC`/`EM_GETWORDBREAKPROC` (callback pointer) as applications exercise them.
+7. ~~**Add handle/callback control messages**~~ ✅ **COMPLETED**
+   - `EM_SETHANDLE`/`EM_GETHANDLE` now have stub Callable implementations that log and gracefully degrade (the 32-bit edit control manages its own buffer).
+   - `EM_SETWORDBREAKPROC`/`EM_GETWORDBREAKPROC` now have stub Callable implementations that log and return NULL (cross-bitness callback thunking deferred).
+8. ~~**Harden relocation and memory crash paths**~~ ✅ **COMPLETED**
+   - Unknown relocation address types for `InternalReference`, `ImportedOrdinal`, and `ImportedName` now log a warning and skip instead of throwing `NotImplementedException`.
+   - Unknown relocation types now log a warning and skip instead of throwing.
+   - `RangeAllocator` shrink operation is now implemented with proper free-tail validation instead of throwing `NotImplementedException`.
+9. **Continue broadening thunking support** — add marshaling for parameter/return shapes encountered when testing real Win3.x applications against additional forwarded DLL exports.
+10. **Evaluate cross-task window enumeration** — determine from application testing whether full enumeration is needed or the virtualized approach is sufficient.
+11. **Extend MCI device-specific support** — implement device-specific MCI command extensions as multimedia applications reveal gaps.
 
 ## Expected outcome
 

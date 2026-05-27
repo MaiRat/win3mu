@@ -48,7 +48,6 @@ namespace Win3muCoreUnitTests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void Shrink_IntoAllocatedRegion_Throws()
         {
             var allocator = new RangeAllocator<string>(1000);
@@ -56,7 +55,16 @@ namespace Win3muCoreUnitTests
             Assert.IsNotNull(range);
 
             // Try to shrink below the allocated region — should fail
-            allocator.AddressSpaceSize = 500;
+            bool threw = false;
+            try
+            {
+                allocator.AddressSpaceSize = 500;
+            }
+            catch (InvalidOperationException)
+            {
+                threw = true;
+            }
+            Assert.IsTrue(threw, "Expected InvalidOperationException when shrinking into allocated region");
         }
 
         [TestMethod]
