@@ -181,7 +181,7 @@ namespace Win3muCore.MessageSemantics
                     var tabs32 = new int[count];
                     for (int i = 0; i < count; i++)
                     {
-                        tabs32[i] = (short)machine.ReadWord((uint)(msg16.lParam + i * 2));
+                        tabs32[i] = (short)machine.ReadWord(msg16.lParam.Hiword(), (ushort)(msg16.lParam.Loword() + i * 2));
                     }
 
                     fixed (int* pTabs = tabs32)

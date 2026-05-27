@@ -61,11 +61,11 @@ These items are likely to unblock more real applications faster than a large CPU
 4. **Control message semantics** — _substantially expanded_
    - Button: `BM_GETCHECK`, `BM_SETCHECK`, `BM_GETSTATE`, `BM_SETSTATE`, `BM_SETSTYLE` are now fully mapped with correct parameter semantics.
    - Static: `STM_SETICON` and `STM_GETICON` now use proper GDI object handle mapping.
-   - Edit: 18 messages implemented including `EM_GETSEL`, `EM_SETSEL` (with Win16 packed-lParam cracking), `EM_LINESCROLL` (with parameter cracking), `EM_REPLACESEL` (with string conversion), `EM_GETMODIFY`, `EM_SETMODIFY`, `EM_GETLINECOUNT`, `EM_LINEINDEX`, `EM_LINELENGTH`, `EM_CANUNDO`, `EM_UNDO`, `EM_FMTLINES`, `EM_LINEFROMCHAR`, `EM_SETPASSWORDCHAR`, `EM_EMPTYUNDOBUFFER`, `EM_GETFIRSTVISIBLELINE`, `EM_SETREADONLY`, `EM_GETPASSWORDCHAR`, and `EM_SETLIMITTEXT`.
-   - ListBox: 21 messages implemented including `LB_DELETESTRING`, `LB_SETSEL`, `LB_GETSEL`, `LB_GETTEXTLEN`, `LB_GETCOUNT`, `LB_SELECTSTRING`, `LB_GETSELCOUNT`, `LB_GETHORIZONTALEXTENT`, `LB_SETHORIZONTALEXTENT`, `LB_SETCOLUMNWIDTH`, `LB_GETITEMDATA`, `LB_SETITEMDATA`, `LB_SELITEMRANGE`, `LB_SETCARETINDEX`, `LB_SETITEMHEIGHT`, `LB_GETITEMHEIGHT`, `LB_FINDSTRINGEXACT`, plus existing `LB_ADDSTRING`, `LB_INSERTSTRING`, `LB_GETTEXT`, `LB_FINDSTRING`, etc.
-   - ComboBox: 19 messages implemented including `CB_GETEDITSEL`, `CB_LIMITTEXT`, `CB_SETEDITSEL`, `CB_DELETESTRING`, `CB_DIR`, `CB_GETLBTEXTLEN`, `CB_SELECTSTRING`, `CB_SHOWDROPDOWN`, `CB_SETITEMHEIGHT`, `CB_GETITEMHEIGHT`, `CB_SETEXTENDEDUI`, `CB_GETEXTENDEDUI`, `CB_GETDROPPEDSTATE`, `CB_FINDSTRINGEXACT`, plus existing `CB_ADDSTRING`, `CB_INSERTSTRING`, `CB_GETLBTEXT`, `CB_FINDSTRING`, etc.
+   - Edit: 23 messages implemented including `EM_GETSEL`, `EM_SETSEL` (with Win16 packed-lParam cracking), `EM_GETRECT` (RECT output), `EM_SETRECT`/`EM_SETRECTNP` (RECT input), `EM_LINESCROLL` (with parameter cracking), `EM_REPLACESEL` (with string conversion), `EM_GETMODIFY`, `EM_SETMODIFY`, `EM_GETLINECOUNT`, `EM_LINEINDEX`, `EM_LINELENGTH`, `EM_GETLINE` (buffer with word-length prefix), `EM_CANUNDO`, `EM_UNDO`, `EM_FMTLINES`, `EM_LINEFROMCHAR`, `EM_SETTABSTOPS` (int array marshalling), `EM_SETPASSWORDCHAR`, `EM_EMPTYUNDOBUFFER`, `EM_GETFIRSTVISIBLELINE`, `EM_SETREADONLY`, `EM_GETPASSWORDCHAR`, and `EM_SETLIMITTEXT`.
+   - ListBox: 24 messages implemented including `LB_DELETESTRING`, `LB_SETSEL`, `LB_GETSEL`, `LB_GETTEXTLEN`, `LB_GETCOUNT`, `LB_SELECTSTRING`, `LB_GETSELCOUNT`, `LB_GETHORIZONTALEXTENT`, `LB_SETHORIZONTALEXTENT`, `LB_SETCOLUMNWIDTH`, `LB_GETITEMDATA`, `LB_SETITEMDATA`, `LB_SELITEMRANGE`, `LB_SETCARETINDEX`, `LB_SETITEMHEIGHT`, `LB_GETITEMHEIGHT`, `LB_FINDSTRINGEXACT`, `LB_GETITEMRECT` (RECT output), `LB_GETSELITEMS` (int array buffer output), `LB_SETTABSTOPS` (int array marshalling), plus existing `LB_ADDSTRING`, `LB_INSERTSTRING`, `LB_GETTEXT`, `LB_FINDSTRING`, etc.
+   - ComboBox: 20 messages implemented including `CB_GETEDITSEL`, `CB_LIMITTEXT`, `CB_SETEDITSEL`, `CB_DELETESTRING`, `CB_DIR`, `CB_GETLBTEXTLEN`, `CB_SELECTSTRING`, `CB_SHOWDROPDOWN`, `CB_SETITEMHEIGHT`, `CB_GETITEMHEIGHT`, `CB_SETEXTENDEDUI`, `CB_GETEXTENDEDUI`, `CB_GETDROPPEDSTATE`, `CB_FINDSTRINGEXACT`, `CB_GETDROPPEDCONTROLRECT` (RECT output), plus existing `CB_ADDSTRING`, `CB_INSERTSTRING`, `CB_GETLBTEXT`, `CB_FINDSTRING`, etc.
    - The old commented-out `notimpl()` block has been replaced entirely with proper semantics.
-   - **Remaining:** complex pointer-based messages (`EM_GETRECT`/`EM_SETRECT`, `EM_GETLINE`, `EM_SETTABSTOPS`, `LB_GETITEMRECT`, `LB_GETSELITEMS`, `LB_SETTABSTOPS`, `CB_GETDROPPEDCONTROLRECT`, `EM_SETHANDLE`/`EM_GETHANDLE`, `EM_SETWORDBREAKPROC`/`EM_GETWORDBREAKPROC`) require custom Callable implementations and can be added as applications exercise them.
+   - **Remaining:** handle/callback-based messages (`EM_SETHANDLE`/`EM_GETHANDLE`, `EM_SETWORDBREAKPROC`/`EM_GETWORDBREAKPROC`) require custom Callable implementations and can be added as applications exercise them.
 
 5. **GDI robustness** — _improved_
    - `CreateBrushIndirect` now handles BS_NULL/BS_HOLLOW brush style and falls back gracefully for unknown brush styles instead of throwing.
@@ -87,17 +87,20 @@ These items are likely to unblock more real applications faster than a large CPU
 4. ~~Introduce staged `0x0F` decoding and document which extended/protected-mode instructions are intentionally still unsupported.~~ ✅
 5. ~~Expand subsystem coverage for MCI, DOS interrupts, and cross-task window APIs based on app compatibility testing.~~ ✅
 6. ~~Implement control message semantics for standard Windows controls (Button, Static, Edit, ListBox, ComboBox).~~ ✅
+7. ~~Implement complex pointer-based control message Callables (RECT, buffer, array marshalling).~~ ✅
 
 ## Next steps
 
 The following items represent the current frontier for further work:
 
-1. **Implement complex control message Callables** — add custom `Callable` implementations for pointer-based control messages: `EM_GETRECT`/`EM_SETRECT`/`EM_SETRECTNP` (RECT pointer), `EM_GETLINE` (buffer with word-length prefix), `EM_SETTABSTOPS`/`LB_SETTABSTOPS` (array pointer), `LB_GETITEMRECT` (RECT pointer), `LB_GETSELITEMS` (buffer), `CB_GETDROPPEDCONTROLRECT` (RECT pointer).
+1. ~~**Implement complex control message Callables**~~ ✅ **COMPLETED**
+   - Custom `Callable` implementations added for all pointer-based control messages: `EM_GETRECT`/`EM_SETRECT`/`EM_SETRECTNP` (RECT pointer), `EM_GETLINE` (buffer with word-length prefix), `EM_SETTABSTOPS`/`LB_SETTABSTOPS` (int array marshalling), `LB_GETITEMRECT` (RECT pointer), `LB_GETSELITEMS` (int array buffer), `CB_GETDROPPEDCONTROLRECT` (RECT pointer).
 2. **Continue broadening thunking support** — add marshaling for parameter/return shapes encountered when testing real Win3.x applications against additional forwarded DLL exports.
 3. **Add app-driven DOS service coverage** — implement additional `Int 21h` subfunction handlers (e.g. remaining IOCTL subfunctions at 0x44, memory services) as installer and launcher testing identifies required services.
 4. **Evaluate cross-task window enumeration** — determine from application testing whether full enumeration is needed or the virtualized approach is sufficient.
 5. **Extend MCI device-specific support** — implement device-specific MCI command extensions as multimedia applications reveal gaps.
 6. **Add remaining relocation types** — implement `Pointer48` and `Offset32` relocation address types if encountered by real NE executables.
+7. **Add handle/callback control messages** — implement `EM_SETHANDLE`/`EM_GETHANDLE` (local memory handle) and `EM_SETWORDBREAKPROC`/`EM_GETWORDBREAKPROC` (callback pointer) as applications exercise them.
 
 ## Expected outcome
 

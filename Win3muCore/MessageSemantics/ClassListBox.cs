@@ -177,7 +177,7 @@ namespace Win3muCore.MessageSemantics
                 {
                     for (int i = 0; i < retCount; i++)
                     {
-                        var val = (short)machine.ReadWord((uint)(ptr + i * 2));
+                        var val = (short)machine.ReadWord(ptr.Hiword(), (ushort)(ptr.Loword() + i * 2));
                         Marshal.WriteInt32(msg32.lParam, i * 4, val);
                     }
                 }
@@ -206,7 +206,7 @@ namespace Win3muCore.MessageSemantics
                     var tabs32 = new int[count];
                     for (int i = 0; i < count; i++)
                     {
-                        tabs32[i] = (short)machine.ReadWord((uint)(msg16.lParam + i * 2));
+                        tabs32[i] = (short)machine.ReadWord(msg16.lParam.Hiword(), (ushort)(msg16.lParam.Loword() + i * 2));
                     }
 
                     fixed (int* pTabs = tabs32)
