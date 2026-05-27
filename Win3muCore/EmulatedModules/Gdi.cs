@@ -990,7 +990,8 @@ namespace Win3muCore
                         for (int i = 0; i < nObj; i++)
                         {
                             var hObject = Marshal.ReadIntPtr(lpHTable, i * IntPtr.Size);
-                            _machine.WriteWord((uint)(handleTable16 + i * sizeof(ushort)), HGDIOBJ.To16(hObject));
+                            uint entryPtr = (uint)(handleTable16 + i * sizeof(ushort));
+                            _machine.WriteWord(entryPtr.Hiword(), entryPtr.Loword(), HGDIOBJ.To16(hObject));
                         }
                     }
 
@@ -1003,9 +1004,12 @@ namespace Win3muCore
                     }
 
                     metaRecord16 = _machine.SysAlloc((ushort)recordBytes);
+                    int recordByteCount = (int)recordBytes;
+                    byte[] recordBuffer = new byte[recordByteCount];
+                    Marshal.Copy(lpMFR, recordBuffer, 0, recordByteCount);
                     using (var hp = _machine.GlobalHeap.GetHeapPointer(metaRecord16, true))
                     {
-                        Marshal.Copy(lpMFR, hp, 0, (int)recordBytes);
+                        Marshal.Copy(recordBuffer, 0, hp, recordByteCount);
                     }
 
                     _machine.PushWord(HDC.To16(hdc));
@@ -1052,11 +1056,14 @@ namespace Win3muCore
 
                 uint recordWords = _machine.ReadDWord(lpMetaRecord);
                 uint recordBytes = checked(recordWords * sizeof(ushort));
-                metaRecord32 = Marshal.AllocHGlobal((int)recordBytes);
+                int recordByteCount = (int)recordBytes;
+                metaRecord32 = Marshal.AllocHGlobal(recordByteCount);
+                byte[] recordBuffer = new byte[recordByteCount];
                 using (var hp = _machine.GlobalHeap.GetHeapPointer(lpMetaRecord, false))
                 {
-                    Marshal.Copy(hp, 0, metaRecord32, (int)recordBytes);
+                    Marshal.Copy(hp, recordBuffer, 0, recordByteCount);
                 }
+                Marshal.Copy(recordBuffer, 0, metaRecord32, recordByteCount);
 
                 return _PlayMetaFileRecord(hDC, handleTable32, metaRecord32, nHandles);
             }
