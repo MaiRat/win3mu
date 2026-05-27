@@ -777,7 +777,24 @@ namespace Win3muCore
             return BitUtils.MakeDWord((ushort)(short)size.Width, (ushort)(short)size.Height);
         }                          
 
-        // 005C - GETTEXTFACE
+        [DllImport("gdi32.dll", EntryPoint = "GetTextFaceW", CharSet = CharSet.Unicode)]
+        static extern int _GetTextFace(HDC hDC, int cch, StringBuilder lpFaceName);
+
+        [DllImport("gdi32.dll", EntryPoint = "GetTextFaceW", CharSet = CharSet.Unicode)]
+        static extern int _GetTextFaceLength(HDC hDC, int cch, IntPtr lpFaceName);
+
+        [EntryPoint(0x005C)]
+        public short GetTextFace(HDC hDC, short cch, uint lpFaceName)
+        {
+            if (cch <= 0 || lpFaceName == 0)
+                return (short)_GetTextFaceLength(hDC, 0, IntPtr.Zero);
+
+            var faceName = new StringBuilder(cch);
+            int copied = _GetTextFace(hDC, cch, faceName);
+            if (copied > 0)
+                _machine.WriteString(lpFaceName, faceName.ToString(), (ushort)cch);
+            return (short)copied;
+        }
 
         [EntryPoint(0x005d)]
         [DllImport("gdi32.dll", CharSet = CharSet.Auto)]
@@ -898,7 +915,22 @@ namespace Win3muCore
         [EntryPoint(0x0069)]
         [DllImport("gdi32.dll")]
         public static extern nint SelectVisRgn(HDC hDC, HGDIOBJ hRgn);
-        // 006A - SETBITMAPBITS
+
+        [DllImport("gdi32.dll")]
+        public static extern int SetBitmapBits(IntPtr hBitmap, int cbBuffer, IntPtr pBuffer);
+
+        [EntryPoint(0x006A)]
+        public int SetBitmapBits(HGDIOBJ hBitmap, int cbBuffer, uint pBuffer)
+        {
+            if (cbBuffer <= 0)
+                return SetBitmapBits(hBitmap.value, cbBuffer, IntPtr.Zero);
+
+            using (var hp = _machine.GlobalHeap.GetHeapPointer(pBuffer, false))
+            {
+                return SetBitmapBits(hBitmap.value, cbBuffer, hp);
+            }
+        }
+
         // 0075 - SETDCORG
         // 0077 - ADDFONTRESOURCE
         // 0079 - DEATH
@@ -1329,9 +1361,34 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern nuint SetTextAlign(HDC hDC, nuint align);
 
-        // 015C - CHORD
+        [EntryPoint(0x015C)]
+        [DllImport("gdi32.dll")]
+        public static extern bool Chord(HDC hDC, nint left, nint top, nint right, nint bottom,
+                                                    nint xr1, nint yr1, nint xr2, nint yr2);
+
         // 015D - SETMAPPERFLAGS
-        // 015E - GETCHARWIDTH
+
+        [DllImport("gdi32.dll", EntryPoint = "GetCharWidthW", CharSet = CharSet.Unicode)]
+        static extern bool _GetCharWidth(HDC hDC, uint iFirstChar, uint iLastChar, [Out] int[] lpBuffer);
+
+        [EntryPoint(0x015E)]
+        public bool GetCharWidth(HDC hDC, ushort iFirstChar, ushort iLastChar, uint lpBuffer)
+        {
+            if (lpBuffer == 0 || iLastChar < iFirstChar)
+                return false;
+
+            int count = iLastChar - iFirstChar + 1;
+            var widths = new int[count];
+            if (!_GetCharWidth(hDC, iFirstChar, iLastChar, widths))
+                return false;
+
+            for (int i = 0; i < count; i++)
+            {
+                _machine.WriteWord((uint)(lpBuffer + i * sizeof(ushort)), unchecked((ushort)(short)widths[i]));
+            }
+
+            return true;
+        }
 
         [DllImport("gdi32.dll")]
         public static extern bool ExtTextOut(IntPtr hDC, int x, int y, uint fuOptions, IntPtr prc, string str, uint cch, IntPtr lpDX);
@@ -1373,7 +1430,19 @@ namespace Win3muCore
         }
 
         // 0160 - GETPHYSICALFONTHANDLE
-        // 0161 - GETASPECTRATIOFILTER
+        [DllImport("gdi32.dll")]
+        public static extern bool GetAspectRatioFilterEx(HDC hDC, out Win32.SIZE size);
+
+        [EntryPoint(0x0161)]
+        public uint GetAspectRatioFilter(HDC hDC)
+        {
+            Win32.SIZE size;
+            if (!GetAspectRatioFilterEx(hDC, out size))
+                return 0;
+
+            return BitUtils.MakeDWord((ushort)(short)size.Width, (ushort)(short)size.Height);
+        }
+
         // 0162 - SHRINKGDIHEAP
         // 0163 - FTRAPPING0
 
@@ -1648,6 +1717,10 @@ namespace Win3muCore
         public static extern HGDIOBJ CreateRoundRectRgn(nint left, nint top, nint right, nint bottom, nint widthEllipse, nint heightEllipse);
         // 01BD - CREATEDIBPATTERNBRUSH
         // 01C1 - DEVICECOLORMATCH
+
+        [DllImport("gdi32.dll")]
+        static extern HGDIOBJ CreatePolyPolygonRgn(Win32.POINT[] points, int[] polygonPointCounts, int polygonCount, int fillMode);
+
         [DllImport("gdi32.dll")]
         static extern bool PolyPolygon(HDC hdc, Win32.POINT[] points, int[] polygonPointCounts, int polygonCount);
 
@@ -1670,7 +1743,27 @@ namespace Win3muCore
 
             return PolyPolygon(hDC, points, polyCounts, polygonCount);
         }
-        // 01C3 - CREATEPOLYPOLYGONRGN
+
+        [EntryPoint(0x01C3)]
+        public HGDIOBJ CreatePolyPolygonRgn(uint ppts, uint ppolyCounts, nint polygonCount, nint fillMode)
+        {
+            var polyCounts = new int[polygonCount];
+            int totalPointCount = 0;
+            for (int i = 0; i < polygonCount; i++)
+            {
+                polyCounts[i] = _machine.ReadWord((uint)(ppolyCounts + i * sizeof(ushort)));
+                totalPointCount += polyCounts[i];
+            }
+
+            var points = new Win32.POINT[totalPointCount];
+            for (int i = 0; i < totalPointCount; i++)
+            {
+                points[i] = _machine.ReadStruct<Win16.POINT>((uint)(ppts + i * Marshal.SizeOf<Win16.POINT>())).Convert();
+            }
+
+            return CreatePolyPolygonRgn(points, polyCounts, polygonCount, fillMode);
+        }
+
         // 01C4 - GDISEEGDIDO
         // 01CC - GDITASKTERMINATION
         // 01CD - SETOBJECTOWNER
