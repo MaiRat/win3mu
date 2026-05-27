@@ -657,8 +657,9 @@ namespace Win3muCore
                             _cpu.dx = 65535;    // total clusters (max 16-bit = ~256MB)
                             _cpu.bx = 32768;    // available clusters (~128MB free)
                         }
-                        catch (DosError)
+                        catch (DosError ex)
                         {
+                            Log.WriteLine("Int 21h/36h: invalid drive - {0}", ex.Message);
                             _cpu.ax = 0xFFFF;   // invalid drive
                         }
                         break;
@@ -856,9 +857,9 @@ namespace Win3muCore
                                         var dt = new DateTime(year, month, day, hour, minute, second);
                                         System.IO.File.SetLastWriteTime(file57.hostFilename, dt);
                                     }
-                                    catch (Exception)
+                                    catch (Exception ex)
                                     {
-                                        // Silently ignore invalid date/time values
+                                        Log.WriteLine("Int 21h/57h: failed to set file date/time - {0}", ex.Message);
                                     }
                                 }
                                 break;
