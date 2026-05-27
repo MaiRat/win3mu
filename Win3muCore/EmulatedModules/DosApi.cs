@@ -421,7 +421,7 @@ namespace Win3muCore
                 }
 
                 default:
-                    Log.WriteLine("Int 1Ah, service {0} not implemented - ignored", _cpu.ah);
+                    Log.WriteLine("Int 1Ah, service {0} not implemented - returning with carry flag set", _cpu.ah);
                     _cpu.FlagC = true;
                     break;
 
@@ -799,7 +799,7 @@ namespace Win3muCore
                         throw new DosError(DosError.FunctionNumberInvalid);
 
                     default:
-                        Log.WriteLine("Unsupported DOS Interrupt - ah=0x{0:X2} - ignored", _cpu.ah);
+                        Log.WriteLine("Unsupported DOS Interrupt - ah=0x{0:X2} - returning error", _cpu.ah);
                         _cpu.FlagC = true;
                         _cpu.ax = DosError.FunctionNumberInvalid;
                         _lastError = DosError.FunctionNumberInvalid;
@@ -843,7 +843,7 @@ namespace Win3muCore
                     break;
             }
 
-            Log.WriteLine("Unsupported Multiplex (0x2f) Interrupt - ax=0x{0:X4} - ignored", _cpu.ax);
+            Log.WriteLine("Unsupported Multiplex (0x2f) Interrupt - ax=0x{0:X4} - returning zero", _cpu.ax);
             _cpu.ax = 0;
         }
 
