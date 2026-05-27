@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -19,6 +20,10 @@ namespace Sharp86UnitTests
         byte[] _mem;
         ushort _emitLocation;
         StringBuilder _emitBuffer = new StringBuilder();
+        readonly HashSet<ushort> _readableSelectors = new HashSet<ushort>();
+        readonly HashSet<ushort> _writableSelectors = new HashSet<ushort>();
+        readonly Dictionary<ushort, ushort> _selectorAccessRights = new Dictionary<ushort, ushort>();
+        readonly Dictionary<ushort, ushort> _selectorLimits = new Dictionary<ushort, ushort>();
 
         [TestInitialize]
         public override void Reset()
@@ -33,6 +38,55 @@ namespace Sharp86UnitTests
             _portReadQueues = new Dictionary<ushort, List<byte>>();
             _portWrittenQueues = new Dictionary<ushort, List<byte>>();
             _accessedPorts = new HashSet<ushort>();
+            _readableSelectors.Clear();
+            _writableSelectors.Clear();
+            _selectorAccessRights.Clear();
+            _selectorLimits.Clear();
+        }
+
+        protected override bool IsSelectorReadable(ushort selector)
+        {
+            return _readableSelectors.Contains(selector);
+        }
+
+        protected override bool IsSelectorWritable(ushort selector)
+        {
+            return _writableSelectors.Contains(selector);
+        }
+
+        protected override bool TryGetSelectorAccessRights(ushort selector, out ushort accessRights)
+        {
+            return _selectorAccessRights.TryGetValue(selector, out accessRights);
+        }
+
+        protected override bool TryGetSelectorLimit(ushort selector, out ushort limit)
+        {
+            return _selectorLimits.TryGetValue(selector, out limit);
+        }
+
+        protected void MarkSelectorReadable(ushort selector)
+        {
+            _readableSelectors.Add(selector);
+            _selectorAccessRights[selector] = 0x00F0;
+            _selectorLimits[selector] = 0xFFFF;
+        }
+
+        protected void MarkSelectorWritable(ushort selector)
+        {
+            _readableSelectors.Add(selector);
+            _writableSelectors.Add(selector);
+            _selectorAccessRights[selector] = 0x00F2;
+            _selectorLimits[selector] = 0xFFFF;
+        }
+
+        protected void MarkSelectorDescriptor(ushort selector, ushort limit, ushort accessRights, bool writable)
+        {
+            _readableSelectors.Add(selector);
+            if (writable)
+                _writableSelectors.Add(selector);
+
+            _selectorLimits[selector] = limit;
+            _selectorAccessRights[selector] = accessRights;
         }
 
         public bool IsExecutableSelector(ushort seg)
@@ -67,10 +121,14 @@ namespace Sharp86UnitTests
             // write the text
             System.IO.File.WriteAllText("temp.asm", _emitBuffer.ToString(), Encoding.ASCII);
 
+            var assemblerPath = ResolveAssemblerPath();
+            if (assemblerPath == null)
+                Assert.Inconclusive("YASM assembler not found. Set WIN3MU_YASM or add 'yasm' to PATH.");
+
             // Execute the assembler
             var processStartInfo = new ProcessStartInfo
             {
-                FileName = @"C:\users\brad\dropbox\wintools\yasm.exe",
+                FileName = assemblerPath,
                 Arguments = "temp.asm -o temp.bin -l temp.lst",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -103,6 +161,52 @@ namespace Sharp86UnitTests
             // Clear the emit buffer
             _emitBuffer.Length = 0;
             _emitBuffer.AppendFormat("ORG {0:X}H\n", _emitLocation);
+        }
+
+        static string ResolveAssemblerPath()
+        {
+            var candidates = new[]
+            {
+                Environment.GetEnvironmentVariable("WIN3MU_YASM"),
+                FindToolOnPath("yasm"),
+            };
+
+            return candidates.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x) && File.Exists(x));
+        }
+
+        static string FindToolOnPath(string toolName)
+        {
+            var path = Environment.GetEnvironmentVariable("PATH");
+            if (string.IsNullOrWhiteSpace(path))
+                return null;
+
+            foreach (var entry in path.Split(Path.PathSeparator))
+            {
+                if (string.IsNullOrWhiteSpace(entry))
+                    continue;
+
+                try
+                {
+                    var fullPath = Path.Combine(entry, toolName);
+                    if (File.Exists(fullPath))
+                        return fullPath;
+
+                    if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+                    {
+                        var windowsPath = fullPath + ".exe";
+                        if (File.Exists(windowsPath))
+                            return windowsPath;
+                    }
+                }
+                catch (ArgumentException)
+                {
+                }
+                catch (NotSupportedException)
+                {
+                }
+            }
+
+            return null;
         }
 
         protected void run()

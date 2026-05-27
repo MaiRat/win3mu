@@ -291,11 +291,52 @@ namespace Win3muCore
         {
             get
             {
-                return (uint)(Math.Floor(DateTime.Now.ToOADate()));
+                return (uint)(Math.Floor(CurrentDateTime.ToOADate()));
             }
         }
 
         uint _lastDay;
+        TimeSpan _clockOffset = TimeSpan.Zero;
+
+        DateTime CurrentDateTime => DateTime.Now + _clockOffset;
+
+        static byte ToBcd(int value)
+        {
+            return (byte)(((value / 10) << 4) | (value % 10));
+        }
+
+        static int FromBcd(byte value)
+        {
+            return ((value >> 4) * 10) + (value & 0x0F);
+        }
+
+        static uint ToClockCount(DateTime now)
+        {
+            return (uint)(now.Hour * 65520 + now.Minute * 1092 + now.Second * 18.2);
+        }
+
+        static TimeSpan ClockCountToTimeOfDay(uint clockCount)
+        {
+            var hours = (int)(clockCount / 65520);
+            clockCount -= (uint)(hours * 65520);
+
+            var minutes = (int)(clockCount / 1092);
+            clockCount -= (uint)(minutes * 1092);
+
+            var seconds = (int)Math.Round(clockCount / 18.2);
+            if (seconds >= 60)
+            {
+                seconds -= 60;
+                minutes++;
+            }
+            if (minutes >= 60)
+            {
+                minutes -= 60;
+                hours++;
+            }
+
+            return new TimeSpan(hours % 24, minutes, seconds);
+        }
 
         public void DispatchInt1A()
         {
@@ -308,14 +349,76 @@ namespace Win3muCore
                     var thisDay = CurrentDay;
 
                     // Get current clock count
-                    var now = DateTime.Now;
-                    var clockCount = (uint)(now.Hour * 65543 + now.Minute * 1092 + now.Second * 18.2);
+                    var now = CurrentDateTime;
+                    var clockCount = ToClockCount(now);
 
                     _cpu.cx = clockCount.Hiword();
                     _cpu.dx = clockCount.Loword();
                     _cpu.al = (byte)((thisDay != _lastDay) ? 1 : 0);
                     _lastDay = thisDay;
                     break;
+
+                case 1:
+                {
+                    var targetClockCount = ((uint)_cpu.cx << 16) | _cpu.dx;
+                    var target = DateTime.Now.Date + ClockCountToTimeOfDay(targetClockCount);
+                    _clockOffset = target - DateTime.Now;
+                    _cpu.FlagC = false;
+                    break;
+                }
+
+                case 2:
+                {
+                    var rtcNow = CurrentDateTime;
+                    _cpu.ch = ToBcd(rtcNow.Hour);
+                    _cpu.cl = ToBcd(rtcNow.Minute);
+                    _cpu.dh = ToBcd(rtcNow.Second);
+                    _cpu.dl = (byte)(TimeZoneInfo.Local.IsDaylightSavingTime(rtcNow) ? 1 : 0);
+                    _cpu.FlagC = false;
+                    break;
+                }
+
+                case 3:
+                {
+                    var current = CurrentDateTime;
+                    var target = new DateTime(
+                        current.Year,
+                        current.Month,
+                        current.Day,
+                        FromBcd(_cpu.ch),
+                        FromBcd(_cpu.cl),
+                        FromBcd(_cpu.dh));
+                    _clockOffset = target - DateTime.Now;
+                    _cpu.FlagC = false;
+                    break;
+                }
+
+                case 4:
+                {
+                    var rtcNow = CurrentDateTime;
+                    _cpu.ch = ToBcd(rtcNow.Year / 100);
+                    _cpu.cl = ToBcd(rtcNow.Year % 100);
+                    _cpu.dh = ToBcd(rtcNow.Month);
+                    _cpu.dl = ToBcd(rtcNow.Day);
+                    _cpu.FlagC = false;
+                    break;
+                }
+
+                case 5:
+                {
+                    var current = CurrentDateTime;
+                    var target = new DateTime(
+                        (FromBcd(_cpu.ch) * 100) + FromBcd(_cpu.cl),
+                        FromBcd(_cpu.dh),
+                        FromBcd(_cpu.dl),
+                        current.Hour,
+                        current.Minute,
+                        current.Second);
+                    _clockOffset = target - DateTime.Now;
+                    _lastDay = CurrentDay;
+                    _cpu.FlagC = false;
+                    break;
+                }
 
                 default:
                     throw new NotImplementedException(string.Format("Int 1Ah, service {0} not implemented", _cpu.ah));
@@ -402,34 +505,13 @@ namespace Win3muCore
 
                     case 0x11:
                     {
-                        var fcb = _cpu.MemoryBus.ReadBytes(_cpu.ds, _cpu.dx, 37);
-                        if (fcb[0]!=0xFF)
-                            throw new NotImplementedException();
-
-                        // Crack FCB
-                        byte attr = fcb[6];
-                        byte drive = fcb[7];
-                        var ansi = System.Text.Encoding.GetEncoding(1252);
-                        var filename = ansi.GetString(fcb, 8, 8).Trim();
-                        var ext = ansi.GetString(fcb, 16, 3).Trim();
-
-                        if (drive == 0)
-                            drive = (byte)_currentDrive;
-                        else
-                            drive--;
-
-                        // Find file
-                        FindFiles($"{(char)('A' + drive)}:{filename}.{ext}", attr);
-                        FindNextFileFCB(fcb);
+                        TryFindFirstFileFCB();
                         break;
                     }
 
                     case 0x12:
                     {
-                        var fcb = _cpu.MemoryBus.ReadBytes(_cpu.ds, _cpu.dx, 37);
-                        if (fcb[0] != 0xFF)
-                            throw new NotImplementedException();
-                        FindNextFileFCB(fcb);
+                        TryFindNextFileFCB();
                         break;
                     }
 
@@ -730,6 +812,18 @@ namespace Win3muCore
         {
             // Multiplex services
             // http://www.techhelpmanual.com/681-int_2fh__multiplex_interrupt.html
+            switch (_cpu.ax)
+            {
+                case 0x1600:
+                case 0x1601:
+                case 0x1602:
+                case 0x1606:
+                case 0x160A:
+                case 0x4680:
+                    _cpu.ax = 0;
+                    return;
+            }
+
             switch (_cpu.ah)
             {
                 case 0x15:
@@ -1333,6 +1427,27 @@ namespace Win3muCore
                 return str + "\\";
         }
 
+        static string GetGuestDirectoryName(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return path;
+
+            int index = path.LastIndexOf('\\');
+            if (index < 0)
+                return string.Empty;
+
+            return path.Substring(0, index + 1);
+        }
+
+        static string GetGuestFileName(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return path;
+
+            int index = path.LastIndexOf('\\');
+            return index >= 0 ? path.Substring(index + 1) : path;
+        }
+
         public void FindFiles(string spec, byte attributes)
         {
             int size = Marshal.SizeOf<FINDFILESTRUCT>();
@@ -1360,13 +1475,13 @@ namespace Win3muCore
 
             _findFiles = new Dictionary<string, FINDFILESTRUCT>();
 
-            string folder = EnsureEndsWithSlash(System.IO.Path.GetDirectoryName(fullspec));
-            string glob = System.IO.Path.GetFileName(fullspec);
+            string folder = EnsureEndsWithSlash(GetGuestDirectoryName(fullspec).TrimEnd('\\'));
+            string glob = GetGuestFileName(fullspec);
 
             // If not root folder, also include the parent folder
             if (folder.Length > 3)
             {
-                var parentFolder = System.IO.Path.GetDirectoryName(folder);
+                var parentFolder = GetGuestDirectoryName(folder.TrimEnd('\\'));
                 var readOnlyParentFolder = _site.TryMapGuestPathToHost(parentFolder, false);
                 if (readOnlyParentFolder != null)
                 {
@@ -1453,23 +1568,80 @@ namespace Win3muCore
             return fileAttributes == 0 || (fileAttributes & filterAttributes) != 0;
         }
 
-        void FindNextFileFCB(byte[] fcbRequest)
+        void TryFindFirstFileFCB()
         {
-            FINDFILESTRUCT ffs; 
+            var fcbRequest = _cpu.MemoryBus.ReadBytes(_cpu.ds, _cpu.dx, 37);
+            byte attributes;
+            string spec = GetFcbSearchSpec(fcbRequest, out attributes);
+
+            try
+            {
+                FindFiles(spec, attributes);
+                TryFindNextFileFCB();
+            }
+            catch (DosError x) when (x.errorCode == DosError.FileNotFound || x.errorCode == DosError.PathNotFound || x.errorCode == DosError.NoMoreFiles)
+            {
+                _cpu.al = 0xFF;
+                _cpu.FlagC = false;
+            }
+        }
+
+        void TryFindNextFileFCB()
+        {
+            var fcb = _cpu.MemoryBus.ReadBytes(_cpu.ds, _cpu.dx, 37);
+            try
+            {
+                FindNextFileFCB(fcb, _cpu.ds, _cpu.dx);
+                _cpu.al = 0x00;
+                _cpu.FlagC = false;
+            }
+            catch (DosError x) when (x.errorCode == DosError.NoMoreFiles)
+            {
+                _cpu.al = 0xFF;
+                _cpu.FlagC = false;
+            }
+        }
+
+        string GetFcbSearchSpec(byte[] fcbRequest, out byte attributes)
+        {
+            bool isExtended = fcbRequest[0] == 0xFF;
+            int driveOffset = isExtended ? 7 : 0;
+            int nameOffset = isExtended ? 8 : 1;
+            int extOffset = isExtended ? 16 : 9;
+
+            attributes = isExtended ? fcbRequest[6] : (byte)0;
+
+            byte drive = fcbRequest[driveOffset];
+            if (drive == 0)
+                drive = (byte)_currentDrive;
+            else
+                drive--;
+
+            var ansi = System.Text.Encoding.GetEncoding(1252);
+            var filename = ansi.GetString(fcbRequest, nameOffset, 8).TrimEnd();
+            var ext = ansi.GetString(fcbRequest, extOffset, 3).TrimEnd();
+            return $"{(char)('A' + drive)}:{filename}.{ext}";
+        }
+
+        void FindNextFileFCB(byte[] fcbRequest, ushort seg, ushort offset)
+        {
+            FINDFILESTRUCT ffs;
             if (FindNextFile(out ffs))
             {
-                byte[] fcb = new byte[45];
-                fcb[0] = 0xFF;
-                fcb[6] = ffs.attribute;
-                fcb[7] = fcbRequest[7];
+                bool isExtended = fcbRequest[0] == 0xFF;
+                int nameOffset = isExtended ? 8 : 1;
+                int extOffset = isExtended ? 16 : 9;
+
+                if (isExtended)
+                    fcbRequest[6] = ffs.attribute;
 
                 var ansi = System.Text.Encoding.GetEncoding(1252);
-                var name = ansi.GetBytes((System.IO.Path.GetFileNameWithoutExtension(ffs.name) + "        ").Substring(0, 8));
-                var ext = ansi.GetBytes((System.IO.Path.GetExtension(ffs.name) + "   ").Substring(0, 3));
+                var name = ansi.GetBytes((System.IO.Path.GetFileNameWithoutExtension(ffs.name).ToUpperInvariant() + "        ").Substring(0, 8));
+                var ext = ansi.GetBytes((System.IO.Path.GetExtension(ffs.name).TrimStart('.').ToUpperInvariant() + "   ").Substring(0, 3));
 
-                Array.Copy(name, 0, fcb, 8, 8);
-                Array.Copy(ext, 0, fcb, 16, 3);
-
+                Array.Copy(name, 0, fcbRequest, nameOffset, 8);
+                Array.Copy(ext, 0, fcbRequest, extOffset, 3);
+                _cpu.MemoryBus.WriteBytes(seg, offset, fcbRequest, fcbRequest.Length);
                 return;
             }
 

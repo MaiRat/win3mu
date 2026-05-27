@@ -54,6 +54,8 @@ namespace Sharp86
         CS,
         SS,
         DS,
+        FS,
+        GS,
     }
 
     public class CPUException : Exception
@@ -152,7 +154,60 @@ namespace Sharp86
             ds = 0;
             ss = 0;
             es = 0;
+            fs = 0;
+            gs = 0;
             EFlags = 0;
+            MachineStatusWord = 0;
+            LocalDescriptorTableSelector = 0;
+            TaskRegisterSelector = 0;
+            GlobalDescriptorTableLimit = 0;
+            InterruptDescriptorTableLimit = 0;
+        }
+
+        public ushort MachineStatusWord { get; set; }
+        public ushort LocalDescriptorTableSelector { get; set; }
+        public ushort TaskRegisterSelector { get; set; }
+        public ushort GlobalDescriptorTableLimit { get; set; }
+        public ushort InterruptDescriptorTableLimit { get; set; }
+
+        protected virtual bool IsSelectorReadable(ushort selector)
+        {
+            return selector != 0;
+        }
+
+        protected virtual bool IsSelectorWritable(ushort selector)
+        {
+            return selector != 0;
+        }
+
+        protected virtual bool TryGetSelectorAccessRights(ushort selector, out ushort accessRights)
+        {
+            if (IsSelectorWritable(selector))
+            {
+                accessRights = 0x00F2;
+                return true;
+            }
+
+            if (IsSelectorReadable(selector))
+            {
+                accessRights = 0x00F0;
+                return true;
+            }
+
+            accessRights = 0;
+            return false;
+        }
+
+        protected virtual bool TryGetSelectorLimit(ushort selector, out ushort limit)
+        {
+            if (IsSelectorReadable(selector))
+            {
+                limit = 0xFFFF;
+                return true;
+            }
+
+            limit = 0;
+            return false;
         }
 
         IMemoryBus _memoryBus;
@@ -199,6 +254,8 @@ namespace Sharp86
         ushort _cs;
         public ushort es;
         public ushort ds;
+        public ushort fs;
+        public ushort gs;
         public ushort ReadReg(RegSeg reg)
         {
             switch (reg)
@@ -207,6 +264,8 @@ namespace Sharp86
                 case RegSeg.DS: return ds;
                 case RegSeg.SS: return ss;
                 case RegSeg.CS: return cs;
+                case RegSeg.FS: return fs;
+                case RegSeg.GS: return gs;
             }
             throw new ArgumentException("Invalid register index");
         }
@@ -218,6 +277,8 @@ namespace Sharp86
                 case RegSeg.DS: ds = value; return;
                 case RegSeg.SS: ss = value; return;
                 case RegSeg.CS: cs = value; return;
+                case RegSeg.FS: fs = value; return;
+                case RegSeg.GS: gs = value; return;
             }
             throw new ArgumentException("Invalid register index");
         }
@@ -678,6 +739,39 @@ namespace Sharp86
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        ushort Read_BitBase_Ev(ushort bitOffset, out byte bitIndex)
+        {
+            if (!_haveReadModRM)
+                ReadModRM();
+
+            bitIndex = (byte)(bitOffset & 0x0F);
+            if (_modRMIsPointer)
+            {
+                ushort wordOffset = (ushort)((bitOffset >> 4) << 1);
+                return _activeMemoryBus.ReadWord(_modRMSeg, (ushort)(_modRMOffset + wordOffset));
+            }
+
+            return ReadReg((Reg16)(_modRM & 0x07));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        void Write_BitBase_Ev(ushort bitOffset, ushort value)
+        {
+            if (!_haveReadModRM)
+                ReadModRM();
+
+            if (_modRMIsPointer)
+            {
+                ushort wordOffset = (ushort)((bitOffset >> 4) << 1);
+                _activeMemoryBus.WriteWord(_modRMSeg, (ushort)(_modRMOffset + wordOffset), value);
+            }
+            else
+            {
+                WriteReg((Reg16)(_modRM & 0x07), value);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         ushort Read_Sv()
         {
             if (!_haveReadModRM)
@@ -715,6 +809,13 @@ namespace Sharp86
         {
             byte offset = Read_Ib();
             return (ushort)(ip + (ushort)(sbyte)offset);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        ushort Read_Jv()
+        {
+            ushort offset = Read_Iv();
+            return (ushort)(ip + (ushort)(short)offset);
         }
 
         bool IsInterruptHandlerInstalled(byte interruptNumber)
@@ -790,6 +891,12 @@ namespace Sharp86
             set;
         }
 
+        public ushort gdt
+        {
+            get;
+            set;
+        }
+
         public virtual void RaiseHalt()
         {
             _halt = true;
@@ -849,6 +956,63 @@ namespace Sharp86
                 }
             }
             return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        bool TestCondition(byte condition)
+        {
+            switch (condition & 0x0F)
+            {
+                case 0x0: return FlagO;
+                case 0x1: return !FlagO;
+                case 0x2: return FlagC;
+                case 0x3: return !FlagC;
+                case 0x4: return FlagZ;
+                case 0x5: return !FlagZ;
+                case 0x6: return FlagC || FlagZ;
+                case 0x7: return !FlagC && !FlagZ;
+                case 0x8: return FlagS;
+                case 0x9: return !FlagS;
+                case 0xA: return FlagP;
+                case 0xB: return !FlagP;
+                case 0xC: return FlagS != FlagO;
+                case 0xD: return FlagS == FlagO;
+                case 0xE: return FlagZ || (FlagS != FlagO);
+                case 0xF: return !FlagZ && (FlagS == FlagO);
+                default:
+                    throw new InvalidOperationException();
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static ushort BitScanForward16(ushort value)
+        {
+            if (value == 0)
+                return 0;
+
+            ushort bit = 0;
+            while ((value & 1) == 0)
+            {
+                value >>= 1;
+                bit++;
+            }
+            return bit;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static ushort BitScanReverse16(ushort value)
+        {
+            if (value == 0)
+                return 0;
+
+            ushort bit = 15;
+            ushort mask = 0x8000;
+            while ((value & mask) == 0)
+            {
+                mask >>= 1;
+                bit--;
+            }
+            return bit;
         }
 
         //bool _executing = false;
@@ -1045,7 +1209,416 @@ namespace Sharp86
                             break;
 
                         case 0x0F:
-                            throw new InvalidOpCodeException();
+                        {
+                            var opCode2 = Read_Ib();
+                            if (opCode2 >= 0x80 && opCode2 <= 0x8F)
+                            {
+                                if (TestCondition((byte)(opCode2 & 0x0F)))
+                                    ip = Read_Jv();
+                                else
+                                    ip += 2;
+                                break;
+                            }
+
+                            if (opCode2 >= 0x90 && opCode2 <= 0x9F)
+                            {
+                                // SETcc Eb
+                                Write_Eb((byte)(TestCondition((byte)(opCode2 & 0x0F)) ? 1 : 0));
+                                break;
+                            }
+
+                            switch (opCode2)
+                            {
+                                case 0x00:
+                                {
+                                    ReadModRM();
+                                    switch ((_modRM >> 3) & 0x07)
+                                    {
+                                        case 0:
+                                            // SLDT Ew
+                                            Write_Ev(LocalDescriptorTableSelector);
+                                            break;
+
+                                        case 1:
+                                            // STR Ew
+                                            Write_Ev(TaskRegisterSelector);
+                                            break;
+
+                                        case 2:
+                                            // LLDT Ew
+                                            LocalDescriptorTableSelector = Read_Ev();
+                                            break;
+
+                                        case 3:
+                                            // LTR Ew
+                                            TaskRegisterSelector = Read_Ev();
+                                            break;
+
+                                        case 4:
+                                            // VERR Ew
+                                            FlagZ = IsSelectorReadable(Read_Ev());
+                                            break;
+
+                                        case 5:
+                                            // VERW Ew
+                                            FlagZ = IsSelectorWritable(Read_Ev());
+                                            break;
+
+                                        default:
+                                            throw new InvalidOpCodeException();
+                                    }
+                                    break;
+                                }
+
+                                case 0x01:
+                                {
+                                    ReadModRM();
+                                    switch ((_modRM >> 3) & 0x07)
+                                    {
+                                        case 0:
+                                            // SGDT Ms
+                                            if (!_modRMIsPointer)
+                                                throw new InvalidOpCodeException();
+
+                                            _activeMemoryBus.WriteWord(_modRMSeg, _modRMOffset, GlobalDescriptorTableLimit);
+                                            _activeMemoryBus.WriteWord(_modRMSeg, (ushort)(_modRMOffset + 2), gdt);
+                                            _activeMemoryBus.WriteWord(_modRMSeg, (ushort)(_modRMOffset + 4), 0);
+                                            break;
+
+                                        case 1:
+                                            // SIDT Ms
+                                            if (!_modRMIsPointer)
+                                                throw new InvalidOpCodeException();
+
+                                            _activeMemoryBus.WriteWord(_modRMSeg, _modRMOffset, InterruptDescriptorTableLimit);
+                                            _activeMemoryBus.WriteWord(_modRMSeg, (ushort)(_modRMOffset + 2), idt);
+                                            _activeMemoryBus.WriteWord(_modRMSeg, (ushort)(_modRMOffset + 4), 0);
+                                            break;
+
+                                        case 2:
+                                            // LGDT Ms
+                                            if (!_modRMIsPointer)
+                                                throw new InvalidOpCodeException();
+
+                                            GlobalDescriptorTableLimit = _activeMemoryBus.ReadWord(_modRMSeg, _modRMOffset);
+                                            gdt = _activeMemoryBus.ReadWord(_modRMSeg, (ushort)(_modRMOffset + 2));
+                                            break;
+
+                                        case 3:
+                                            // LIDT Ms
+                                            if (!_modRMIsPointer)
+                                                throw new InvalidOpCodeException();
+
+                                            InterruptDescriptorTableLimit = _activeMemoryBus.ReadWord(_modRMSeg, _modRMOffset);
+                                            idt = _activeMemoryBus.ReadWord(_modRMSeg, (ushort)(_modRMOffset + 2));
+                                            break;
+
+                                        case 4:
+                                            // SMSW Ew
+                                            Write_Ev(MachineStatusWord);
+                                            break;
+
+                                        case 6:
+                                            // LMSW Ew
+                                            MachineStatusWord = (ushort)((MachineStatusWord & 0xFFF0) | (Read_Ev() & 0x000F));
+                                            break;
+
+                                        default:
+                                            throw new InvalidOpCodeException();
+                                    }
+                                    break;
+                                }
+
+                                case 0x02:
+                                {
+                                    // LAR Gv, Ew
+                                    ushort selector = Read_Ev();
+                                    if (TryGetSelectorAccessRights(selector, out ushort accessRights))
+                                    {
+                                        Write_Gv(accessRights);
+                                        FlagZ = true;
+                                    }
+                                    else
+                                    {
+                                        FlagZ = false;
+                                    }
+                                    break;
+                                }
+
+                                case 0x03:
+                                {
+                                    // LSL Gv, Ew
+                                    ushort selector = Read_Ev();
+                                    if (TryGetSelectorLimit(selector, out ushort limit))
+                                    {
+                                        Write_Gv(limit);
+                                        FlagZ = true;
+                                    }
+                                    else
+                                    {
+                                        FlagZ = false;
+                                    }
+                                    break;
+                                }
+
+                                case 0x06:
+                                    // CLTS
+                                    MachineStatusWord = (ushort)(MachineStatusWord & ~0x0008);
+                                    break;
+
+                                case 0xA0:
+                                    // PUSH FS
+                                    sp -= 2;
+                                    _activeMemoryBus.WriteWord(ss, sp, fs);
+                                    break;
+
+                                case 0xA1:
+                                    // POP FS
+                                    fs = _activeMemoryBus.ReadWord(ss, sp);
+                                    sp += 2;
+                                    break;
+
+                                case 0xA8:
+                                    // PUSH GS
+                                    sp -= 2;
+                                    _activeMemoryBus.WriteWord(ss, sp, gs);
+                                    break;
+
+                                case 0xA9:
+                                    // POP GS
+                                    gs = _activeMemoryBus.ReadWord(ss, sp);
+                                    sp += 2;
+                                    break;
+
+                                case 0xB0:
+                                {
+                                    // CMPXCHG Eb, Gb
+                                    byte destination = Read_Eb();
+                                    byte source = Read_Gb();
+                                    Sub8(al, destination);
+                                    if (FlagZ)
+                                        Write_Eb(source);
+                                    else
+                                        al = destination;
+                                    break;
+                                }
+
+                                case 0xB1:
+                                {
+                                    // CMPXCHG Ev, Gv
+                                    ushort destination = Read_Ev();
+                                    ushort source = Read_Gv();
+                                    Sub16(ax, destination);
+                                    if (FlagZ)
+                                        Write_Ev(source);
+                                    else
+                                        ax = destination;
+                                    break;
+                                }
+
+                                case 0xB2:
+                                    // LSS Gv, Mp
+                                    ReadModRM();
+                                    if (!_modRMIsPointer)
+                                        throw new InvalidOpCodeException();
+
+                                    Write_Gv(Read_Ev());
+                                    ss = _activeMemoryBus.ReadWord(_modRMSeg, (ushort)(_modRMOffset + 2));
+                                    break;
+
+                                case 0xB4:
+                                    // LFS Gv, Mp
+                                    ReadModRM();
+                                    if (!_modRMIsPointer)
+                                        throw new InvalidOpCodeException();
+
+                                    Write_Gv(Read_Ev());
+                                    fs = _activeMemoryBus.ReadWord(_modRMSeg, (ushort)(_modRMOffset + 2));
+                                    break;
+
+                                case 0xB5:
+                                    // LGS Gv, Mp
+                                    ReadModRM();
+                                    if (!_modRMIsPointer)
+                                        throw new InvalidOpCodeException();
+
+                                    Write_Gv(Read_Ev());
+                                    gs = _activeMemoryBus.ReadWord(_modRMSeg, (ushort)(_modRMOffset + 2));
+                                    break;
+
+                                case 0xA3:
+                                {
+                                    // BT Ev, Gv
+                                    ushort bitOffset = Read_Gv();
+                                    ushort value = Read_BitBase_Ev(bitOffset, out byte bitIndex);
+                                    FlagC = ((value >> bitIndex) & 1) != 0;
+                                    break;
+                                }
+
+                                case 0xA4:
+                                    // SHLD Ev, Gv, Ib
+                                    Write_Ev(Shld16(Read_Ev(), Read_Gv(), Read_Ib()));
+                                    break;
+
+                                case 0xA5:
+                                    // SHLD Ev, Gv, CL
+                                    Write_Ev(Shld16(Read_Ev(), Read_Gv(), cl));
+                                    break;
+
+                                case 0xAB:
+                                {
+                                    // BTS Ev, Gv
+                                    ushort bitOffset = Read_Gv();
+                                    ushort value = Read_BitBase_Ev(bitOffset, out byte bitIndex);
+                                    ushort mask = (ushort)(1 << bitIndex);
+                                    FlagC = (value & mask) != 0;
+                                    Write_BitBase_Ev(bitOffset, (ushort)(value | mask));
+                                    break;
+                                }
+
+                                case 0xBC:
+                                {
+                                    // BSF Gv, Ev
+                                    ushort source = Read_Ev();
+                                    FlagZ = source == 0;
+                                    if (!FlagZ)
+                                        Write_Gv(BitScanForward16(source));
+                                    break;
+                                }
+
+                                case 0xBD:
+                                {
+                                    // BSR Gv, Ev
+                                    ushort source = Read_Ev();
+                                    FlagZ = source == 0;
+                                    if (!FlagZ)
+                                        Write_Gv(BitScanReverse16(source));
+                                    break;
+                                }
+
+                                case 0xB3:
+                                {
+                                    // BTR Ev, Gv
+                                    ushort bitOffset = Read_Gv();
+                                    ushort value = Read_BitBase_Ev(bitOffset, out byte bitIndex);
+                                    ushort mask = (ushort)(1 << bitIndex);
+                                    FlagC = (value & mask) != 0;
+                                    Write_BitBase_Ev(bitOffset, (ushort)(value & ~mask));
+                                    break;
+                                }
+
+                                case 0xBB:
+                                {
+                                    // BTC Ev, Gv
+                                    ushort bitOffset = Read_Gv();
+                                    ushort value = Read_BitBase_Ev(bitOffset, out byte bitIndex);
+                                    ushort mask = (ushort)(1 << bitIndex);
+                                    FlagC = (value & mask) != 0;
+                                    Write_BitBase_Ev(bitOffset, (ushort)(value ^ mask));
+                                    break;
+                                }
+
+                                case 0xAC:
+                                    // SHRD Ev, Gv, Ib
+                                    Write_Ev(Shrd16(Read_Ev(), Read_Gv(), Read_Ib()));
+                                    break;
+
+                                case 0xAD:
+                                    // SHRD Ev, Gv, CL
+                                    Write_Ev(Shrd16(Read_Ev(), Read_Gv(), cl));
+                                    break;
+
+                                case 0xAF:
+                                    // IMUL Gv, Ev
+                                    Write_Gv((ushort)(IMul16(Read_Gv(), Read_Ev()) & 0xFFFF));
+                                    break;
+
+                                case 0xBA:
+                                {
+                                    ReadModRM();
+                                    ushort bitOffset = Read_Ib();
+                                    ushort value = Read_BitBase_Ev(bitOffset, out byte bitIndex);
+                                    ushort mask = (ushort)(1 << bitIndex);
+                                    switch ((_modRM >> 3) & 0x07)
+                                    {
+                                        case 4:
+                                            // BT Ev, Ib
+                                            FlagC = (value & mask) != 0;
+                                            break;
+
+                                        case 5:
+                                            // BTS Ev, Ib
+                                            FlagC = (value & mask) != 0;
+                                            Write_BitBase_Ev(bitOffset, (ushort)(value | mask));
+                                            break;
+
+                                        case 6:
+                                            // BTR Ev, Ib
+                                            FlagC = (value & mask) != 0;
+                                            Write_BitBase_Ev(bitOffset, (ushort)(value & ~mask));
+                                            break;
+
+                                        case 7:
+                                            // BTC Ev, Ib
+                                            FlagC = (value & mask) != 0;
+                                            Write_BitBase_Ev(bitOffset, (ushort)(value ^ mask));
+                                            break;
+
+                                        default:
+                                            throw new InvalidOpCodeException();
+                                    }
+                                    break;
+                                }
+
+                                case 0xB6:
+                                    // MOVZX Gv, Eb
+                                    Write_Gv(Read_Eb());
+                                    break;
+
+                                case 0xB7:
+                                    // MOVZX Gv, Ew
+                                    // In Sharp86's 16-bit operand-size model, zero-extension from word to word is an identity copy.
+                                    Write_Gv(Read_Ev());
+                                    break;
+
+                                case 0xBE:
+                                    // MOVSX Gv, Eb
+                                    Write_Gv(unchecked((ushort)(short)(sbyte)Read_Eb()));
+                                    break;
+
+                                case 0xBF:
+                                    // MOVSX Gv, Ew
+                                    // In Sharp86's 16-bit operand-size model, sign-extension from word to word is an identity copy.
+                                    Write_Gv(Read_Ev());
+                                    break;
+
+                                case 0xC0:
+                                {
+                                    // XADD Eb, Gb
+                                    // Exchange the original destination into the source, then store the sum in the destination.
+                                    byte source = Read_Gb();
+                                    byte destination = Read_Eb();
+                                    Write_Gb(destination);
+                                    Write_Eb(Add8(destination, source));
+                                    break;
+                                }
+
+                                case 0xC1:
+                                {
+                                    // XADD Ev, Gv
+                                    // Exchange the original destination into the source, then store the sum in the destination.
+                                    ushort source = Read_Gv();
+                                    ushort destination = Read_Ev();
+                                    Write_Gv(destination);
+                                    Write_Ev(Add16(destination, source));
+                                    break;
+                                }
+
+                                default:
+                                    throw new InvalidOpCodeException();
+                            }
+                            break;
+                        }
 
                         case 0x10:
                             // ADC Eb, Gb
@@ -1505,11 +2078,35 @@ namespace Sharp86
                             break;
 
                         case 0x63:
-                        case 0x64:
-                        case 0x65:
+                            // ARPL Ew, Gw
+                            ReadModRM();
+                            ushort arplDestinationSelector = Read_Ev();
+                            ushort arplSourceSelector = Read_Gv();
+                            ushort arplSourceRpl = (ushort)(arplSourceSelector & 0x0003);
+                            if ((arplDestinationSelector & 0x0003) < arplSourceRpl)
+                            {
+                                Write_Ev((ushort)((arplDestinationSelector & 0xFFFC) | arplSourceRpl));
+                                FlagZ = true;
+                            }
+                            else
+                            {
+                                FlagZ = false;
+                            }
+                            break;
+
                         case 0x66:
                         case 0x67:
                             throw new InvalidOpCodeException();
+
+                        case 0x64:
+                            // FS: prefix
+                            _prefixSegment = RegSeg.FS;
+                            goto prefixHandled;
+
+                        case 0x65:
+                            // GS: prefix
+                            _prefixSegment = RegSeg.GS;
+                            goto prefixHandled;
 
                         case 0x68:
                             // Push Iv
@@ -2734,8 +3331,10 @@ namespace Sharp86
                             ReadModRM();
                             switch ((_modRM >> 3) & 0x07)
                             {
-                                case 0: And8(Read_Eb(), Read_Ib()); break;
-                                case 1: throw new NotImplementedException();
+                                case 0:
+                                case 1:
+                                    And8(Read_Eb(), Read_Ib());
+                                    break;
                                 case 2: Write_Eb(Not8(Read_Eb())); break;
                                 case 3: Write_Eb(Neg8(Read_Eb())); break;
                                 case 4: ax = Mul8(al, Read_Eb()); break;
@@ -2758,8 +3357,10 @@ namespace Sharp86
                             ReadModRM();
                             switch ((_modRM >> 3) & 0x07)
                             {
-                                case 0: And16(Read_Ev(), Read_Iv()); break;
-                                case 1: throw new NotImplementedException();
+                                case 0:
+                                case 1:
+                                    And16(Read_Ev(), Read_Iv());
+                                    break;
                                 case 2: Write_Ev(Not16(Read_Ev())); break;
                                 case 3: Write_Ev(Neg16(Read_Ev())); break;
                                 case 4: dxax = Mul16(ax, Read_Ev()); break;

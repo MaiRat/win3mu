@@ -1,17 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net461;netcoreapp2.0</TargetFrameworks>
-    <Configurations>Debug;Release</Configurations>
-    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TargetFramework>net8.0</TargetFramework>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <OutputPath>.\bin\$(MSBuildProjectName)\$(Configuration)\$(Platform)</OutputPath>
-    <PlatformTarget>AnyCPU</PlatformTarget>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <AssemblyName>PetaJson</AssemblyName>
     <RootNamespace>PetaJson</RootNamespace>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'" />
+
   <ItemGroup>
     <Compile Include="PetaJson.cs" />
+    <Compile Include="Properties/AssemblyInfo.cs" />
   </ItemGroup>
-  </Project>
+</Project>

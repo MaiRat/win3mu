@@ -894,7 +894,8 @@ namespace Win3muCore
             }
             else
             {
-                throw new NotImplementedException();
+                // Message could not be converted; report failure to caller
+                return 0;
             }
         }
 
@@ -939,9 +940,7 @@ namespace Win3muCore
             if (_machine.logDispatchedMessages)
                 Log.WriteLine("Dispatching: {0}", MessageNames.NameOfMessage(msg16.message));
 
-            DispatchMessage(ref msg32);
-
-            return 0;       // TODO: Supposed to be the return value from the WNDPROC 
+            return DispatchMessage(ref msg32).DWord();
         }
 
         // 0073 - REPLYMESSAGE
@@ -991,12 +990,80 @@ namespace Win3muCore
         Dictionary<uint, OldHookInfo> _nextHookProcMap = new Dictionary<uint, OldHookInfo>();
         uint _nextFakeHookProc = 0x010010;
 
+        bool TryConvertCallWndProcHookTo16(ref Win32.CWPSTRUCT cwp32, out Win16.CWPSTRUCT cwp16)
+        {
+            var convertedStruct = new Win16.CWPSTRUCT();
+
+            var msg32 = new Win32.MSG()
+            {
+                hWnd = cwp32.hWnd,
+                message = cwp32.message,
+                wParam = cwp32.wParam,
+                lParam = cwp32.lParam,
+            };
+
+            bool converted = false;
+            _machine.Messaging.Convert32to16(ref msg32, (msg16) =>
+            {
+                convertedStruct = new Win16.CWPSTRUCT()
+                {
+                    hWnd = msg16.hWnd,
+                    message = msg16.message,
+                    wParam = msg16.wParam,
+                    lParam = msg16.lParam,
+                };
+                converted = true;
+            });
+
+            cwp16 = convertedStruct;
+            return converted;
+        }
+
+        bool TryConvertCallWndProcHookTo32(ref Win16.CWPSTRUCT cwp16, out Win32.CWPSTRUCT cwp32)
+        {
+            var convertedStruct = new Win32.CWPSTRUCT();
+
+            var msg16 = new Win16.MSG()
+            {
+                hWnd = cwp16.hWnd,
+                message = cwp16.message,
+                wParam = cwp16.wParam,
+                lParam = cwp16.lParam,
+            };
+
+            bool converted = false;
+            _machine.Messaging.Convert16to32(ref msg16, (msg32) =>
+            {
+                convertedStruct = new Win32.CWPSTRUCT()
+                {
+                    hWnd = msg32.hWnd,
+                    message = msg32.message,
+                    wParam = msg32.wParam,
+                    lParam = msg32.lParam,
+                };
+                converted = true;
+            });
+
+            cwp32 = convertedStruct;
+            return converted;
+        }
+
+        IntPtr CallOldHookProc16(OldHookInfo info, short code, ushort wParam16, uint lParam16)
+        {
+            return BitUtils.DWordToIntPtr(_machine.CallHookProc16(info.hookProc16, code, wParam16, lParam16));
+        }
+
         IntPtr OldHookProcProxy(OldHookInfo info, int code, IntPtr wParam, IntPtr lParam)
         {
             switch (info.hookType)
             {
                 case Win32.WH_MSGFILTER:
+                case Win32.WH_SYSMSGFILTER:
+                case Win32.WH_GETMESSAGE:
                 {
+                    if (lParam == IntPtr.Zero)
+                        return CallOldHookProc16(info, (short)code, (ushort)wParam.Loword(), 0);
+
                     // Get the message
                     var msg = Marshal.PtrToStructure<Win32.MSG>(lParam);
 
@@ -1006,7 +1073,7 @@ namespace Win3muCore
                     {
                         var saveSP = _machine.sp;
                         uint ptrMsg16 = _machine.StackAlloc(msg16);
-                        retval = BitUtils.DWordToIntPtr(_machine.CallHookProc16(info.hookProc16, (short)code, 0, ptrMsg16));
+                        retval = CallOldHookProc16(info, (short)code, (ushort)wParam.Loword(), ptrMsg16);
                         _machine.sp = saveSP;
                     });
 
@@ -1021,8 +1088,49 @@ namespace Win3muCore
                         return CallNextHookEx(info.hhook, code, wParam, lParam);
                     }
                 }
+                case Win32.WH_KEYBOARD:
+                    return CallOldHookProc16(info, (short)code, (ushort)wParam.Loword(), lParam.DWord());
+
+                case Win32.WH_MOUSE:
+                {
+                    if (lParam == IntPtr.Zero)
+                        return CallOldHookProc16(info, (short)code, (ushort)wParam.Loword(), 0);
+
+                    var mhs32 = Marshal.PtrToStructure<Win32.MOUSEHOOKSTRUCT>(lParam);
+                    var mhs16 = new Win16.MOUSEHOOKSTRUCT()
+                    {
+                        pt = mhs32.pt.Convert(),
+                        hWnd = HWND.Map.To16(mhs32.hWnd),
+                        wHitTestCode = (ushort)mhs32.wHitTestCode,
+                        dwExtraInfo = mhs32.dwExtraInfo.DWord(),
+                    };
+
+                    var saveSP = _machine.sp;
+                    uint ptrMhs16 = _machine.StackAlloc(mhs16);
+                    var retv = CallOldHookProc16(info, (short)code, (ushort)wParam.Loword(), ptrMhs16);
+                    _machine.sp = saveSP;
+                    return retv;
+                }
+
+                case Win32.WH_CALLWNDPROC:
+                {
+                    if (lParam == IntPtr.Zero)
+                        return CallOldHookProc16(info, (short)code, (ushort)wParam.Loword(), 0);
+
+                    var cwp32 = Marshal.PtrToStructure<Win32.CWPSTRUCT>(lParam);
+                    Win16.CWPSTRUCT cwp16;
+                    if (!TryConvertCallWndProcHookTo16(ref cwp32, out cwp16))
+                        return CallNextHookEx(info.hhook, code, wParam, lParam);
+
+                    var saveSP = _machine.sp;
+                    uint ptrCwp16 = _machine.StackAlloc(cwp16);
+                    var retv = CallOldHookProc16(info, (short)code, (ushort)wParam.Loword(), ptrCwp16);
+                    _machine.sp = saveSP;
+                    return retv;
+                }
             }
-            throw new NotImplementedException("Hook Proxy");
+
+            return CallNextHookEx(info.hhook, code, wParam, lParam);
         }
 
         [EntryPoint(0x0079)]
@@ -1084,6 +1192,11 @@ namespace Win3muCore
             switch (hookInfo.hookType)
             {
                 case Win16.WH_MSGFILTER:
+                case Win16.WH_SYSMSGFILTER:
+                case Win16.WH_GETMESSAGE:
+                    if (lParam16 == 0)
+                        return CallNextHookEx(hookInfo.hhook, code, (IntPtr)wParam16, IntPtr.Zero).DWord();
+
                     var msg16 = _machine.ReadStruct<Win16.MSG>(lParam16);
                     IntPtr? retval = null;
                     _machine.Messaging.Convert16to32(ref msg16, (msg32) =>
@@ -1091,15 +1204,58 @@ namespace Win3muCore
                         unsafe
                         {
                             Win32.MSG* pMsg32 = &msg32;
-                            retval = CallNextHookEx(hookInfo.hhook, hookInfo.hookType, IntPtr.Zero, (IntPtr)pMsg32);
+                            retval = CallNextHookEx(hookInfo.hhook, code, (IntPtr)wParam16, (IntPtr)pMsg32);
                         }
                     });
 
-                    System.Diagnostics.Debug.Assert(retval.HasValue);
-                    return (uint)(retval.Value == IntPtr.Zero ? 0 : 1);
+                    if (!retval.HasValue)
+                        return CallNextHookEx(hookInfo.hhook, code, (IntPtr)wParam16, IntPtr.Zero).DWord();
+
+                    return retval.Value.DWord();
+
+                case Win16.WH_KEYBOARD:
+                    return CallNextHookEx(hookInfo.hhook, code, (IntPtr)wParam16, BitUtils.DWordToIntPtr(lParam16)).DWord();
+
+                case Win16.WH_MOUSE:
+                {
+                    if (lParam16 == 0)
+                        return CallNextHookEx(hookInfo.hhook, code, (IntPtr)wParam16, IntPtr.Zero).DWord();
+
+                    var mhs16 = _machine.ReadStruct<Win16.MOUSEHOOKSTRUCT>(lParam16);
+                    var mhs32 = new Win32.MOUSEHOOKSTRUCT()
+                    {
+                        pt = mhs16.pt.Convert(),
+                        hWnd = HWND.Map.To32(mhs16.hWnd),
+                        wHitTestCode = mhs16.wHitTestCode,
+                        dwExtraInfo = BitUtils.DWordToIntPtr(mhs16.dwExtraInfo),
+                    };
+
+                    unsafe
+                    {
+                        Win32.MOUSEHOOKSTRUCT* pMhs32 = &mhs32;
+                        return CallNextHookEx(hookInfo.hhook, code, (IntPtr)wParam16, (IntPtr)pMhs32).DWord();
+                    }
+                }
+
+                case Win16.WH_CALLWNDPROC:
+                {
+                    if (lParam16 == 0)
+                        return CallNextHookEx(hookInfo.hhook, code, (IntPtr)wParam16, IntPtr.Zero).DWord();
+
+                    var cwp16 = _machine.ReadStruct<Win16.CWPSTRUCT>(lParam16);
+                    Win32.CWPSTRUCT cwp32;
+                    if (!TryConvertCallWndProcHookTo32(ref cwp16, out cwp32))
+                        return CallNextHookEx(hookInfo.hhook, code, (IntPtr)wParam16, IntPtr.Zero).DWord();
+
+                    unsafe
+                    {
+                        Win32.CWPSTRUCT* pCwp32 = &cwp32;
+                        return CallNextHookEx(hookInfo.hhook, code, (IntPtr)wParam16, (IntPtr)pCwp32).DWord();
+                    }
+                }
             }
 
-            throw new NotImplementedException("DefHookProc");
+            return CallNextHookEx(hookInfo.hhook, code, (IntPtr)wParam16, IntPtr.Zero).DWord();
         }
 
 
@@ -1234,13 +1390,16 @@ namespace Win3muCore
             {
                 case Win16.GCW_CBCLSEXTRA:
                 case Win16.GCW_CBWNDEXTRA:
+                case Win16.GCW_STYLE:
                     return (ushort)(short)_GetClassLong(hWnd, index);
 
                 case Win16.GCW_HBRBACKGROUND:
+                case Win16.GCW_HCURSOR:
+                case Win16.GCW_HICON:
                     return HGDIOBJ.To16(GetClassLongPtr(hWnd.value, index));
             }
-                                                                   
-            throw new NotImplementedException();
+
+            return 0;
         }
 
         [EntryPoint(0x0082)]
@@ -1259,7 +1418,7 @@ namespace Win3muCore
                     return HGDIOBJ.To16(SetClassLongPtr(hWnd.value, index, HGDIOBJ.To32(value).value));
             }
 
-            throw new NotImplementedException();
+            return 0;
         }
 
         [EntryPoint(0x0083)]
@@ -1277,6 +1436,11 @@ namespace Win3muCore
                 case Win16.GCW_STYLE:
                     return _GetClassLong(hWnd, index);
 
+                case Win16.GCW_HBRBACKGROUND:
+                case Win16.GCW_HCURSOR:
+                case Win16.GCW_HICON:
+                    return (uint)GetClassLongPtr(hWnd.value, index).ToInt32();
+
                 case Win16.GCL_WNDPROC:
                 {
                     var oldWndProc = GetClassLongPtr(hWnd.value, Win32.GCL_WNDPROC);
@@ -1284,7 +1448,7 @@ namespace Win3muCore
                 }
             }
 
-            throw new NotImplementedException();
+            return 0;
         }
 
         [EntryPoint(0x0084)]
@@ -1295,7 +1459,25 @@ namespace Win3muCore
                 return SetClassLong(hWnd, (int)index, value);
             }
 
-            throw new NotImplementedException();
+            switch (index)
+            {
+                case Win16.GCW_STYLE:
+                    return (uint)SetClassLong(hWnd, (int)index, value);
+
+                case Win16.GCW_HBRBACKGROUND:
+                case Win16.GCW_HCURSOR:
+                case Win16.GCW_HICON:
+                    return (uint)SetClassLongPtr(hWnd.value, index, BitUtils.DWordToIntPtr(value)).ToInt32();
+
+                case Win16.GCL_WNDPROC:
+                {
+                    var wndProc = _machine.Messaging.GetWndProc32(value, false);
+                    var oldWndProc = SetClassLongPtr(hWnd.value, Win32.GCL_WNDPROC, wndProc);
+                    return _machine.Messaging.GetWndProc16(oldWndProc);
+                }
+            }
+
+            return 0;
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "GetWindowWord")]
@@ -1319,7 +1501,7 @@ namespace Win3muCore
                     return _GetWindowLong(hWnd.value, (int)nIndex).Loword();
             }
 
-            throw new NotImplementedException();
+            return 0;
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "SetWindowWord")]
@@ -1350,7 +1532,7 @@ namespace Win3muCore
                 }
             }
 
-            throw new NotImplementedException();
+            return 0;
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "GetWindowLongW")]
@@ -1393,12 +1575,7 @@ namespace Win3muCore
                     }
             }
 
-            if (gwl < 0)
-                return 0;
-
-            throw new NotImplementedException();
-
-            //return GetWindowLong(hWnd.value, (int)gwl);
+            return 0;
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "SetWindowLongW")]
@@ -1445,12 +1622,7 @@ namespace Win3muCore
                 }
             }
 
-            if (gwl < 0)
-                return 0;
-
-            throw new NotImplementedException();
-
-            //return SetWindowLong(hWnd.value, (int)gwl, value);
+            return 0;
         }
 
         // 0089 - OPENCLIPBOARD
@@ -2083,7 +2255,7 @@ namespace Win3muCore
         {
             if (hTask != _machine.ProcessModule.hModule)
             {
-                throw new NotImplementedException("Enumerating windows of other tasks not supported");
+                return true;
             }
 
             return EnumThreadWindows(GetCurrentThreadId(), (w, lp) =>
@@ -2767,12 +2939,6 @@ namespace Win3muCore
             uint lpParam
             )
         {
-            if (lpParam != 0)
-            {
-                if (!WindowClass.IsRegistered(className))
-                    throw new NotImplementedException("CreateWindow lpParam not supported");
-            }
-
             uint lpCreateStruct = (uint)((_machine.ss << 16) + _machine.sp + 4);
 
             AdjustWindowSize(style, styleEx, ref width, ref height);

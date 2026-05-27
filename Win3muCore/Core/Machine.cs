@@ -44,6 +44,8 @@ namespace Win3muCore
 
             _pathMapper = new PathMapper(this);
             _globalHeap = new GlobalHeap(this);
+            GlobalDescriptorTableLimit = 7;
+            InterruptDescriptorTableLimit = 1023;
             _stringHeap = new StringHeap(this);
             _moduleManager = new ModuleManager(this);
             _messaging = new Messaging(this);
@@ -54,6 +56,7 @@ namespace Win3muCore
             _expressionContext.PushSymbolScope(_symbolResolver);
 
             this.MemoryBus = _globalHeap;
+            MachineStatusWord = 0x0001;
 
             RegisterVariables();
 
@@ -514,6 +517,48 @@ namespace Win3muCore
         {
             return _globalHeap.IsExecutableSelector(seg);
         }
+
+        protected override bool IsSelectorReadable(ushort selector)
+        {
+            return _globalHeap.GetSelector(selector) != null;
+        }
+
+        protected override bool IsSelectorWritable(ushort selector)
+        {
+            var sel = _globalHeap.GetSelector(selector);
+            return sel != null && !sel.isCode && !sel.readOnly;
+        }
+
+        protected override bool TryGetSelectorAccessRights(ushort selector, out ushort accessRights)
+        {
+            var sel = _globalHeap.GetSelector(selector);
+            if (sel == null)
+            {
+                accessRights = 0;
+                return false;
+            }
+
+            byte type = sel.isCode
+                ? (byte)0x0A
+                : (byte)(sel.readOnly ? 0x00 : 0x02);
+
+            accessRights = (ushort)(0x80 | 0x60 | 0x10 | type);
+            return true;
+        }
+
+        protected override bool TryGetSelectorLimit(ushort selector, out ushort limit)
+        {
+            var sel = _globalHeap.GetSelector(selector);
+            if (sel == null || sel.allocation == null || sel.allocation.buffer == null)
+            {
+                limit = 0;
+                return false;
+            }
+
+            limit = (ushort)Math.Min(sel.allocation.buffer.Length - 1, 0xFFFF);
+            return true;
+        }
+
         public byte ReadByte(ushort seg, ushort offset)
         {
             return _globalHeap.ReadByte(seg, offset);

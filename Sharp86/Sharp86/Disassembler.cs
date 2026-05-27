@@ -303,6 +303,8 @@ namespace Sharp86
                 case RegSeg.DS: return "ds";
                 case RegSeg.ES: return "es";
                 case RegSeg.SS: return "ss";
+                case RegSeg.FS: return "fs";
+                case RegSeg.GS: return "gs";
             }
             throw new NotImplementedException();
         }
@@ -341,6 +343,17 @@ namespace Sharp86
             {
                 return Format((Reg16)(_modRM & 0x07));
             }
+        }
+
+        string Read_Ms()
+        {
+            if (!_haveReadModRM)
+                ReadModRM();
+
+            if (!_modRMIsPointer)
+                throw new InvalidOpCodeException();
+
+            return string.Format("fword ptr {0}[{1}]", _modRMSeg, _modRMOffset);
         }
 
         string Read_Gb()
@@ -484,7 +497,7 @@ namespace Sharp86
             switch ((_modRM >> 3) & 0x07)
             {
                 case 0: return "test";
-                case 1: throw new NotImplementedException();
+                case 1: return "test";
                 case 2: return "not";
                 case 3: return "neg"; 
                 case 4: return "mul"; 
@@ -562,6 +575,16 @@ namespace Sharp86
                             opCode = ReadByte(cs, ip++);
                             break;
 
+                        case 0x64:
+                            _prefixSegment = RegSeg.FS;
+                            opCode = ReadByte(cs, ip++);
+                            break;
+
+                        case 0x65:
+                            _prefixSegment = RegSeg.GS;
+                            opCode = ReadByte(cs, ip++);
+                            break;
+
                         default:
                             haveOpCode = true;
                             break;
@@ -592,8 +615,191 @@ namespace Sharp86
                         return string.Format("pop {0}", Format((RegSeg)((opCode >> 3) & 0x03)));
 
                     case 0x0F:
-                        // No pop cs instruction
-                        throw new InvalidOpCodeException();
+                    {
+                        var opCode2 = ReadByte(cs, ip++);
+                        if (opCode2 >= 0x80 && opCode2 <= 0x8F)
+                            return string.Format("j{0} {1}", _ccNames[opCode2 & 0x0F], Read_Jv());
+
+                        if (opCode2 >= 0x90 && opCode2 <= 0x9F)
+                            return string.Format("set{0} {1}", _ccNames[opCode2 & 0x0F], Read_Eb());
+
+                        switch (opCode2)
+                        {
+                            case 0x00:
+                                ReadModRM();
+                                switch ((_modRM >> 3) & 0x07)
+                                {
+                                    case 0:
+                                        return string.Format("sldt {0}", Read_Ev());
+
+                                    case 1:
+                                        return string.Format("str {0}", Read_Ev());
+
+                                    case 2:
+                                        return string.Format("lldt {0}", Read_Ev());
+
+                                    case 3:
+                                        return string.Format("ltr {0}", Read_Ev());
+
+                                    case 4:
+                                        return string.Format("verr {0}", Read_Ev());
+
+                                    case 5:
+                                        return string.Format("verw {0}", Read_Ev());
+
+                                    default:
+                                        throw new InvalidOpCodeException();
+                                }
+
+                            case 0x01:
+                                ReadModRM();
+                                switch ((_modRM >> 3) & 0x07)
+                                {
+                                    case 0:
+                                        return string.Format("sgdt {0}", Read_Ms());
+
+                                    case 1:
+                                        return string.Format("sidt {0}", Read_Ms());
+
+                                    case 2:
+                                        return string.Format("lgdt {0}", Read_Ms());
+
+                                    case 3:
+                                        return string.Format("lidt {0}", Read_Ms());
+
+                                    case 4:
+                                        return string.Format("smsw {0}", Read_Ev());
+
+                                    case 6:
+                                        return string.Format("lmsw {0}", Read_Ev());
+
+                                    default:
+                                        throw new InvalidOpCodeException();
+                                }
+
+                            case 0x02:
+                                return string.Format("lar {0},{1}", Read_Gv(), Read_Ev());
+
+                            case 0x03:
+                                return string.Format("lsl {0},{1}", Read_Gv(), Read_Ev());
+
+                            case 0x06:
+                                return "clts";
+
+                            case 0xA0:
+                                return "push fs";
+
+                            case 0xA1:
+                                return "pop fs";
+
+                            case 0xA8:
+                                return "push gs";
+
+                            case 0xA9:
+                                return "pop gs";
+
+                            case 0xB0:
+                                return string.Format("cmpxchg {0},{1}", Read_Eb(), Read_Gb());
+
+                            case 0xB1:
+                                return string.Format("cmpxchg {0},{1}", Read_Ev(), Read_Gv());
+
+                            case 0xB2:
+                                ReadModRM();
+                                if (!_modRMIsPointer)
+                                    throw new InvalidOpCodeException();
+
+                                return string.Format("lss {0},d{1}", Read_Gv(), Read_Ev());
+
+                            case 0xB4:
+                                ReadModRM();
+                                if (!_modRMIsPointer)
+                                    throw new InvalidOpCodeException();
+
+                                return string.Format("lfs {0},d{1}", Read_Gv(), Read_Ev());
+
+                            case 0xB5:
+                                ReadModRM();
+                                if (!_modRMIsPointer)
+                                    throw new InvalidOpCodeException();
+
+                                return string.Format("lgs {0},d{1}", Read_Gv(), Read_Ev());
+
+                            case 0xA3:
+                                return string.Format("bt {0},{1}", Read_Ev(), Read_Gv());
+
+                            case 0xA4:
+                                return string.Format("shld {0},{1},{2}", Read_Ev(), Read_Gv(), Read_Ib());
+
+                            case 0xA5:
+                                return string.Format("shld {0},{1},cl", Read_Ev(), Read_Gv());
+
+                            case 0xAB:
+                                return string.Format("bts {0},{1}", Read_Ev(), Read_Gv());
+
+                            case 0xBC:
+                                return string.Format("bsf {0},{1}", Read_Gv(), Read_Ev());
+
+                            case 0xBD:
+                                return string.Format("bsr {0},{1}", Read_Gv(), Read_Ev());
+
+                            case 0xB3:
+                                return string.Format("btr {0},{1}", Read_Ev(), Read_Gv());
+
+                            case 0xBB:
+                                return string.Format("btc {0},{1}", Read_Ev(), Read_Gv());
+
+                            case 0xAC:
+                                return string.Format("shrd {0},{1},{2}", Read_Ev(), Read_Gv(), Read_Ib());
+
+                            case 0xAD:
+                                return string.Format("shrd {0},{1},cl", Read_Ev(), Read_Gv());
+
+                            case 0xAF:
+                                return string.Format("imul {0},{1}", Read_Gv(), Read_Ev());
+
+                            case 0xBA:
+                                ReadModRM();
+                                switch ((_modRM >> 3) & 0x07)
+                                {
+                                    case 4:
+                                        return string.Format("bt {0},{1}", Read_Ev(), Read_Ib());
+
+                                    case 5:
+                                        return string.Format("bts {0},{1}", Read_Ev(), Read_Ib());
+
+                                    case 6:
+                                        return string.Format("btr {0},{1}", Read_Ev(), Read_Ib());
+
+                                    case 7:
+                                        return string.Format("btc {0},{1}", Read_Ev(), Read_Ib());
+
+                                    default:
+                                        throw new InvalidOpCodeException();
+                                }
+
+                            case 0xB6:
+                                return string.Format("movzx {0},{1}", Read_Gv(), Read_Eb());
+
+                            case 0xB7:
+                                return string.Format("movzx {0},{1}", Read_Gv(), Read_Ev());
+
+                            case 0xBE:
+                                return string.Format("movsx {0},{1}", Read_Gv(), Read_Eb());
+
+                            case 0xBF:
+                                return string.Format("movsx {0},{1}", Read_Gv(), Read_Ev());
+
+                            case 0xC0:
+                                return string.Format("xadd {0},{1}", Read_Eb(), Read_Gb());
+
+                            case 0xC1:
+                                return string.Format("xadd {0},{1}", Read_Ev(), Read_Gv());
+
+                            default:
+                                throw new InvalidOpCodeException();
+                        }
+                    }
 
                     case 0x08:
                     case 0x09:
@@ -738,8 +944,9 @@ namespace Sharp86
                         return string.Format("Bound {0},{1}", Read_Gv(), Read_Ev());
 
                     case 0x63:
-                    case 0x64:
-                    case 0x65:
+                        ReadModRM();
+                        return string.Format("arpl {0},{1}", Read_Ev(), Read_Gv());
+
                     case 0x66:
                     case 0x67:
                         throw new InvalidOpCodeException();
@@ -1275,6 +1482,7 @@ namespace Sharp86
                         switch ((_modRM >> 3) & 0x07)
                         {
                             case 0:
+                            case 1:
                                 return string.Format("{0} {1},{2}", Group3Name((_modRM >> 3) & 0x07), Read_Eb(), Read_Ib());
 
                             default:
@@ -1287,6 +1495,7 @@ namespace Sharp86
                         switch ((_modRM >> 3) & 0x07)
                         {
                             case 0:
+                            case 1:
                                 return string.Format("{0} {1},{2}", Group3Name((_modRM >> 3) & 0x07), Read_Ev(), Read_Iv());
 
                             default:
