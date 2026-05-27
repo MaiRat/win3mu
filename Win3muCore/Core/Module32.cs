@@ -112,6 +112,37 @@ namespace Win3muCore
 
     public class Module32 : ModuleBase
     {
+        static int ResolveBufferCapacity(object value)
+        {
+            var type = value.GetType();
+            if (type == typeof(int))
+            {
+                return (int)value;
+            }
+            else if (type == typeof(ushort))
+            {
+                return (int)(ushort)value;
+            }
+            else if (type == typeof(nint))
+            {
+                return (nint)value;
+            }
+            else if (type == typeof(short))
+            {
+                return (int)(short)value;
+            }
+            else if (type == typeof(uint))
+            {
+                return (int)(uint)value;
+            }
+            else if (type == typeof(nuint))
+            {
+                return (int)(uint)(nuint)value;
+            }
+
+            throw new NotImplementedException();
+        }
+
         public Module32()
         {
             _attributes = (ModuleAttribute)GetType().GetCustomAttributes(typeof(ModuleAttribute), true).FirstOrDefault();
@@ -654,32 +685,7 @@ namespace Win3muCore
                         // Work out buffer size capacity
                         var bufsize = pi.GetCustomAttribute<BufSizeAttribute>();
                         int bufsizeParamIndex = paramIndex + bufsize.ParamDX;
-
-                        var type = _paramValues[bufsizeParamIndex].GetType();
-                        if (type == typeof(int))
-                        {
-                            capacity = (int)_paramValues[bufsizeParamIndex];
-                        }
-                        else if (type == typeof(ushort))
-                        {
-                            capacity = (int)(ushort)_paramValues[bufsizeParamIndex];
-                        }
-                        else if (type == typeof(nint))
-                        {
-                            capacity = (nint)_paramValues[bufsizeParamIndex];
-                        }
-                        else if (type == typeof(short))
-                        {
-                            capacity = (int)(short)_paramValues[bufsizeParamIndex];
-                        }
-                        else if (type == typeof(uint))
-                        {
-                            capacity = (int)(uint)_paramValues[bufsizeParamIndex];
-                        }
-                        else
-                        {
-                            throw new NotImplementedException();
-                        }
+                        capacity = ResolveBufferCapacity(_paramValues[bufsizeParamIndex]);
 
                         // Create string builder
                         var sb = new StringBuilder(fna!=null ? 512 : capacity);
@@ -851,4 +857,3 @@ namespace Win3muCore
 
 
 }
-

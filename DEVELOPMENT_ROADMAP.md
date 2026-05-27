@@ -163,7 +163,7 @@ The following items represent the current frontier for further work:
    - Disassembler `Group2Name` subcode 6 (undocumented SHL alias) and ConDos port I/O stubs hardened.
 10. ~~**Continue broadening thunking support**~~ ✅ **COMPLETED**
     - Module32 thunking layer now supports enum parameter types, enum return types, and enum-to-underlying-type conversion throughout `SizeOfType16`, `ReadParamFromStack`, and `SetReturnValue`.
-    - `StringBuilder` buffer size parameter resolution now supports `short` and `uint` types in addition to `int`, `ushort`, and `nint`.
+    - `StringBuilder` buffer size parameter resolution now supports `short`, `uint`, and `nuint` types in addition to `int`, `ushort`, and `nint`.
 11. **Extend MCI device-specific support** — _expanded_
     - `MCI_OPEN` now detects digital-video open flags and marshals `MCI_DGV_OPEN_PARMS`, including `dwStyle` and `hWndParent`, instead of always using the generic open structure.
     - `MCI_WINDOW`, `MCI_PUT`, `MCI_WHERE`, and `MCI_UPDATE` now marshal device-specific window/RECT/HDC structures instead of passing them through as generic callbacks.
