@@ -313,7 +313,21 @@ namespace Win3muCore
             {
                 return SizeOfType16(Enum.GetUnderlyingType(pt));
             }
+            if (IsRawValueStruct(pt))
+            {
+                return WordAlign(Marshal.SizeOf(pt));
+            }
             throw new NotImplementedException(string.Format("Type not supported by thunking layer - {0}", pt));
+        }
+
+        static bool IsRawValueStruct(Type pt)
+        {
+            return pt != null && pt.IsValueType && !pt.IsPrimitive && !pt.IsEnum;
+        }
+
+        static ushort WordAlign(int size)
+        {
+            return unchecked((ushort)((size + 1) & ~1));
         }
 
         ushort CalculateSizeOfParametersOnStack(MethodInfo mi)
@@ -496,7 +510,42 @@ namespace Win3muCore
                     return;
                 }
 
+                if (IsRawValueStruct(retType))
+                {
+                    var size = Marshal.SizeOf(retType);
+                    var bytes = StructureToBytes(retValue, size);
+                    if (size <= 2)
+                    {
+                        _machine.ax = BitConverter.ToUInt16(bytes, 0);
+                        return;
+                    }
+                    if (size <= 4)
+                    {
+                        _machine.dxax = BitConverter.ToUInt32(bytes, 0);
+                        return;
+                    }
+
+                    throw new NotImplementedException(string.Format("Return type not supported by thunking layer - {0} (size {1})", retType, size));
+                }
+
                 throw new NotImplementedException(string.Format("Return type not supported by thunking layer - {0}", retType));
+            }
+
+            static byte[] StructureToBytes(object value, int size)
+            {
+                var bytes = new byte[Math.Max(size, 4)];
+                var ptr = Marshal.AllocHGlobal(size);
+                try
+                {
+                    Marshal.StructureToPtr(value, ptr, false);
+                    Marshal.Copy(ptr, bytes, 0, size);
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(ptr);
+                }
+
+                return bytes;
             }
 
             public void RegisterPostInvokeCallback(Action callback)
@@ -764,6 +813,14 @@ namespace Win3muCore
                     return Enum.ToObject(pt, rawValue);
                 }
 
+                if (IsRawValueStruct(pt))
+                {
+                    var ptr = BitUtils.MakeDWord(_paramPos, _machine.ss);
+                    var val = _machine.ReadStruct(pt, ptr);
+                    _paramPos += WordAlign(Marshal.SizeOf(pt));
+                    return val;
+                }
+
                 throw new NotImplementedException(string.Format("Parameter type not supported by thunking layer - {0}", pt));
             }
 
@@ -794,5 +851,4 @@ namespace Win3muCore
 
 
 }
-
 

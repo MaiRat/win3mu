@@ -22,8 +22,9 @@ These items are likely to unblock more real applications faster than a large CPU
    - `CreateWindowEx` now accepts and forwards `lpParam` to the 32-bit API; `WM_NCCREATE` CREATESTRUCT conversion handles `lpCreateParams`.
 
 4. **Broaden the thunking layer before adding more forwarded exports** — _in progress_
-   - `Module32` now supports `IntPtr` as a return type and allows non-null `IntPtr` parameters (converting seg:offset to host pointers) instead of requiring the `MustBeNull` attribute.
-   - **Remaining:** unsupported parameter/return types still throw `NotImplementedException` when novel type shapes appear (e.g. custom structs not decorated with `MappedTypeAttribute`). These should be addressed as real Win3.x DLL entry points expose them.
+    - `Module32` now supports `IntPtr` as a return type and allows non-null `IntPtr` parameters (converting seg:offset to host pointers) instead of requiring the `MustBeNull` attribute.
+    - `Module32` now also handles undecorated value-type struct parameters by value, and returns 2-byte/4-byte undecorated structs through AX/DX:AX.
+    - **Remaining:** larger or non-register return conventions still need dedicated handling if future forwarded exports require them.
 
 ## Priority 2: expand Sharp86 instruction coverage for Win3.x workloads
 

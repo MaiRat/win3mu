@@ -2129,10 +2129,31 @@ namespace Win3muCore
             return 0;
         }
 
+        [DllImport("user32.dll", EntryPoint = "GetUpdateRect")]
+        static extern bool _GetUpdateRect(HWND hWnd, IntPtr lpRect, bool erase);
+
         // 00BE - GETUPDATERECT
         [EntryPoint(0x00BE)]
-        [DllImport("user32.dll")]
-        public static extern bool GetUpdateRect(HWND hWnd, Win32.RECT lpRect, bool erase);
+        public bool GetUpdateRect(HWND hWnd, IntPtr lpRect, bool erase)
+        {
+            if (lpRect == IntPtr.Zero)
+                return _GetUpdateRect(hWnd, IntPtr.Zero, erase);
+
+            var rectPtr = Marshal.AllocHGlobal(Marshal.SizeOf<Win32.RECT>());
+            try
+            {
+                if (!_GetUpdateRect(hWnd, rectPtr, erase))
+                    return false;
+
+                var rc32 = Marshal.PtrToStructure<Win32.RECT>(rectPtr);
+                _machine.WriteStruct(unchecked((uint)lpRect.ToInt32()), rc32.Convert());
+                return true;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(rectPtr);
+            }
+        }
 
         [EntryPoint(0x00BF)]
         [DllImport("user32.dll")]
