@@ -894,7 +894,8 @@ namespace Win3muCore
             }
             else
             {
-                throw new NotImplementedException();
+                // Message could not be converted; report failure to caller
+                return 0;
             }
         }
 
@@ -1389,13 +1390,16 @@ namespace Win3muCore
             {
                 case Win16.GCW_CBCLSEXTRA:
                 case Win16.GCW_CBWNDEXTRA:
+                case Win16.GCW_STYLE:
                     return (ushort)(short)_GetClassLong(hWnd, index);
 
                 case Win16.GCW_HBRBACKGROUND:
+                case Win16.GCW_HCURSOR:
+                case Win16.GCW_HICON:
                     return HGDIOBJ.To16(GetClassLongPtr(hWnd.value, index));
             }
-                                                                   
-            throw new NotImplementedException();
+
+            return 0;
         }
 
         [EntryPoint(0x0082)]
@@ -1414,7 +1418,7 @@ namespace Win3muCore
                     return HGDIOBJ.To16(SetClassLongPtr(hWnd.value, index, HGDIOBJ.To32(value).value));
             }
 
-            throw new NotImplementedException();
+            return 0;
         }
 
         [EntryPoint(0x0083)]
@@ -1432,6 +1436,11 @@ namespace Win3muCore
                 case Win16.GCW_STYLE:
                     return _GetClassLong(hWnd, index);
 
+                case Win16.GCW_HBRBACKGROUND:
+                case Win16.GCW_HCURSOR:
+                case Win16.GCW_HICON:
+                    return (uint)GetClassLongPtr(hWnd.value, index).ToInt32();
+
                 case Win16.GCL_WNDPROC:
                 {
                     var oldWndProc = GetClassLongPtr(hWnd.value, Win32.GCL_WNDPROC);
@@ -1439,7 +1448,7 @@ namespace Win3muCore
                 }
             }
 
-            throw new NotImplementedException();
+            return 0;
         }
 
         [EntryPoint(0x0084)]
@@ -1450,7 +1459,25 @@ namespace Win3muCore
                 return SetClassLong(hWnd, (int)index, value);
             }
 
-            throw new NotImplementedException();
+            switch (index)
+            {
+                case Win16.GCW_STYLE:
+                    return (uint)SetClassLong(hWnd, (int)index, value);
+
+                case Win16.GCW_HBRBACKGROUND:
+                case Win16.GCW_HCURSOR:
+                case Win16.GCW_HICON:
+                    return (uint)SetClassLongPtr(hWnd.value, index, BitUtils.DWordToIntPtr(value)).ToInt32();
+
+                case Win16.GCL_WNDPROC:
+                {
+                    var wndProc = _machine.Messaging.GetWndProc32(value, false);
+                    var oldWndProc = SetClassLongPtr(hWnd.value, Win32.GCL_WNDPROC, wndProc);
+                    return _machine.Messaging.GetWndProc16(oldWndProc);
+                }
+            }
+
+            return 0;
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "GetWindowWord")]
@@ -1474,7 +1501,7 @@ namespace Win3muCore
                     return _GetWindowLong(hWnd.value, (int)nIndex).Loword();
             }
 
-            throw new NotImplementedException();
+            return 0;
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "SetWindowWord")]
@@ -1505,7 +1532,7 @@ namespace Win3muCore
                 }
             }
 
-            throw new NotImplementedException();
+            return 0;
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "GetWindowLongW")]
@@ -1548,12 +1575,7 @@ namespace Win3muCore
                     }
             }
 
-            if (gwl < 0)
-                return 0;
-
-            throw new NotImplementedException();
-
-            //return GetWindowLong(hWnd.value, (int)gwl);
+            return 0;
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "SetWindowLongW")]
@@ -1600,12 +1622,7 @@ namespace Win3muCore
                 }
             }
 
-            if (gwl < 0)
-                return 0;
-
-            throw new NotImplementedException();
-
-            //return SetWindowLong(hWnd.value, (int)gwl, value);
+            return 0;
         }
 
         // 0089 - OPENCLIPBOARD
