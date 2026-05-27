@@ -492,7 +492,8 @@ namespace Win3muCore
                                 }
 
                                 default:
-                                    throw new NotImplementedException(string.Format("Unsupported relocation type: {0}/{1}", reloc.type, reloc.addressType));
+                                    Log.WriteLine("Warning: unsupported relocation address type {0} for InternalReference, skipping", reloc.addressType);
+                                    break;
                             }
                             break;
 
@@ -569,7 +570,8 @@ namespace Win3muCore
                                 }
 
                                 default:
-                                    throw new NotImplementedException(string.Format("Unsupported relocation type: {0}/{1}", reloc.type, reloc.addressType));
+                                    Log.WriteLine("Warning: unsupported relocation address type {0} for ImportedOrdinal '{1}', skipping", reloc.addressType, moduleName);
+                                    break;
                             }
 
                             break;
@@ -673,14 +675,15 @@ namespace Win3muCore
                                     }
 
                                 default:
-                                    throw new NotImplementedException(string.Format("Unsupported relocation type: {0}/{1}", reloc.type, reloc.addressType));
+                                    Log.WriteLine("Warning: unsupported relocation address type {0} for ImportedName '{1}', skipping", reloc.addressType, entryPointName);
+                                    break;
                             }
                             break;
                         }
 
                         default:
-                            throw new NotImplementedException(string.Format("Unsupported relocation type: {0}", reloc.type));
-                    }
+                            Log.WriteLine("Warning: unsupported relocation type {0}, skipping", reloc.type);
+                            break;                    }
                 }
             }
 

@@ -160,6 +160,96 @@ namespace Win3muCore.MessageSemantics
             }
         }
 
+        // EM_SETHANDLE: wParam = local memory handle (16-bit) or HLOCAL (32-bit), lParam = 0
+        // Since Win3mu doesn't manage real 16-bit local heaps, we log and ignore the set.
+        // The 32-bit edit control continues managing its own buffer.
+        public class EM_SETHANDLE : Callable
+        {
+            public override uint Call32from16(Machine machine, bool hook, bool dlgproc, ref Win16.MSG msg16, ref Win32.MSG msg32, Func<IntPtr> callback)
+            {
+                // 16-bit app is setting a local memory handle for the edit buffer.
+                // We can't map 16-bit local memory handles to 32-bit HLOCAL, so log and ignore.
+                Log.WriteLine("EM_SETHANDLE: ignoring 16-bit local memory handle 0x{0:X4}", msg16.wParam);
+                return 0;
+            }
+
+            public override IntPtr Call16from32(Machine machine, bool hook, bool dlgproc, ref Win32.MSG msg32, ref Win16.MSG msg16, Func<uint> callback)
+            {
+                // 32-bit code setting a handle — ignore for 16-bit side
+                Log.WriteLine("EM_SETHANDLE: ignoring 32-bit HLOCAL 0x{0:X}", msg32.wParam.ToInt64());
+                return IntPtr.Zero;
+            }
+        }
+
+        // EM_GETHANDLE: wParam = 0, lParam = 0, returns handle
+        // Returns a local memory handle (16-bit) or HLOCAL (32-bit) to the edit buffer.
+        // Since we can't expose 32-bit HLOCAL as a 16-bit local handle, return 0.
+        public class EM_GETHANDLE : Callable
+        {
+            public override uint Call32from16(Machine machine, bool hook, bool dlgproc, ref Win16.MSG msg16, ref Win32.MSG msg32, Func<IntPtr> callback)
+            {
+                // Call 32-bit to get the real handle, but we can't convert it to 16-bit
+                msg32.wParam = IntPtr.Zero;
+                msg32.lParam = IntPtr.Zero;
+                callback();
+                Log.WriteLine("EM_GETHANDLE: returning 0 (16-bit local memory handles not supported)");
+                return 0;
+            }
+
+            public override IntPtr Call16from32(Machine machine, bool hook, bool dlgproc, ref Win32.MSG msg32, ref Win16.MSG msg16, Func<uint> callback)
+            {
+                // Call 16-bit which would return a local memory handle — can't use it in 32-bit
+                msg16.wParam = 0;
+                msg16.lParam = 0;
+                callback();
+                Log.WriteLine("EM_GETHANDLE: returning NULL (16-bit local memory handle not convertible)");
+                return IntPtr.Zero;
+            }
+        }
+
+        // EM_SETWORDBREAKPROC: wParam = 0, lParam = callback pointer
+        // The callback is a EDITWORDBREAKPROC. Since 16-bit and 32-bit callback signatures
+        // differ and cross-bitness callback thunking is complex, we stub this.
+        public class EM_SETWORDBREAKPROC : Callable
+        {
+            public override uint Call32from16(Machine machine, bool hook, bool dlgproc, ref Win16.MSG msg16, ref Win32.MSG msg32, Func<IntPtr> callback)
+            {
+                // 16-bit app setting a word-break proc — can't thunk the callback to 32-bit
+                Log.WriteLine("EM_SETWORDBREAKPROC: ignoring 16-bit callback 0x{0:X8}", msg16.lParam);
+                return 0;
+            }
+
+            public override IntPtr Call16from32(Machine machine, bool hook, bool dlgproc, ref Win32.MSG msg32, ref Win16.MSG msg16, Func<uint> callback)
+            {
+                // 32-bit code setting a word-break proc — can't thunk to 16-bit
+                Log.WriteLine("EM_SETWORDBREAKPROC: ignoring 32-bit callback 0x{0:X}", msg32.lParam.ToInt64());
+                return IntPtr.Zero;
+            }
+        }
+
+        // EM_GETWORDBREAKPROC: wParam = 0, lParam = 0, returns callback pointer
+        // Returns the current EDITWORDBREAKPROC. Since we stub EM_SETWORDBREAKPROC, return NULL.
+        public class EM_GETWORDBREAKPROC : Callable
+        {
+            public override uint Call32from16(Machine machine, bool hook, bool dlgproc, ref Win16.MSG msg16, ref Win32.MSG msg32, Func<IntPtr> callback)
+            {
+                // Return 0 (no word-break proc set)
+                msg32.wParam = IntPtr.Zero;
+                msg32.lParam = IntPtr.Zero;
+                callback();
+                return 0;
+            }
+
+            public override IntPtr Call16from32(Machine machine, bool hook, bool dlgproc, ref Win32.MSG msg32, ref Win16.MSG msg16, Func<uint> callback)
+            {
+                // Return NULL (no word-break proc set)
+                msg16.wParam = 0;
+                msg16.lParam = 0;
+                callback();
+                return IntPtr.Zero;
+            }
+        }
+
         // EM_SETTABSTOPS: wParam = count, lParam = pointer to array of INT (tab stop positions)
         // 16-bit: array of 16-bit signed integers
         // 32-bit: array of 32-bit signed integers

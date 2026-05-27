@@ -412,6 +412,10 @@ namespace Win3muCore.MessageSemantics
             Add(WndClassKind.Edit, Win32.EM_GETFIRSTVISIBLELINE, Win16.EM_GETFIRSTVISIBLELINE, new unused());
             Add(WndClassKind.Edit, Win32.EM_SETREADONLY, Win16.EM_SETREADONLY, new copy_unused());
             Add(WndClassKind.Edit, Win32.EM_GETPASSWORDCHAR, Win16.EM_GETPASSWORDCHAR, new unused());
+            Add(WndClassKind.Edit, Win32.EM_SETHANDLE, Win16.EM_SETHANDLE, new ClassEdit.EM_SETHANDLE());
+            Add(WndClassKind.Edit, Win32.EM_GETHANDLE, Win16.EM_GETHANDLE, new ClassEdit.EM_GETHANDLE());
+            Add(WndClassKind.Edit, Win32.EM_SETWORDBREAKPROC, Win16.EM_SETWORDBREAKPROC, new ClassEdit.EM_SETWORDBREAKPROC());
+            Add(WndClassKind.Edit, Win32.EM_GETWORDBREAKPROC, Win16.EM_GETWORDBREAKPROC, new ClassEdit.EM_GETWORDBREAKPROC());
             Add(WndClassKind.Edit, Win32.EM_GETRECT, Win16.EM_GETRECT, new ClassEdit.EM_GETRECT());
             Add(WndClassKind.Edit, Win32.EM_SETRECT, Win16.EM_SETRECT, new ClassEdit.EM_SETRECT());
             Add(WndClassKind.Edit, Win32.EM_SETRECTNP, Win16.EM_SETRECTNP, new ClassEdit.EM_SETRECT());

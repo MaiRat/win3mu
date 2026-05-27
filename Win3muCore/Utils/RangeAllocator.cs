@@ -87,8 +87,27 @@ namespace Win3muCore
                 }
                 else
                 {
-                    // Shrink
-                    throw new NotImplementedException();
+                    // Shrink - only allowed if the tail of the address space is free
+                    var lastEntry = _entries[_entries.Count - 1];
+                    int shrinkAmount = _addressSpaceSize - value;
+
+                    if (!lastEntry.allocated && lastEntry.size >= shrinkAmount)
+                    {
+                        // Shrink the last free entry
+                        lastEntry.size -= shrinkAmount;
+                        if (lastEntry.size == 0)
+                        {
+                            _entries.RemoveAt(_entries.Count - 1);
+                        }
+                        _freeSpace -= shrinkAmount;
+                        _addressSpaceSize = value;
+                    }
+                    else
+                    {
+                        // Cannot shrink: tail is allocated or not large enough
+                        throw new InvalidOperationException(
+                            string.Format("Cannot shrink RangeAllocator from {0} to {1}: tail region is allocated or too small", _addressSpaceSize, value));
+                    }
                 }
 
                 Check();
