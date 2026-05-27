@@ -956,6 +956,9 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern bool SetBrushOrgEx(HDC hDC, int x, int y, out Win32.POINT pptOld);
 
+        [DllImport("gdi32.dll")]
+        public static extern bool GetBrushOrgEx(HDC hDC, out Win32.POINT pptOld);
+
         [EntryPoint(0x0094)]
         public uint SetBrushOrg(HDC hDC, nint x, nint y)
         {
