@@ -1022,20 +1022,83 @@ namespace Win3muCore
             }
         }
 
-        // 0169 - GDISELECTPALETTE
-        // 016A - GDIREALIZEPALETTE
-        // 016B - GETPALETTEENTRIES
-        // 016C - SETPALETTEENTRIES
-        // 016D - REALIZEDEFAULTPALETTE
-        // 016E - UPDATECOLORS
-        // 016F - ANIMATEPALETTE
-        // 0170 - RESIZEPALETTE
-        // 0172 - GETNEARESTPALETTEINDEX
+        [EntryPoint(0x0169)]
+        [DllImport("gdi32.dll")]
+        public static extern HGDIOBJ SelectPalette(HDC hDC, HGDIOBJ hPalette, bool forceBackground);
+
+        [EntryPoint(0x016A)]
+        [DllImport("gdi32.dll")]
+        public static extern nuint RealizePalette(HDC hDC);
+
+        [DllImport("gdi32.dll", EntryPoint = "GetPaletteEntries")]
+        public static extern uint _GetPaletteEntries(HGDIOBJ hPalette, uint iStartIndex, uint nEntries, IntPtr ptr);
+
+        [EntryPoint(0x016B)]
+        public nuint GetPaletteEntries(HGDIOBJ hPalette, nuint iStartIndex, nuint nEntries, uint lppe)
+        {
+            if (lppe == 0)
+                return _GetPaletteEntries(hPalette, iStartIndex, nEntries, IntPtr.Zero);
+
+            using (var hp = _machine.GlobalHeap.GetHeapPointer(lppe, true))
+            {
+                return _GetPaletteEntries(hPalette, iStartIndex, nEntries, hp);
+            }
+        }
+
+        [DllImport("gdi32.dll", EntryPoint = "SetPaletteEntries")]
+        public static extern uint _SetPaletteEntries(HGDIOBJ hPalette, uint iStartIndex, uint nEntries, IntPtr ptr);
+
+        [EntryPoint(0x016C)]
+        public nuint SetPaletteEntries(HGDIOBJ hPalette, nuint iStartIndex, nuint nEntries, uint lppe)
+        {
+            if (lppe == 0)
+                return _SetPaletteEntries(hPalette, iStartIndex, nEntries, IntPtr.Zero);
+
+            using (var hp = _machine.GlobalHeap.GetHeapPointer(lppe, false))
+            {
+                return _SetPaletteEntries(hPalette, iStartIndex, nEntries, hp);
+            }
+        }
+
+        [EntryPoint(0x016D)]
+        public nuint RealizeDefaultPalette(HDC hDC)
+        {
+            var previousPalette = SelectPalette(hDC, GetStockObject(15), false);
+            var realizedEntries = RealizePalette(hDC);
+            if (previousPalette.value != IntPtr.Zero)
+            {
+                SelectPalette(hDC, previousPalette, false);
+            }
+            return realizedEntries;
+        }
+
+        [EntryPoint(0x016E)]
+        [DllImport("gdi32.dll")]
+        public static extern bool UpdateColors(HDC hDC);
+
+        [EntryPoint(0x016F)]
+        [DllImport("gdi32.dll")]
+        public static extern bool AnimatePalette(HGDIOBJ hPalette, uint iStartIndex, uint cEntries, IntPtr ppe);
+
+        [EntryPoint(0x0170)]
+        [DllImport("gdi32.dll")]
+        public static extern bool ResizePalette(HGDIOBJ hPalette, uint nEntries);
+
+        [EntryPoint(0x0172)]
+        [DllImport("gdi32.dll")]
+        public static extern uint GetNearestPaletteIndex(HGDIOBJ hPalette, uint color);
+
         [EntryPoint(0x0174)]
         [DllImport("gdi32.dll")]
         public static extern bool ExtFloodFill(HDC hDC, nint x, nint y, uint color, nuint fillType);
-        // 0175 - SETSYSTEMPALETTEUSE
-        // 0176 - GETSYSTEMPALETTEUSE
+
+        [EntryPoint(0x0175)]
+        [DllImport("gdi32.dll")]
+        public static extern uint SetSystemPaletteUse(HDC hDC, uint use);
+
+        [EntryPoint(0x0176)]
+        [DllImport("gdi32.dll")]
+        public static extern uint GetSystemPaletteUse(HDC hDC);
 
         [DllImport("gdi32.dll", EntryPoint = "GetSystemPaletteEntries")]
         public static extern uint _GetSystemPaletteEntries(HDC hDC, uint iStartIndex, uint nEntries, IntPtr ptr);
