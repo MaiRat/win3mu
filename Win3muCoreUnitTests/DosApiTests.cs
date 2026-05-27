@@ -510,5 +510,72 @@ namespace Win3muCoreUnitTests
             Assert.IsTrue(cpu.FlagC);
         }
 
+        [TestMethod]
+        public void Int21_Ioctl_SetDeviceInfo_SucceedsWithoutError()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x01; // Set Device Information
+            cpu.bx = 0x0001; // handle
+            cpu.dx = 0x0000;
+            cpu.FlagC = false;
+
+            dos.DispatchInt21();
+
+            // Should succeed (no carry flag set — it's a no-op accept)
+            Assert.IsFalse(cpu.FlagC);
+        }
+
+        [TestMethod]
+        public void Int21_Ioctl_GetOutputStatus_ReturnsReady()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x07; // Get Output Status
+            cpu.bx = 0x0001; // stdout
+            cpu.FlagC = false;
+
+            dos.DispatchInt21();
+
+            Assert.IsFalse(cpu.FlagC);
+            Assert.AreEqual((byte)0xFF, cpu.al); // device ready
+        }
+
+        [TestMethod]
+        public void Int21_Ioctl_CheckRemovable_ReturnsFixed()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x08; // Check if removable
+            cpu.bl = 0x03; // drive C:
+            cpu.FlagC = false;
+
+            dos.DispatchInt21();
+
+            Assert.IsFalse(cpu.FlagC);
+            Assert.AreEqual((ushort)1, cpu.ax); // fixed
+        }
+
+        [TestMethod]
+        public void Int21_Ioctl_UnsupportedSubfunction_SetsCarry()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x0C; // Unsupported IOCTL subfunction
+            cpu.FlagC = false;
+
+            dos.DispatchInt21();
+
+            Assert.IsTrue(cpu.FlagC);
+        }
+
     }
 }

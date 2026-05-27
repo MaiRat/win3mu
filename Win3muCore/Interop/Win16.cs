@@ -796,6 +796,16 @@ namespace Win3muCore
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        public struct MCI_SYSINFO_PARAMS
+        {
+            public uint dwCallback;
+            public uint lpstrReturn;  // seg:offset pointer
+            public uint dwRetSize;
+            public uint dwNumber;
+            public ushort wDeviceType;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
         public struct MDINEXTMENU
         {
             public ushort hmenuIn;

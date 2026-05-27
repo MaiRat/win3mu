@@ -175,6 +175,26 @@ namespace Win3muCore
             return _neFile.ModuleReferenceTable;
         }
 
+        void ApplyRelocationsByte(byte[] data, ushort offset, byte value, bool additive, bool log)
+        {
+            if (additive)
+            {
+                data[offset] = (byte)(data[offset] + value);
+            }
+            else
+            {
+                while (offset != 0xFFFF)
+                {
+                    if (log)
+                        Log.WriteLine("            chain offset: {0:X4}", offset);
+                    ushort nextOffset = data.ReadWord(offset);
+                    data[offset] = value;
+                    // LowByte relocations still use a word-sized chain link
+                    offset = nextOffset;
+                }
+            }
+        }
+
         void ApplyRelocations(byte[] data, ushort offset, ushort value, bool additive, bool log)
         {
             if (additive)
@@ -256,7 +276,8 @@ namespace Win3muCore
                 case 0x36DF: return 0x5F;
             }
 
-            throw new NotImplementedException(string.Format("FP OSFixup Tribyte: {0:X2} {1:X2}", triByteTable, opByte));
+            Log.WriteLine("Warning: unknown FP OSFixup Tribyte: {0:X2} {1:X2}, treating as NOP", triByteTable, opByte);
+            return 0x90; // NOP — keep existing byte stream valid
         }
 
         /*
@@ -399,6 +420,19 @@ namespace Win3muCore
                                         break;
                                 }
 
+                                case RelocationAddressType.LowByte:
+                                {
+                                        if (reloc.param1 == 0xFF)
+                                        {
+                                            var ep = _neFile.GetEntryPoint(reloc.param2);
+                                            ApplyRelocationsByte(data, reloc.offset, (byte)(ep.segmentOffset & 0xFF), additive, machine.logRelocations);
+                                        }
+                                        else
+                                        {
+                                            ApplyRelocationsByte(data, reloc.offset, (byte)(reloc.param2 & 0xFF), additive, machine.logRelocations);
+                                        }
+                                        break;
+                                }
 
                                 default:
                                     throw new NotImplementedException(string.Format("Unsupported relocation type: {0}/{1}", reloc.type, reloc.addressType));
@@ -442,6 +476,16 @@ namespace Win3muCore
                                          throw new VirtualException("Module link failed, function ordinal #{0:X4} not found in module '{1}'", reloc.param2, moduleName);
 
                                     ApplyRelocations(data, reloc.offset, addr.Loword(), additive, machine.logRelocations);
+                                    break;
+                                }
+
+                                case RelocationAddressType.LowByte:
+                                {
+                                    uint addr = module.GetProcAddress(reloc.param2);
+                                    if (addr == 0)
+                                        throw new VirtualException("Module link failed, function ordinal #{0:X4} not found in module '{1}'", reloc.param2, moduleName);
+
+                                    ApplyRelocationsByte(data, reloc.offset, (byte)(addr & 0xFF), additive, machine.logRelocations);
                                     break;
                                 }
 
@@ -511,6 +555,16 @@ namespace Win3muCore
                                             throw new VirtualException("Module link failed, function ordinal #{0:X4} not found in module '{1}'", reloc.param2, moduleName);
 
                                         ApplyRelocations(data, reloc.offset, addr.Loword(), additive, machine.logRelocations);
+                                        break;
+                                    }
+
+                                case RelocationAddressType.LowByte:
+                                    {
+                                        uint addr = module.GetProcAddress(entryPointOrdinal);
+                                        if (addr == 0)
+                                            throw new VirtualException("Module link failed, function ordinal #{0:X4} not found in module '{1}'", reloc.param2, moduleName);
+
+                                        ApplyRelocationsByte(data, reloc.offset, (byte)(addr & 0xFF), additive, machine.logRelocations);
                                         break;
                                     }
 

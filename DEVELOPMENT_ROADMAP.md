@@ -43,11 +43,14 @@ These items are likely to unblock more real applications faster than a large CPU
    - `mciSendCommand` now supports MCI_OPEN, MCI_CLOSE, MCI_PLAY, MCI_STATUS, MCI_STOP, MCI_PAUSE, MCI_SEEK, MCI_SET, MCI_GETDEVCAPS, MCI_INFO, MCI_RECORD, MCI_RESUME, MCI_SAVE, MCI_LOAD, and many more generic MCI commands.
    - `mciSendString` is now implemented, providing the string-based MCI interface used by many multimedia applications.
    - `mciGetErrorString` is fully implemented.
+   - `MCI_SYSINFO` now marshals 16↔32-bit parameters (including QUANTITY integer results and string returns).
+   - `MCI_WINDOW`, `MCI_PUT`, `MCI_WHERE`, and `MCI_UPDATE` are forwarded as generic commands, allowing the host MCI driver to handle video/animation window management.
    - Unsupported MCI commands now return MCIERR_UNSUPPORTED_FUNCTION instead of throwing.
 
 2. **DOS and multiplex interrupts** — _improved_
    - `Int 1Ah` services 0–5 (timer count get/set, RTC time get/set, RTC date get/set) are implemented.
    - `Int 21h` now supports additional services: 0x33 (Get/Set System Values including Ctrl-C check flag and boot drive), 0x36 (Get Disk Free Space), 0x48-0x4A (memory allocation stubs), and 0x57 (Get/Set File Date and Time).
+   - `Int 21h/44h` IOCTL now supports subfunctions 00h (Get Device Info), 01h (Set Device Info), 06h (Get Input Status), 07h (Get Output Status), and 08h (Check Removable Media). Unsupported IOCTL subfunctions set carry and log the specific subfunction number.
    - Unsupported `Int 1Ah` services, unsupported DOS interrupt functions (`Int 21h`), and unsupported multiplex interrupt services (`Int 2Fh`) now log a warning and return gracefully (setting carry flag / error codes) instead of throwing `NotImplementedException`.
    - **Remaining:** specific services used by installers can be added as compatibility testing reveals them.
 
@@ -62,6 +65,11 @@ These items are likely to unblock more real applications faster than a large CPU
 5. **Kernel process termination** — _implemented_
    - `FatalExit` and `FatalAppExit` now log, display a message box (for FatalAppExit), and cleanly terminate the emulated process instead of throwing `NotImplementedException`.
 
+6. **Module loading robustness** — _improved_
+   - NE relocation processing now supports the `LowByte` (type 0) relocation address type for `InternalReference`, `ImportedOrdinal`, and `ImportedName` relocations, allowing modules with byte-level fixups to load correctly.
+   - Unknown FP OSFixup tribyte combinations now log a warning and emit a NOP instead of crashing module load.
+   - **Remaining:** `Pointer48` and `Offset32` relocation address types are not yet implemented (rare in Win3.x modules).
+
 ## Recommended execution order
 
 1. ~~Add focused unit tests around the currently known `NotImplementedException` and invalid-opcode paths.~~ ✅
@@ -75,10 +83,10 @@ These items are likely to unblock more real applications faster than a large CPU
 The following items represent the current frontier for further work:
 
 1. **Continue broadening thunking support** — add marshaling for parameter/return shapes encountered when testing real Win3.x applications against additional forwarded DLL exports.
-2. **Extend MCI command coverage** — implement less common MCI commands (SYSINFO, WINDOW, WHERE, PUT) and device-specific extensions as multimedia applications reveal gaps.
-3. **Add app-driven DOS service coverage** — implement additional `Int 21h` subfunction handlers (e.g. IOCTL subfunctions at 0x44, remaining memory services) as installer and launcher testing identifies required services.
-4. **Evaluate cross-task window enumeration** — determine from application testing whether full enumeration is needed or the virtualized approach is sufficient.
-5. **Improve module loading robustness** — address remaining `NotImplementedException` paths in Module16.cs for unsupported relocation and fixup types encountered by real NE executables.
+2. **Add app-driven DOS service coverage** — implement additional `Int 21h` subfunction handlers (e.g. remaining IOCTL subfunctions at 0x44, memory services) as installer and launcher testing identifies required services.
+3. **Evaluate cross-task window enumeration** — determine from application testing whether full enumeration is needed or the virtualized approach is sufficient.
+4. **Extend MCI device-specific support** — implement device-specific MCI command extensions as multimedia applications reveal gaps.
+5. **Add remaining relocation types** — implement `Pointer48` and `Offset32` relocation address types if encountered by real NE executables.
 
 ## Expected outcome
 

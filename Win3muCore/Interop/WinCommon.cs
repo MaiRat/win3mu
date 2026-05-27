@@ -452,6 +452,11 @@ namespace Win3muCore
         public const uint MCI_OPEN_TYPE_ID = 0x00001000;
         public const uint MCI_OPEN_TYPE = 0x00002000;
 
+        public const uint MCI_SYSINFO_QUANTITY = 0x00000100;
+        public const uint MCI_SYSINFO_OPEN = 0x00000200;
+        public const uint MCI_SYSINFO_NAME = 0x00000400;
+        public const uint MCI_SYSINFO_INSTALLNAME = 0x00000800;
+
         public const short DRIVE_REMOVABLE = 2;
         public const short DRIVE_FIXED = 3;
         public const short DRIVE_REMOTE = 4;

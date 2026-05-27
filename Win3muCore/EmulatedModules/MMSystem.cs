@@ -522,6 +522,63 @@ namespace Win3muCore
                         return mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_SEEK, (IntPtr)dwParam1, (IntPtr)(&st32));
                     }
                 }
+
+                case Win16.MCI_SYSINFO:
+                {
+                    if (dwParam2 == 0)
+                        return mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_SYSINFO, (IntPtr)dwParam1, IntPtr.Zero);
+
+                    var st16 = _machine.ReadStruct<Win16.MCI_SYSINFO_PARAMS>(dwParam2);
+                    var bufferSize = (int)st16.dwRetSize;
+                    if (bufferSize <= 0)
+                        bufferSize = 256;
+
+                    var nativeBuffer = Marshal.AllocHGlobal(bufferSize * 2); // Unicode chars
+                    try
+                    {
+                        var st32 = new Win32.MCI_SYSINFO_PARAMS();
+                        st32.lpstrReturn = nativeBuffer;
+                        st32.dwRetSize = (uint)bufferSize;
+                        st32.dwNumber = st16.dwNumber;
+                        st32.wDeviceType = st16.wDeviceType;
+                        if (HWND.Map.IsValid16(st16.dwCallback.Loword()))
+                            st32.dwCallback = HWND.Map.To32(st16.dwCallback.Loword());
+
+                        unsafe
+                        {
+                            uint retv = mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_SYSINFO, (IntPtr)dwParam1, (IntPtr)(&st32));
+                            if (retv == 0 && st16.lpstrReturn != 0)
+                            {
+                                // SYSINFO_QUANTITY returns an integer in the buffer
+                                if ((dwParam1 & WinCommon.MCI_SYSINFO_QUANTITY) != 0)
+                                {
+                                    // The result is stored as a DWORD at the start of the buffer
+                                    uint count = (uint)Marshal.ReadInt32(nativeBuffer);
+                                    _machine.MemoryBus.WriteDWord(st16.lpstrReturn.Hiword(), st16.lpstrReturn.Loword(), count);
+                                }
+                                else
+                                {
+                                    var result = Marshal.PtrToStringUni(nativeBuffer) ?? "";
+                                    _machine.WriteString(st16.lpstrReturn, result, (ushort)Math.Min((uint)ushort.MaxValue, st16.dwRetSize));
+                                }
+                            }
+                            return retv;
+                        }
+                    }
+                    finally
+                    {
+                        Marshal.FreeHGlobal(nativeBuffer);
+                    }
+                }
+
+                case Win16.MCI_WINDOW:
+                case Win16.MCI_PUT:
+                case Win16.MCI_WHERE:
+                case Win16.MCI_UPDATE:
+                    // These commands relate to video/animation window management.
+                    // Pass through as generic commands — the host MCI driver will
+                    // handle them or return an appropriate error for audio-only devices.
+                    return SendGenericMciCommand(uDeviceId, uMessage, dwParam1, dwParam2);
             }
 
             Log.WriteLine("[mciSendCommand] Unsupported MCI command: 0x{0:X4}", uMessage);

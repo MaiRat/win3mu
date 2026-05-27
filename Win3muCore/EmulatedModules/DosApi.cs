@@ -727,8 +727,48 @@ namespace Win3muCore
                                 _cpu.dx = (ushort)DosPath.DriveFromPath(file.guestFilename);
                                 return;
 
+                            case 1:
+                                // Set device information — accept and ignore
+                                Log.WriteLine("DOS Int 21h/44h/01h: Set Device Information (ignored, dx=0x{0:X4})", _cpu.dx);
+                                return;
+
+                            case 6:
+                            {
+                                // Get input status
+                                // For files: return ready if not at EOF
+                                // For devices: always ready
+                                try
+                                {
+                                    var f = FileFromHandle(_cpu.bx);
+                                    if (f != null && f.fs != null)
+                                        _cpu.al = (byte)(f.fs.Position < f.fs.Length ? 0xFF : 0x00);
+                                    else
+                                        _cpu.al = 0xFF; // device — always ready
+                                }
+                                catch (DosError)
+                                {
+                                    _cpu.al = 0xFF; // treat unknown handles as ready
+                                }
+                                return;
+                            }
+
+                            case 7:
+                                // Get output status — always ready
+                                _cpu.al = 0xFF;
+                                return;
+
+                            case 8:
+                            {
+                                // Check if block device is removable
+                                // BL = drive number (0 = default, 1 = A:, etc.)
+                                // Return AX = 0 (removable) or 1 (fixed)
+                                Log.WriteLine("DOS Int 21h/44h/08h: Check Removable (drive {0})", _cpu.bl);
+                                _cpu.ax = 1; // fixed
+                                return;
+                            }
+
                         }
-                        Log.WriteLine("Failing call to DOS Int 21h ah = 0x44 (IOCTL)");
+                        Log.WriteLine("Failing call to DOS Int 21h ah = 0x44 al = 0x{0:X2} (IOCTL)", _cpu.al);
                         _cpu.FlagC = true;
                         break;
 
