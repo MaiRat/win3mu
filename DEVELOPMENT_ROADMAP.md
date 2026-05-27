@@ -47,9 +47,9 @@ These items are likely to unblock more real applications faster than a large CPU
    - `MCI_WINDOW`, `MCI_PUT`, `MCI_WHERE`, and `MCI_UPDATE` are forwarded as generic commands, allowing the host MCI driver to handle video/animation window management.
    - Unsupported MCI commands now return MCIERR_UNSUPPORTED_FUNCTION instead of throwing.
 
-2. **DOS and multiplex interrupts** — _improved_
+2. **DOS and multiplex interrupts** — _substantially expanded_
    - `Int 1Ah` services 0–5 (timer count get/set, RTC time get/set, RTC date get/set) are implemented.
-   - `Int 21h` now supports additional services: 0x33 (Get/Set System Values including Ctrl-C check flag and boot drive), 0x36 (Get Disk Free Space), 0x48-0x4A (memory allocation stubs), and 0x57 (Get/Set File Date and Time).
+   - `Int 21h` now supports additional services: 0x29 (Parse Filename into FCB), 0x33 (Get/Set System Values including Ctrl-C check flag and boot drive), 0x34 (InDOS Flag), 0x36 (Get Disk Free Space), 0x38 (Get/Set Country Info), 0x39 (Create Directory), 0x3A (Remove Directory), 0x48-0x4A (memory allocation stubs), 0x51/0x62 (Get PSP), 0x57 (Get/Set File Date and Time), 0x5B (Create New File), 0x60 (Truename/Fully Qualified Filename), and 0x66 (Get/Set Global Code Page).
    - `Int 21h/44h` IOCTL now supports subfunctions 00h (Get Device Info), 01h (Set Device Info), 06h (Get Input Status), 07h (Get Output Status), and 08h (Check Removable Media). Unsupported IOCTL subfunctions set carry and log the specific subfunction number.
    - Unsupported `Int 1Ah` services, unsupported DOS interrupt functions (`Int 21h`), and unsupported multiplex interrupt services (`Int 2Fh`) now log a warning and return gracefully (setting carry flag / error codes) instead of throwing `NotImplementedException`.
    - **Remaining:** specific services used by installers can be added as compatibility testing reveals them.
@@ -70,6 +70,7 @@ These items are likely to unblock more real applications faster than a large CPU
 5. **GDI robustness** — _improved_
    - `CreateBrushIndirect` now handles BS_NULL/BS_HOLLOW brush style and falls back gracefully for unknown brush styles instead of throwing.
    - `GetObject` now logs and returns 0 for unsupported GDI object types instead of throwing.
+   - `BS_DIBPATTERN` brush conversion now degrades gracefully to a solid brush instead of throwing.
 
 5. **Kernel process termination** — _implemented_
    - `FatalExit` and `FatalAppExit` now log, display a message box (for FatalAppExit), and cleanly terminate the emulated process instead of throwing `NotImplementedException`.
@@ -78,6 +79,16 @@ These items are likely to unblock more real applications faster than a large CPU
    - NE relocation processing now supports the `LowByte` (type 0) relocation address type for `InternalReference`, `ImportedOrdinal`, and `ImportedName` relocations, allowing modules with byte-level fixups to load correctly.
    - Unknown FP OSFixup tribyte combinations now log a warning and emit a NOP instead of crashing module load.
    - **Remaining:** `Pointer48` and `Offset32` relocation address types are not yet implemented (rare in Win3.x modules).
+
+7. **Port I/O support** — _implemented_
+   - Machine now implements `IPortBus`, enabling `IN`/`OUT` word and byte instructions to execute without crashing.
+   - Port reads return 0xFF and port writes are logged and ignored, matching the expected behavior for Win3.x applications that probe hardware ports.
+
+8. **Module and message robustness** — _improved_
+   - `Module32.Uninit` is now a no-op instead of throwing `NotImplementedException`.
+   - `RegisteredWindowMessages` logs a warning for messages outside the 16-bit range instead of throwing.
+   - `copy_zero` message handler passes through non-zero lParam values with logging instead of throwing (fixes dead-code path).
+   - Unreachable `NotImplementedException` throws after `ThrowMessageError` in `Messaging.cs` have been removed.
 
 ## Recommended execution order
 
@@ -88,6 +99,8 @@ These items are likely to unblock more real applications faster than a large CPU
 5. ~~Expand subsystem coverage for MCI, DOS interrupts, and cross-task window APIs based on app compatibility testing.~~ ✅
 6. ~~Implement control message semantics for standard Windows controls (Button, Static, Edit, ListBox, ComboBox).~~ ✅
 7. ~~Implement complex pointer-based control message Callables (RECT, buffer, array marshalling).~~ ✅
+8. ~~Eliminate crash-causing `NotImplementedException` paths in port I/O, module lifecycle, message conversion, and GDI brush handling.~~ ✅
+9. ~~Expand DOS Int 21h coverage with filesystem, directory, FCB parsing, country info, PSP, and code page services.~~ ✅
 
 ## Next steps
 
@@ -95,12 +108,17 @@ The following items represent the current frontier for further work:
 
 1. ~~**Implement complex control message Callables**~~ ✅ **COMPLETED**
    - Custom `Callable` implementations added for all pointer-based control messages: `EM_GETRECT`/`EM_SETRECT`/`EM_SETRECTNP` (RECT pointer), `EM_GETLINE` (buffer with word-length prefix), `EM_SETTABSTOPS`/`LB_SETTABSTOPS` (int array marshalling), `LB_GETITEMRECT` (RECT pointer), `LB_GETSELITEMS` (int array buffer), `CB_GETDROPPEDCONTROLRECT` (RECT pointer).
-2. **Continue broadening thunking support** — add marshaling for parameter/return shapes encountered when testing real Win3.x applications against additional forwarded DLL exports.
-3. **Add app-driven DOS service coverage** — implement additional `Int 21h` subfunction handlers (e.g. remaining IOCTL subfunctions at 0x44, memory services) as installer and launcher testing identifies required services.
-4. **Evaluate cross-task window enumeration** — determine from application testing whether full enumeration is needed or the virtualized approach is sufficient.
-5. **Extend MCI device-specific support** — implement device-specific MCI command extensions as multimedia applications reveal gaps.
-6. **Add remaining relocation types** — implement `Pointer48` and `Offset32` relocation address types if encountered by real NE executables.
-7. **Add handle/callback control messages** — implement `EM_SETHANDLE`/`EM_GETHANDLE` (local memory handle) and `EM_SETWORDBREAKPROC`/`EM_GETWORDBREAKPROC` (callback pointer) as applications exercise them.
+2. ~~**Harden crash paths and port I/O**~~ ✅ **COMPLETED**
+   - Port I/O: Machine implements `IPortBus` with logging stubs for IN/OUT instructions.
+   - Module32.Uninit, RegisteredWindowMessages, copy_zero, BS_DIBPATTERN conversion, and Messaging.cs error paths all hardened against crashes.
+3. ~~**Expand DOS service coverage**~~ ✅ **COMPLETED**
+   - Added Int 21h services: 0x29 (Parse Filename into FCB), 0x34 (InDOS Flag), 0x38 (Get/Set Country Info), 0x39 (Create Directory), 0x3A (Remove Directory), 0x51/0x62 (Get PSP), 0x5B (Create New File), 0x60 (Truename), 0x66 (Get/Set Code Page).
+4. **Continue broadening thunking support** — add marshaling for parameter/return shapes encountered when testing real Win3.x applications against additional forwarded DLL exports.
+5. **Evaluate cross-task window enumeration** — determine from application testing whether full enumeration is needed or the virtualized approach is sufficient.
+6. **Extend MCI device-specific support** — implement device-specific MCI command extensions as multimedia applications reveal gaps.
+7. **Add remaining relocation types** — implement `Pointer48` and `Offset32` relocation address types if encountered by real NE executables.
+8. **Add handle/callback control messages** — implement `EM_SETHANDLE`/`EM_GETHANDLE` (local memory handle) and `EM_SETWORDBREAKPROC`/`EM_GETWORDBREAKPROC` (callback pointer) as applications exercise them.
+9. **Add remaining IOCTL subfunctions** — implement additional Int 21h/44h subfunctions (e.g. 02h/03h character device read/write, 09h remote device check) as needed.
 
 ## Expected outcome
 

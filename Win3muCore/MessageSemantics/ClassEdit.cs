@@ -54,7 +54,7 @@ namespace Win3muCore.MessageSemantics
                 var ret = callback();
                 var rc16 = machine.SysReadAndFree<Win16.RECT>(ptr);
                 Marshal.StructureToPtr(rc16.Convert(), msg32.lParam, true);
-                return IntPtr.Zero;
+                return (IntPtr)ret;
             }
         }
 
