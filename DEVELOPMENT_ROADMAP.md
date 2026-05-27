@@ -160,9 +160,22 @@ The following items represent the current frontier for further work:
    - `EnumWindows` and `EnumChildWindows` are now implemented with proper 16↔32-bit callback marshaling.
    - Window/class accessor consistency: `SetClassWord` handles `GCW_STYLE`; `SetWindowWord` handles `GWW_HWNDPARENT`.
    - Disassembler `Group2Name` subcode 6 (undocumented SHL alias) and ConDos port I/O stubs hardened.
-10. **Continue broadening thunking support** — add marshaling for parameter/return shapes encountered when testing real Win3.x applications against additional forwarded DLL exports.
+10. ~~**Continue broadening thunking support**~~ ✅ **COMPLETED**
+    - Module32 thunking layer now supports enum parameter types, enum return types, and enum-to-underlying-type conversion throughout `SizeOfType16`, `ReadParamFromStack`, and `SetReturnValue`.
+    - `StringBuilder` buffer size parameter resolution now supports `short` and `uint` types in addition to `int`, `ushort`, and `nint`.
 11. **Extend MCI device-specific support** — implement device-specific MCI command extensions as multimedia applications reveal gaps.
-12. **Implement Sound and DdeML modules** — add basic stubs for SOUND.DLL and DDEML.DLL exports as applications require them.
+12. ~~**Implement Sound and DdeML modules**~~ ✅ **COMPLETED**
+    - Sound module now implements all 16 standard Win3.x SOUND.DLL exports: `OpenSound` (1), `CloseSound` (2), `SetVoiceQueueSize` (3), `SetVoiceNote` (4), `SetVoiceAccent` (5), `SetVoiceEnvelope` (6), `SetSoundNoise` (7), `SetVoiceSound` (8), `StartSound` (9), `StopSound` (10), `WaitSoundState` (11), `SyncAllVoices` (12), `CountVoiceNotes` (13), `GetThresholdEvent` (14), `GetThresholdStatus` (15), `SetVoiceThreshold` (16). All return success/empty values since the voice-queue synthesizer has no modern equivalent.
+    - DdeML module now implements 27 DDEML.DLL exports: `DdeInitialize` (2), `DdeUninitialize` (3), `DdeConnectList` (4), `DdeQueryNextServer` (5), `DdeDisconnectList` (6), `DdeConnect` (7), `DdeDisconnect` (8), `DdeReconnect` (9), `DdeQueryConvInfo` (10), `DdeSetUserHandle` (11), `DdeAbandonTransaction` (12), `DdePostAdvise` (13), `DdeEnableCallback` (14), `DdeNameService` (16), `DdeClientTransaction` (17), `DdeCreateDataHandle` (18), `DdeAddData` (19), `DdeGetData` (20), `DdeAccessData` (21), `DdeUnaccessData` (22), `DdeFreeDataHandle` (23), `DdeGetLastError` (24), `DdeCreateStringHandle` (25), `DdeFreeStringHandle` (26), `DdeQueryString` (27), `DdeKeepStringHandle` (28), `DdeCmpStringHandles` (36). Stubs return appropriate error/null values; `DdeGetLastError` tracks per-instance errors; `DdeCreateStringHandle` assigns incrementing handles.
+
+## Next steps
+
+The following items represent the current frontier for further work:
+
+1. **Extend MCI device-specific support** — implement device-specific MCI command extensions as multimedia applications reveal gaps.
+2. **Implement Comm module** — add basic stubs for COMM.DRV serial port communication exports as applications require them.
+3. **Expand GDI coverage** — implement remaining GDI stubs for less common drawing/region/metafile operations encountered during app testing.
+4. **Implement functional DDE string handles** — upgrade DdeML string handle stubs to maintain an actual string→handle mapping for applications that rely on round-tripping strings through DDEML.
 
 ## Expected outcome
 

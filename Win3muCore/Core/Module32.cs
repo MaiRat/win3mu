@@ -309,6 +309,10 @@ namespace Win3muCore
                 var convertMethod = pt.GetMethod("To32");
                 return SizeOfType16(convertMethod.GetParameters()[0].ParameterType);
             }
+            if (pt.IsEnum)
+            {
+                return SizeOfType16(Enum.GetUnderlyingType(pt));
+            }
             throw new NotImplementedException(string.Format("Type not supported by thunking layer - {0}", pt));
         }
 
@@ -486,6 +490,12 @@ namespace Win3muCore
                     return;
                 }
 
+                if (retType.IsEnum)
+                {
+                    SetReturnValue(Enum.GetUnderlyingType(retType), Convert.ChangeType(retValue, Enum.GetUnderlyingType(retType)));
+                    return;
+                }
+
                 throw new NotImplementedException(string.Format("Return type not supported by thunking layer - {0}", retType));
             }
 
@@ -608,6 +618,14 @@ namespace Win3muCore
                         else if (type == typeof(nint))
                         {
                             capacity = (nint)_paramValues[bufsizeParamIndex];
+                        }
+                        else if (type == typeof(short))
+                        {
+                            capacity = (int)(short)_paramValues[bufsizeParamIndex];
+                        }
+                        else if (type == typeof(uint))
+                        {
+                            capacity = (int)(uint)_paramValues[bufsizeParamIndex];
                         }
                         else
                         {
@@ -737,6 +755,13 @@ namespace Win3muCore
 
                         return val;
                     }
+                }
+
+                if (pt.IsEnum)
+                {
+                    var underlyingType = Enum.GetUnderlyingType(pt);
+                    var rawValue = ReadParamFromStack(underlyingType, null);
+                    return Enum.ToObject(pt, rawValue);
                 }
 
                 throw new NotImplementedException(string.Format("Parameter type not supported by thunking layer - {0}", pt));
