@@ -1347,58 +1347,325 @@ namespace Win3muCore
         {
             return SetMetaFileBits(handle);
         }
-        // 00C9 - DMBITBLT
-        // 00CA - DMCOLORINFO
-        // 00CE - DMENUMDFONTS
-        // 00CF - DMENUMOBJ
-        // 00D0 - DMOUTPUT
-        // 00D1 - DMPIXEL
-        // 00D2 - DMREALIZEOBJECT
-        // 00D3 - DMSTRBLT
-        // 00D4 - DMSCANLR
-        // 00D5 - BRUTE
-        // 00D6 - DMEXTTEXTOUT
-        // 00D7 - DMGETCHARWIDTH
-        // 00D8 - DMSTRETCHBLT
-        // 00D9 - DMDIBBITS
-        // 00DA - DMSTRETCHDIBITS
-        // 00DB - DMSETDIBTODEV
-        // 00DC - DMTRANSPOSE
-        // 00E6 - CREATEPQ
-        // 00E7 - MINPQ
-        // 00E8 - EXTRACTPQ
-        // 00E9 - INSERTPQ
-        // 00EA - SIZEPQ
-        // 00EB - DELETEPQ
-        // 00F0 - OPENJOB
-        // 00F1 - WRITESPOOL
-        // 00F2 - WRITEDIALOG
-        // 00F3 - CLOSEJOB
-        // 00F4 - DELETEJOB
-        // 00F5 - GETSPOOLJOB
-        // 00F6 - STARTSPOOLPAGE
-        // 00F7 - ENDSPOOLPAGE
-        // 00F8 - QUERYJOB
-        // 00FA - COPY
-        // 00FD - DELETESPOOLPAGE
-        // 00FE - SPOOLFILE
-        // 012C - ENGINEENUMERATEFONT
-        // 012D - ENGINEDELETEFONT
-        // 012E - ENGINEREALIZEFONT
-        // 012F - ENGINEGETCHARWIDTH
-        // 0130 - ENGINESETFONTCONTEXT
-        // 0131 - ENGINEGETGLYPHBMP
-        // 0132 - ENGINEMAKEFONTDIR
-        // 0133 - GETCHARABCWIDTHS
-        // 0134 - GETOUTLINETEXTMETRICS
-        // 0135 - GETGLYPHOUTLINE
-        // 0136 - CREATESCALABLEFONTRESOURCE
-        // 0137 - GETFONTDATA
-        // 0138 - CONVERTOUTLINEFONTFILE
-        // 0139 - GETRASTERIZERCAPS
-        // 013A - ENGINEEXTTEXTOUT
-        // 014A - ENUMFONTFAMILIES
-        // 014C - GETKERNINGPAIRS
+
+        T StubLegacyGdiExport<T>(string name, T returnValue = default(T))
+        {
+            Log.WriteLine("Gdi.{0}: legacy export stub invoked", name);
+            return returnValue;
+        }
+
+        [EntryPoint(0x00C9)]
+        public nint DMBitBlt()
+        {
+            return StubLegacyGdiExport<nint>("DMBITBLT");
+        }
+
+        [EntryPoint(0x00CA)]
+        public nint DMColorInfo()
+        {
+            return StubLegacyGdiExport<nint>("DMCOLORINFO");
+        }
+
+        // TODO: Confirm the exact Win16 signatures for these legacy display-driver exports.
+        [EntryPoint(0x00CE)]
+        public nint DMEnumDFonts(ushort arg0, ushort arg1, ushort arg2, ushort arg3, ushort arg4, ushort arg5, ushort arg6, ushort arg7)
+        {
+            return StubLegacyGdiExport<nint>("DMENUMDFONTS");
+        }
+
+        [EntryPoint(0x00CF)]
+        public nint DMEnumObj()
+        {
+            return StubLegacyGdiExport<nint>("DMENUMOBJ");
+        }
+
+        [EntryPoint(0x00D0)]
+        public nint DMOutput()
+        {
+            return StubLegacyGdiExport<nint>("DMOUTPUT");
+        }
+
+        [EntryPoint(0x00D1)]
+        public nint DMPixel()
+        {
+            return StubLegacyGdiExport<nint>("DMPIXEL");
+        }
+
+        [EntryPoint(0x00D2)]
+        public nint DMRealizeObject()
+        {
+            return StubLegacyGdiExport<nint>("DMREALIZEOBJECT");
+        }
+
+        [EntryPoint(0x00D3)]
+        public nint DMStrBlt(ushort arg0, ushort arg1, ushort arg2, ushort arg3, ushort arg4, ushort arg5, ushort arg6, ushort arg7, ushort arg8, ushort arg9, ushort arg10, ushort arg11, ushort arg12, ushort arg13, ushort arg14)
+        {
+            return StubLegacyGdiExport<nint>("DMSTRBLT");
+        }
+
+        [EntryPoint(0x00D4)]
+        public nint DMScanLR()
+        {
+            return StubLegacyGdiExport<nint>("DMSCANLR");
+        }
+
+        [EntryPoint(0x00D5)]
+        public nint Brute()
+        {
+            return StubLegacyGdiExport<nint>("BRUTE");
+        }
+
+        [EntryPoint(0x00D6)]
+        public nint DMExtTextOut(ushort arg0, ushort arg1, ushort arg2, ushort arg3, ushort arg4, ushort arg5, ushort arg6, ushort arg7, ushort arg8, ushort arg9, ushort arg10, ushort arg11, ushort arg12, ushort arg13, ushort arg14, ushort arg15, ushort arg16, ushort arg17, ushort arg18, ushort arg19)
+        {
+            return StubLegacyGdiExport<nint>("DMEXTTEXTOUT");
+        }
+
+        [EntryPoint(0x00D7)]
+        public nint DMGetCharWidth()
+        {
+            return StubLegacyGdiExport<nint>("DMGETCHARWIDTH");
+        }
+
+        [EntryPoint(0x00D8)]
+        public nint DMStretchBlt()
+        {
+            return StubLegacyGdiExport<nint>("DMSTRETCHBLT");
+        }
+
+        [EntryPoint(0x00D9)]
+        public nint DMDibBits()
+        {
+            return StubLegacyGdiExport<nint>("DMDIBBITS");
+        }
+
+        [EntryPoint(0x00DA)]
+        public nint DMStretchDibits()
+        {
+            return StubLegacyGdiExport<nint>("DMSTRETCHDIBITS");
+        }
+
+        [EntryPoint(0x00DB)]
+        public nint DMSetDibToDev()
+        {
+            return StubLegacyGdiExport<nint>("DMSETDIBTODEV");
+        }
+
+        [EntryPoint(0x00DC)]
+        public nint DMTranspose(ushort arg0, ushort arg1, ushort arg2, ushort arg3, ushort arg4)
+        {
+            return StubLegacyGdiExport<nint>("DMTRANSPOSE");
+        }
+
+        [EntryPoint(0x00E6)]
+        public ushort CreatePQ(ushort arg0)
+        {
+            return StubLegacyGdiExport<ushort>("CreatePQ");
+        }
+
+        [EntryPoint(0x00E7)]
+        public ushort MinPQ(ushort arg0)
+        {
+            return StubLegacyGdiExport<ushort>("MinPQ");
+        }
+
+        [EntryPoint(0x00E8)]
+        public ushort ExtractPQ(ushort arg0)
+        {
+            return StubLegacyGdiExport<ushort>("ExtractPQ");
+        }
+
+        [EntryPoint(0x00E9)]
+        public ushort InsertPQ(ushort arg0, ushort arg1, ushort arg2)
+        {
+            return StubLegacyGdiExport<ushort>("InsertPQ");
+        }
+
+        [EntryPoint(0x00EA)]
+        public ushort SizePQ(ushort arg0, ushort arg1)
+        {
+            return StubLegacyGdiExport<ushort>("SizePQ");
+        }
+
+        [EntryPoint(0x00EB)]
+        public ushort DeletePQ(ushort arg0)
+        {
+            return StubLegacyGdiExport<ushort>("DeletePQ");
+        }
+
+        [EntryPoint(0x00F0)]
+        public short OpenJob(uint lpDevice, uint lpTitle, ushort outputPort)
+        {
+            return StubLegacyGdiExport<short>("OpenJob");
+        }
+
+        [EntryPoint(0x00F1)]
+        public short WriteSpool(ushort hJob, uint lpData, ushort cbData)
+        {
+            return StubLegacyGdiExport<short>("WriteSpool");
+        }
+
+        [EntryPoint(0x00F2)]
+        public short WriteDialog(ushort hJob, uint lpText, ushort cchText)
+        {
+            return StubLegacyGdiExport<short>("WriteDialog");
+        }
+
+        [EntryPoint(0x00F3)]
+        public ushort CloseJob(ushort hJob)
+        {
+            return StubLegacyGdiExport<ushort>("CloseJob");
+        }
+
+        [EntryPoint(0x00F4)]
+        public ushort DeleteJob(ushort hJob, ushort options)
+        {
+            return StubLegacyGdiExport<ushort>("DeleteJob");
+        }
+
+        [EntryPoint(0x00F5)]
+        public nint GetSpoolJob(ushort hJob, uint lpJobInfo)
+        {
+            return StubLegacyGdiExport<nint>("GetSpoolJob");
+        }
+
+        [EntryPoint(0x00F6)]
+        public ushort StartSpoolPage(ushort hJob)
+        {
+            return StubLegacyGdiExport<ushort>("StartSpoolPage");
+        }
+
+        [EntryPoint(0x00F7)]
+        public ushort EndSpoolPage(ushort hJob)
+        {
+            return StubLegacyGdiExport<ushort>("EndSpoolPage");
+        }
+
+        [EntryPoint(0x00F8)]
+        public nint QueryJob(ushort arg0, ushort arg1)
+        {
+            return StubLegacyGdiExport<nint>("QueryJob");
+        }
+
+        [EntryPoint(0x00FA)]
+        public ushort Copy(uint lpSource, uint lpDest, ushort cbCopy)
+        {
+            return StubLegacyGdiExport<ushort>("Copy");
+        }
+
+        [EntryPoint(0x00FD)]
+        public ushort DeleteSpoolPage(ushort hJob)
+        {
+            return StubLegacyGdiExport<ushort>("DeleteSpoolPage");
+        }
+
+        [EntryPoint(0x00FE)]
+        public ushort SpoolFile(uint lpFileName, uint lpPortName, uint lpJobName, uint lpOptions)
+        {
+            return StubLegacyGdiExport<ushort>("SpoolFile");
+        }
+
+        [EntryPoint(0x012C)]
+        public nint EngineEnumerateFont(uint lpFaceName, uint lpEnumProc, uint lParam)
+        {
+            return StubLegacyGdiExport<nint>("EngineEnumerateFont");
+        }
+
+        [EntryPoint(0x012D)]
+        public ushort EngineDeleteFont(uint lpFont)
+        {
+            return StubLegacyGdiExport<ushort>("EngineDeleteFont");
+        }
+
+        [EntryPoint(0x012E)]
+        public nint EngineRealizeFont(uint lpFont, uint lpMatrix, uint lpTextXform)
+        {
+            return StubLegacyGdiExport<nint>("EngineRealizeFont");
+        }
+
+        [EntryPoint(0x012F)]
+        public ushort EngineGetCharWidth(uint lpFont, ushort iFirstChar, ushort iLastChar, uint lpBuffer)
+        {
+            return StubLegacyGdiExport<ushort>("EngineGetCharWidth");
+        }
+
+        [EntryPoint(0x0130)]
+        public ushort EngineSetFontContext(uint lpFont, ushort context)
+        {
+            return StubLegacyGdiExport<ushort>("EngineSetFontContext");
+        }
+
+        [EntryPoint(0x0131)]
+        public ushort EngineGetGlyphBmp(ushort arg0, uint arg1, ushort arg2, ushort arg3, uint arg4, uint arg5, uint arg6)
+        {
+            return StubLegacyGdiExport<ushort>("EngineGetGlyphBmp");
+        }
+
+        [EntryPoint(0x0132)]
+        public nint EngineMakeFontDir(ushort arg0, uint arg1, uint arg2)
+        {
+            return StubLegacyGdiExport<nint>("EngineMakeFontDir");
+        }
+
+        [EntryPoint(0x0133)]
+        public ushort GetCharABCWidths(HDC hDC, ushort iFirstChar, ushort iLastChar, uint lpabc)
+        {
+            return StubLegacyGdiExport<ushort>("GetCharABCWidths");
+        }
+
+        [EntryPoint(0x0134)]
+        public ushort GetOutlineTextMetrics(HDC hDC, ushort cbData, uint lpotm)
+        {
+            return StubLegacyGdiExport<ushort>("GetOutlineTextMetrics");
+        }
+
+        [EntryPoint(0x0135)]
+        public nint GetGlyphOutline(HDC hDC, ushort uChar, ushort format, uint lpgm, uint cbBuffer, uint lpvBuffer, uint lpmat2)
+        {
+            return StubLegacyGdiExport<nint>("GetGlyphOutline");
+        }
+
+        [EntryPoint(0x0136)]
+        public ushort CreateScalableFontResource(ushort hidden, uint lpResourceFile, uint lpFontFile, uint lpCurrentPath)
+        {
+            return StubLegacyGdiExport<ushort>("CreateScalableFontResource");
+        }
+
+        [EntryPoint(0x0137)]
+        public nint GetFontData(HDC hDC, uint dwTable, uint dwOffset, uint lpBuffer, uint cbData)
+        {
+            return StubLegacyGdiExport<nint>("GetFontData");
+        }
+
+        [EntryPoint(0x0138)]
+        public nint ConvertOutlineFontFile(ushort arg0, ushort arg1, ushort arg2, ushort arg3, ushort arg4, ushort arg5)
+        {
+            return StubLegacyGdiExport<nint>("ConvertOutlineFontFile");
+        }
+
+        [EntryPoint(0x0139)]
+        public ushort GetRasterizerCaps(uint lpRasterizerStatus, ushort cbData)
+        {
+            return StubLegacyGdiExport<ushort>("GetRasterizerCaps");
+        }
+
+        [EntryPoint(0x013A)]
+        public nint EngineExtTextOut(ushort arg0, ushort arg1, ushort arg2, ushort arg3, ushort arg4, ushort arg5, ushort arg6, ushort arg7, ushort arg8, ushort arg9, ushort arg10, ushort arg11, ushort arg12, ushort arg13, ushort arg14, ushort arg15, ushort arg16, ushort arg17, ushort arg18, ushort arg19, ushort arg20)
+        {
+            return StubLegacyGdiExport<nint>("EngineExtTextOut");
+        }
+
+        [EntryPoint(0x014A)]
+        public nint EnumFontFamilies(HDC hDC, uint lpFamily, uint enumProc, uint lParam)
+        {
+            return EnumFonts(hDC, lpFamily != 0 ? _machine.ReadString(lpFamily) : null, enumProc, lParam);
+        }
+
+        [EntryPoint(0x014C)]
+        public ushort GetKerningPairs(HDC hDC, ushort nPairs, uint lpKerningPairs)
+        {
+            return StubLegacyGdiExport<ushort>("GetKerningPairs");
+        }
 
         [EntryPoint(0x0159)]
         [DllImport("gdi32.dll")]
@@ -1413,7 +1680,9 @@ namespace Win3muCore
         public static extern bool Chord(HDC hDC, nint left, nint top, nint right, nint bottom,
                                                     nint xr1, nint yr1, nint xr2, nint yr2);
 
-        // 015D - SETMAPPERFLAGS
+        [EntryPoint(0x015D)]
+        [DllImport("gdi32.dll")]
+        public static extern uint SetMapperFlags(HDC hDC, uint dwFlag);
 
         [DllImport("gdi32.dll", EntryPoint = "GetCharWidthW", CharSet = CharSet.Unicode)]
         static extern bool _GetCharWidth(HDC hDC, uint iFirstChar, uint iLastChar, [Out] int[] lpBuffer);
@@ -1477,7 +1746,11 @@ namespace Win3muCore
             return false;
         }
 
-        // 0160 - GETPHYSICALFONTHANDLE
+        [EntryPoint(0x0160)]
+        public HGDIOBJ GetPhysicalFontHandle(HDC hDC)
+        {
+            return GetCurrentObject(hDC, (int)Win32.OBJ_FONT);
+        }
         [DllImport("gdi32.dll")]
         public static extern bool GetAspectRatioFilterEx(HDC hDC, out Win32.SIZE size);
 
@@ -1491,8 +1764,17 @@ namespace Win3muCore
             return BitUtils.MakeDWord((ushort)(short)size.Width, (ushort)(short)size.Height);
         }
 
-        // 0162 - SHRINKGDIHEAP
-        // 0163 - FTRAPPING0
+        [EntryPoint(0x0162)]
+        public ushort ShrinkGDIHeap()
+        {
+            return StubLegacyGdiExport<ushort>("ShrinkGDIHeap");
+        }
+
+        [EntryPoint(0x0163)]
+        public ushort FTrapping0()
+        {
+            return StubLegacyGdiExport<ushort>("FTrapping0");
+        }
 
         [DllImport("gdi32.dll")]
         public static extern HGDIOBJ CreatePalette(IntPtr ptr);
@@ -1596,7 +1878,16 @@ namespace Win3muCore
             }
         }
 
-        // 0178 - RESETDC
+        [EntryPoint(0x0178)]
+        public HDC ResetDC(HDC hDC, uint lpDevMode)
+        {
+            if (lpDevMode != 0)
+            {
+                Log.WriteLine("Gdi.ResetDC: DEVMODE pointer ignored by compatibility stub");
+            }
+
+            return hDC;
+        }
         [DllImport("gdi32.dll", CharSet = CharSet.Unicode, EntryPoint = "StartDocW")]
         static extern int _StartDoc(IntPtr hDC, ref Win32.DOCINFO lpdi);
 
@@ -1664,19 +1955,59 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern int AbortDoc(HDC hDC);
 
-        // 0190 - FASTWINDOWFRAME
-        // 0191 - GDIMOVEBITMAP
-        // 0193 - GDIINIT2
-        // 0195 - FINALGDIINIT
-        // 0197 - CREATEUSERBITMAP
-        // 0199 - CREATEUSERDISCARDABLEBITMAP
+        [EntryPoint(0x0190)]
+        public ushort FastWindowFrame(ushort arg0, uint arg1, short arg2, short arg3, uint arg4)
+        {
+            return StubLegacyGdiExport<ushort>("FastWindowFrame");
+        }
+
+        [EntryPoint(0x0191)]
+        public ushort GdiMoveBitmap(ushort hBitmap)
+        {
+            return StubLegacyGdiExport("GdiMoveBitmap", hBitmap);
+        }
+
+        [EntryPoint(0x0193)]
+        public ushort GdiInit2(ushort arg0, ushort arg1)
+        {
+            return StubLegacyGdiExport("GdiInit2", (ushort)1);
+        }
+
+        [EntryPoint(0x0195)]
+        public ushort FinalGdiInit(ushort arg0)
+        {
+            return StubLegacyGdiExport("FinalGdiInit", (ushort)1);
+        }
+
+        [EntryPoint(0x0197)]
+        public HGDIOBJ CreateUserBitmap(ushort width, ushort height, ushort planes, ushort bitCount, uint ptrBits)
+        {
+            return CreateBitmap(width, height, planes, bitCount, ptrBits);
+        }
+
+        [EntryPoint(0x0199)]
+        public HGDIOBJ CreateUserDiscardableBitmap(HDC hDC, nint width, nint height)
+        {
+            return CreateDiscardableBitmap(hDC, width, height);
+        }
+
         [EntryPoint(0x019A)]
         public bool IsValidMetaFile(HENHMETAFILE hMetaFile)
         {
             return hMetaFile.value != IntPtr.Zero;
         }
-        // 019B - GETCURLOGFONT
-        // 019C - ISDCCURRENTPALETTE
+
+        [EntryPoint(0x019B)]
+        public HGDIOBJ GetCurLogFont(HDC hDC)
+        {
+            return GetCurrentObject(hDC, (int)Win32.OBJ_FONT);
+        }
+
+        [EntryPoint(0x019C)]
+        public bool IsDCCurrentPalette(HDC hDC)
+        {
+            return GetCurrentObject(hDC, (int)Win32.OBJ_PAL).value != IntPtr.Zero;
+        }
 
         [DllImport("gdi32.dll")]
         public static extern int StretchDIBits(IntPtr hdc,
