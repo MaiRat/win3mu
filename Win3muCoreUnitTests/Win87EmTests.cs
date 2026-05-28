@@ -7,6 +7,8 @@ namespace Win3muCoreUnitTests
     [TestClass]
     public class Win87EmTests
     {
+        const bool DoNotMarkModified = false;
+
         [TestMethod]
         public void Win87EmModule_ExportsExpectedOrdinalsAndNames()
         {
@@ -101,7 +103,7 @@ namespace Win3muCoreUnitTests
 
         static ushort ReadWord(Machine machine, uint ptr, ushort offset)
         {
-            return machine.GlobalHeap.GetBuffer(ptr.Hiword(), false).ReadWord(offset);
+            return machine.GlobalHeap.GetBuffer(ptr.Hiword(), DoNotMarkModified).ReadWord(offset);
         }
     }
 }
