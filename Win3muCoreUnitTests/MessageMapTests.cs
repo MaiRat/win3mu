@@ -27,6 +27,12 @@ namespace Win3muCoreUnitTests
         }
 
         [TestMethod]
+        public void WindowClassKind_Get_RecognizesEditClassAlias()
+        {
+            Assert.AreEqual(WndClassKind.Edit, WindowClassKind.Get("EditClass"));
+        }
+
+        [TestMethod]
         public void FormatUnknownMessageError_IncludesMessage176Name()
         {
             var message = MessageMap.FormatUnknownMessageError(0x00B0, () => "'edit' (Edit)");
