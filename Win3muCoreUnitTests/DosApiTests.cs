@@ -362,7 +362,7 @@ namespace Win3muCoreUnitTests
             var cpu = new TestCpu();
             var dos = new DosApi(cpu, site);
 
-            dos.FindFiles(@"A:\START\", 0);
+            dos.FindFiles(@"A:\START\", DosApi.DosFileAttributes.Directory);
 
             var foundNames = new List<string>();
             while (dos.FindNextFile(out var ffs))
