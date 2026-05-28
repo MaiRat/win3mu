@@ -31,17 +31,17 @@ namespace Win3muCoreUnitTests
             Assert.IsNotNull(winspool);
             Assert.AreSame(winspool, machine.ModuleManager.GetModule("WINSPOOL"));
 
-            uint phPrinter = Alloc(machine, "Printer Handle", 4);
-            uint pcbWritten = Alloc(machine, "Written Count", 4);
+            uint printerHandlePtr = Alloc(machine, "Printer Handle", 4);
+            uint writtenCountPtr = Alloc(machine, "Written Count", 4);
 
-            Assert.IsTrue(winspool.OpenPrinter("HP LaserJet", phPrinter, 0));
-            ushort hPrinter = ReadWord(machine, phPrinter);
+            Assert.IsTrue(winspool.OpenPrinter("HP LaserJet", printerHandlePtr, 0));
+            ushort hPrinter = ReadWord(machine, printerHandlePtr);
             Assert.AreNotEqual((ushort)0, hPrinter);
 
             Assert.AreEqual((ushort)1, winspool.StartDoc(hPrinter, 0));
             Assert.IsTrue(winspool.StartPage(hPrinter));
-            Assert.IsTrue(winspool.WritePrinter(hPrinter, 0, 0, pcbWritten));
-            Assert.AreEqual((ushort)0, ReadWord(machine, pcbWritten));
+            Assert.IsTrue(winspool.WritePrinter(hPrinter, 0, 0, writtenCountPtr));
+            Assert.AreEqual((ushort)0, ReadWord(machine, writtenCountPtr));
             Assert.IsTrue(winspool.EndPage(hPrinter));
             Assert.IsTrue(winspool.EndDoc(hPrinter));
             Assert.IsTrue(winspool.ClosePrinter(hPrinter));

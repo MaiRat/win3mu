@@ -26,6 +26,13 @@ namespace Win3muCore
             public uint lpszDatatype;
         }
 
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential, Pack = 2)]
+        struct DWORDRESULT
+        {
+            public ushort Low;
+            public ushort High;
+        }
+
         public override void Load(Machine machine)
         {
             base.Load(machine);
@@ -47,8 +54,11 @@ namespace Win3muCore
             if (ptr == 0)
                 return;
 
-            machine.WriteWord(ptr.Hiword(), ptr.Loword(), value);
-            machine.WriteWord(ptr.Hiword(), (ushort)(ptr.Loword() + 2), 0);
+            machine.WriteStruct(ptr, new DWORDRESULT()
+            {
+                Low = value,
+                High = 0,
+            });
         }
 
         string ReadDocumentName(short level, uint pDocInfo)
@@ -185,8 +195,8 @@ namespace Win3muCore
         [EntryPoint(74)]
         public bool WritePrinter(ushort hPrinter, uint pBuf, ushort cbBuf, uint pcWritten)
         {
-            bool isInvalidBuffer = cbBuf != 0 && pBuf == 0;
-            if (!TryGetPrinter(hPrinter, out var printer) || !printer.DocumentOpen || isInvalidBuffer)
+            bool hasInvalidBuffer = cbBuf != 0 && pBuf == 0;
+            if (!TryGetPrinter(hPrinter, out var printer) || !printer.DocumentOpen || hasInvalidBuffer)
             {
                 WriteCount(_machine, pcWritten, 0);
                 return false;
