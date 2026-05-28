@@ -74,15 +74,15 @@ namespace Win3muCore
         public static extern bool SetTextJustification(HDC hDC, nint extra, nint count);
 
         [DllImport("gdi32.dll")]
-        public static extern bool SetWindowOrgEx(HDC hDC, int x, int y, out Win32.SIZE size);
+        public static extern bool SetWindowOrgEx(HDC hDC, int x, int y, out Win32.POINT point);
 
         [EntryPoint(0x000B)]
         public uint SetWindowOrg(HDC hDC, short x, short y)
         {
-            Win32.SIZE size;
-            SetWindowOrgEx(hDC, x, y, out size);
+            Win32.POINT point;
+            SetWindowOrgEx(hDC, x, y, out point);
 
-            return BitUtils.MakeDWord((ushort)(short)size.Width, (ushort)(short)size.Height);
+            return point.ToDWord();
         }
 
 
@@ -595,6 +595,7 @@ namespace Win3muCore
         [EntryPoint(0x0049)]
         public bool ExcludeVisRect(HDC hDC, nint left, nint top, nint right, nint bottom)
         {
+            // Win16 visible-rectangle exclusion maps closely enough to clipping exclusion for this emulation layer.
             return ExcludeClipRect(hDC, left, top, right, bottom);
         }
 
@@ -1869,7 +1870,7 @@ namespace Win3muCore
                 return 0;
 
             var chars = new List<char>();
-            for (int i = 0; i < 0x10000; i++)
+            for (int i = 0; i < 0x7FFF; i++)
             {
                 ushort ch = _machine.ReadWord((uint)(lpszUnicode + i * sizeof(ushort)));
                 if (ch == 0)
@@ -1882,11 +1883,13 @@ namespace Win3muCore
                 return unchecked((short)ansiBytes.Length);
 
             int copied = Math.Min(ansiBytes.Length, cchAnsi - 1);
+            ushort ansiSeg = lpszAnsi.Hiword();
+            ushort ansiOff = lpszAnsi.Loword();
             for (int i = 0; i < copied; i++)
             {
-                _machine.WriteByte(lpszAnsi.Hiword(), (ushort)(lpszAnsi.Loword() + i), ansiBytes[i]);
+                _machine.WriteByte(ansiSeg, (ushort)(ansiOff + i), ansiBytes[i]);
             }
-            _machine.WriteByte(lpszAnsi.Hiword(), (ushort)(lpszAnsi.Loword() + copied), 0);
+            _machine.WriteByte(ansiSeg, (ushort)(ansiOff + copied), 0);
             return unchecked((short)copied);
         }
 
@@ -2065,18 +2068,12 @@ namespace Win3muCore
         [EntryPoint(0x01E2)]
         public bool SetWindowOrgEx(HDC hDC, short x, short y, uint lpPoint)
         {
-            Win32.SIZE point;
+            Win32.POINT point;
             if (!SetWindowOrgEx(hDC, x, y, out point))
                 return false;
 
             if (lpPoint != 0)
-            {
-                _machine.WriteStruct(lpPoint, new Win16.POINT()
-                {
-                    X = unchecked((short)point.Width),
-                    Y = unchecked((short)point.Height),
-                });
-            }
+                _machine.WriteStruct(lpPoint, point.Convert());
             return true;
         }
 
