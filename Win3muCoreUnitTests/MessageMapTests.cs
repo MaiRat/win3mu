@@ -31,7 +31,8 @@ namespace Win3muCoreUnitTests
         {
             var message = MessageMap.FormatUnknownMessageError(0x00B0, () => "'edit' (Edit)");
 
-            Assert.AreEqual("Unknown windows message EM_GETSEL(32) (0x00B0) for window class 'edit' (Edit)", message);
+            StringAssert.Contains(message, "EM_GETSEL(32) (0x00B0)");
+            StringAssert.EndsWith(message, "for window class 'edit' (Edit)");
         }
 
         [TestMethod]

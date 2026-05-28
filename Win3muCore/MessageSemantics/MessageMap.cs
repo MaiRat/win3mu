@@ -59,7 +59,17 @@ namespace Win3muCore.MessageSemantics
                 if (!string.IsNullOrEmpty(windowClassDescription))
                     return $"{error} for window class {windowClassDescription}";
             }
-            catch (Exception)
+            catch (VirtualException)
+            {
+                // Never let error-reporting recurse or fail while formatting an
+                // unknown-message exception; fall back to the message-only text.
+            }
+            catch (DllNotFoundException)
+            {
+                // Never let error-reporting recurse or fail while formatting an
+                // unknown-message exception; fall back to the message-only text.
+            }
+            catch (EntryPointNotFoundException)
             {
                 // Never let error-reporting recurse or fail while formatting an
                 // unknown-message exception; fall back to the message-only text.
