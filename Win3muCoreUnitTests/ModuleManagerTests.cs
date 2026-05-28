@@ -43,6 +43,43 @@ namespace Win3muCoreUnitTests
             }
         }
 
+        [TestMethod]
+        public void LoadModuleInternalForValidation_DoesNotReuseNativeModuleFromDifferentDirectory()
+        {
+            var tempRoot = CreateTempDirectory();
+            try
+            {
+                var firstDirectory = Path.Combine(tempRoot, "first");
+                var secondDirectory = Path.Combine(tempRoot, "second");
+                Directory.CreateDirectory(firstDirectory);
+                Directory.CreateDirectory(secondDirectory);
+
+                WriteMinimalNeFile(Path.Combine(firstDirectory, "pbrush.dll"), "PBRUSHA", true);
+                WriteMinimalNeFile(Path.Combine(secondDirectory, "pbrush.dll"), "PBRUSH", true);
+
+                var machine = new Machine();
+                machine.PathMapper.AddMount(@"C:\FIRST", firstDirectory, firstDirectory);
+                machine.PathMapper.AddMount(@"C:\SECOND", secondDirectory, secondDirectory);
+
+                var loadModuleInternalForValidation = typeof(ModuleManager).GetMethod("LoadModuleInternalForValidation", BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.IsNotNull(loadModuleInternalForValidation);
+
+                var firstModule = (Module16)loadModuleInternalForValidation.Invoke(machine.ModuleManager, new object[] { @"C:\FIRST\PBRUSH.DLL", null });
+                var secondModule = (Module16)loadModuleInternalForValidation.Invoke(machine.ModuleManager, new object[] { "PBRUSH.DLL", @"C:\SECOND" });
+
+                Assert.AreNotSame(firstModule, secondModule);
+                Assert.AreEqual("PBRUSHA", firstModule.GetModuleName());
+                Assert.AreEqual("PBRUSH", secondModule.GetModuleName());
+                Assert.AreEqual(@"C:\FIRST\PBRUSH.DLL", firstModule.GetModuleFileName());
+                Assert.AreEqual(@"C:\SECOND\PBRUSH.DLL", secondModule.GetModuleFileName());
+            }
+            finally
+            {
+                if (Directory.Exists(tempRoot))
+                    Directory.Delete(tempRoot, true);
+            }
+        }
+
         static string CreateTempDirectory()
         {
             var path = Path.Combine(Path.GetTempPath(), "win3mu-tests", Guid.NewGuid().ToString("N"));
