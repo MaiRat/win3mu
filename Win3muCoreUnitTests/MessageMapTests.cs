@@ -44,8 +44,13 @@ namespace Win3muCoreUnitTests
             foreach (var info in (System.Collections.IEnumerable)messageInfosField.GetValue(map))
             {
                 var infoType = info.GetType();
-                if ((WndClassKind)infoType.GetField("WndClassKind").GetValue(info) == WndClassKind.Edit &&
-                    (ushort)infoType.GetField("message32").GetValue(info) == Win32.EM_CHARFROMPOS)
+                var wndClassKindField = infoType.GetField("WndClassKind");
+                var message32Field = infoType.GetField("message32");
+                Assert.IsNotNull(wndClassKindField);
+                Assert.IsNotNull(message32Field);
+
+                if ((WndClassKind)wndClassKindField.GetValue(info) == WndClassKind.Edit &&
+                    (ushort)message32Field.GetValue(info) == Win32.EM_CHARFROMPOS)
                 {
                     mapping = info;
                     break;
@@ -54,8 +59,12 @@ namespace Win3muCoreUnitTests
 
             Assert.IsNotNull(mapping);
             var mappingType = mapping.GetType();
-            Assert.AreEqual(Win32.EM_CHARFROMPOS, (ushort)mappingType.GetField("message16").GetValue(mapping));
-            Assert.IsInstanceOfType(mappingType.GetField("semantics").GetValue(mapping), typeof(bypass));
+            var message16Field = mappingType.GetField("message16");
+            var semanticsField = mappingType.GetField("semantics");
+            Assert.IsNotNull(message16Field);
+            Assert.IsNotNull(semanticsField);
+            Assert.AreEqual(Win32.EM_CHARFROMPOS, (ushort)message16Field.GetValue(mapping));
+            Assert.IsInstanceOfType(semanticsField.GetValue(mapping), typeof(bypass));
         }
 
         [TestMethod]
