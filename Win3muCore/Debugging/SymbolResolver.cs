@@ -57,13 +57,15 @@ namespace Win3muCore
                 {
                     var name = m.GetNameFromOrdinal(ord);
                     var addr = m.GetProcAddress(ord);
-                    _symbolMap.Add(name, new LiteralSymbol(new FarPointer(addr)));
+                    if (!_symbolMap.ContainsKey(name))
+                        _symbolMap.Add(name, new LiteralSymbol(new FarPointer(addr)));
                 }
             }
 
             foreach (var mname in MessageNames.All)
             {
-                _symbolMap.Add(mname.Value, new LiteralSymbol(mname.Key));
+                if (!_symbolMap.ContainsKey(mname.Value))
+                    _symbolMap.Add(mname.Value, new LiteralSymbol(mname.Key));
             }
         }
     }
