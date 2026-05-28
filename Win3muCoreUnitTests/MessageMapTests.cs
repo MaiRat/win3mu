@@ -16,5 +16,13 @@ namespace Win3muCoreUnitTests
             Assert.AreEqual((ushort)0x0288, message16);
             Assert.IsInstanceOfType(semantics, typeof(bypass));
         }
+
+        [TestMethod]
+        public void ShouldBypassUnknownMessage32_ClassifiesAppDefinedAndKnownMessages()
+        {
+            Assert.IsTrue(MessageMap.ShouldBypassUnknownMessage32(1084));
+            Assert.IsFalse(MessageMap.ShouldBypassUnknownMessage32(0x0288));
+            Assert.IsFalse(MessageMap.ShouldBypassUnknownMessage32(0xC000));
+        }
     }
 }
