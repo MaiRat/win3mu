@@ -43,6 +43,8 @@ namespace Win3muCore
         readonly Dictionary<IntPtr, ABORTPROC> _abortProcs = new Dictionary<IntPtr, ABORTPROC>();
         readonly Dictionary<ushort, LegacySpoolJob> _legacySpoolJobs = new Dictionary<ushort, LegacySpoolJob>();
         ushort _nextLegacySpoolJob = 1;
+        const int LegacySpoolJobPresentStatus = 1;
+        const int LegacySpoolJobPageOpenStatus = 2;
 
         public override void Load(Machine machine)
         {
@@ -1606,7 +1608,7 @@ namespace Win3muCore
             if (lpJobInfo != 0)
                 Log.WriteLine("Gdi.GetSpoolJob: job info buffer ignored by compatibility spool stub");
 
-            return job.BytesWritten != 0 ? job.BytesWritten : 1;
+            return job.BytesWritten != 0 ? job.BytesWritten : LegacySpoolJobPresentStatus;
         }
 
         [EntryPoint(0x00F6)]
@@ -1638,7 +1640,7 @@ namespace Win3muCore
             if (queryType != 0)
                 Log.WriteLine("Gdi.QueryJob: query type {0:X4} treated as compatibility status probe", queryType);
 
-            return job.PageOpen ? 2 : 1;
+            return job.PageOpen ? LegacySpoolJobPageOpenStatus : LegacySpoolJobPresentStatus;
         }
 
         [EntryPoint(0x00FA)]
