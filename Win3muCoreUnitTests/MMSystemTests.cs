@@ -1,4 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Runtime.InteropServices;
 using Win3muCore;
 
 namespace Win3muCoreUnitTests
@@ -70,6 +71,51 @@ namespace Win3muCoreUnitTests
             Assert.AreEqual(st16.rc.Top, roundTrip.rc.Top);
             Assert.AreEqual(st16.rc.Right, roundTrip.rc.Right);
             Assert.AreEqual(st16.rc.Bottom, roundTrip.rc.Bottom);
+        }
+
+        [TestMethod]
+        public void JoyGetNumDevs_ReturnsSingleVirtualJoystick()
+        {
+            var mmSystem = new MMSystem();
+            Assert.AreEqual((ushort)1, mmSystem.joyGetNumDevs());
+        }
+
+        [TestMethod]
+        public void IsSupportedJoystickId_OnlySupportsFirstDevice()
+        {
+            Assert.IsTrue(MMSystem.IsSupportedJoystickId(0));
+            Assert.IsFalse(MMSystem.IsSupportedJoystickId(1));
+        }
+
+        [TestMethod]
+        public void CreateNeutralJoyInfo_ReturnsCenteredAxes()
+        {
+            var info = MMSystem.CreateNeutralJoyInfo();
+
+            Assert.AreEqual((ushort)0x7FFF, info.wXpos);
+            Assert.AreEqual((ushort)0x7FFF, info.wYpos);
+            Assert.AreEqual((ushort)0x7FFF, info.wZpos);
+            Assert.AreEqual((ushort)0, info.wButtons);
+        }
+
+        [TestMethod]
+        public void CreateDefaultJoyCaps_ReturnsCompatibilityDefaults()
+        {
+            var caps = MMSystem.CreateDefaultJoyCaps();
+
+            Assert.AreEqual("Win3mu virtual joystick", caps.szPname);
+            Assert.AreEqual((ushort)0, caps.wXmin);
+            Assert.AreEqual(ushort.MaxValue, caps.wXmax);
+            Assert.AreEqual((ushort)2, caps.wNumButtons);
+            Assert.AreEqual((ushort)10, caps.wPeriodMin);
+            Assert.AreEqual((ushort)1000, caps.wPeriodMax);
+        }
+
+        [TestMethod]
+        public void JoyStructLayouts_MatchExpectedWin16Sizes()
+        {
+            Assert.AreEqual(8, Marshal.SizeOf<Win16.JOYINFO>());
+            Assert.AreEqual(54, Marshal.SizeOf<Win16.JOYCAPS>());
         }
     }
 }

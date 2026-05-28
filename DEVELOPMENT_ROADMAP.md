@@ -177,11 +177,15 @@ The following items represent the current frontier for further work:
 The following items represent the current frontier for further work:
 
 1. **Extend MCI device-specific support** — implement device-specific MCI command extensions as multimedia applications reveal gaps.
-2. ~~**Implement Comm module**~~ ✅ **COMPLETED**
+2. ~~**Implement joystick support**~~ ✅ **COMPLETED**
+   - `MMSYSTEM.DLL` now implements the classic joystick exports `joyGetNumDevs`, `joyGetDevCaps`, `joyGetPos`, `joyGetThreshold`, `joyReleaseCapture`, `joySetCapture`, `joySetThreshold`, and `joySetCalibration`.
+   - Win3mu exposes one compatibility-first virtual joystick with neutral centered axes, two buttons, a configurable threshold, and graceful error returns for unsupported device IDs or invalid pointers.
+   - `JOYINFO` and `JOYCAPS` Win16 structs are now defined for guest-memory marshaling.
+3. ~~**Implement Comm module**~~ ✅ **COMPLETED**
    - `COMM.DRV` now implements the standard 16 serial communication exports (`OpenComm`, `SetCommState`, `GetCommState`, `GetCommError`, `ReadComm`, `WriteComm`, `TransmitCommChar`, `CloseComm`, `SetCommEventMask`, `GetCommEventMask`, `SetCommBreak`, `ClearCommBreak`, `UngetCommChar`, `BuildCommDCB`, `EscapeCommFunction`, `FlushComm`) with compatibility-first in-memory behavior.
    - Matching USER exports (ordinals `00C8`-`00D7` and `00F5`) now forward to the same stubbed comm state, avoiding unsupported-ordinal crashes for applications that import the older USER entry points directly.
    - `BuildCommDCB` now parses classic serial specs such as `COM1:96,n,8,1` into a Win16-compatible DCB structure, and `Get/SetCommState` round-trip that state.
-3. **Expand GDI coverage** — _expanded_
+4. **Expand GDI coverage** — _expanded_
    - Added classic mapping/state exports for `OffsetWindowOrg`, `ScaleWindowExt`, `OffsetViewportOrg`, `ScaleViewportExt`, `GetPolyFillMode`, `GetTextCharacterExtra`, `GetTextFace`, `GetViewportExt`, `GetViewportOrg`, `GetWindowExt`, `GetWindowOrg`, `GetBrushOrg`, `GetBitmapDimension`, `SetBitmapDimension`, and `GetAspectRatioFilter`.
    - Added additional classic drawing/bitmap exports for `SetPolyFillMode`, `SetTextCharacterExtra`, `SetTextJustification`, `Pie`, `Chord`, `CreateBitmapIndirect`, `SetBitmapBits`, `SetDIBits`, `GetDIBits`, and `PolyPolygon`.
    - Added region/drawing exports for `OffsetClipRgn`, `CreateEllipticRgn`, `CreateEllipticRgnIndirect`, `CreatePolygonRgn`, `CreateRectRgnIndirect`, `CreatePolyPolygonRgn`, `EqualRgn`, `OffsetRgn`, `SelectVisRgn`, `GetRgnBox`, `PtInRegion`, `GetClipRgn`, `RectInRegion`, `ExtFloodFill`, and `CreateRoundRectRgn`, plus text-width export `GetCharWidth`.
@@ -189,7 +193,7 @@ The following items represent the current frontier for further work:
    - Added palette exports for `SelectPalette`, `RealizePalette`, `GetPaletteEntries`, `SetPaletteEntries`, `RealizeDefaultPalette`, `UpdateColors`, `AnimatePalette`, `ResizePalette`, `GetNearestPaletteIndex`, `SetSystemPaletteUse`, and `GetSystemPaletteUse`.
    - Added printer/path exports for `Escape`, `StartDoc`, `EndDoc`, `StartPage`, `EndPage`, `SetAbortProc`, `AbortDoc`, `SetBoundsRect`, `GetBoundsRect`, and `SelectBitmap`, with 16-bit `DOCINFO` marshaling and abort-proc callback bridging.
    - **Remaining:** additional printer-driver-specific GDI exports can be added as application compatibility testing reveals specific gaps.
-4. ~~**Implement functional DDE string handles**~~ ✅ **COMPLETED**
+5. ~~**Implement functional DDE string handles**~~ ✅ **COMPLETED**
    - `DdeCreateStringHandle` now maintains a real `(string, codepage)`→handle table with reference counting, allowing duplicate creates to reuse the same HSZ.
    - `DdeQueryString`, `DdeKeepStringHandle`, `DdeFreeStringHandle`, and `DdeCmpStringHandles` now operate on the stored string values instead of dummy incrementing handles.
 

@@ -29,6 +29,16 @@ namespace Win3muCore
     [Module("MMSYSTEM", @"C:\WINDOWS\SYSTEM\MMSYSTEM.DLL")]
     public class MMSystem : Module32
     {
+        const uint MMSYSERR_NOERROR = 0;
+        const uint MMSYSERR_NODRIVER = 6;
+        const uint JOYERR_PARMS = 165;
+        const int VirtualJoystickCount = 1;
+        const ushort DefaultJoystickThreshold = 0;
+        const ushort NeutralJoystickAxis = 0x7FFF;
+        const ushort VirtualJoystickButtons = 2;
+
+        readonly ushort[] _joyThresholds = Enumerable.Repeat(DefaultJoystickThreshold, VirtualJoystickCount).ToArray();
+
         public string ResolveMediaFile(string filename)
         {
             if (string.IsNullOrEmpty(filename))
@@ -110,6 +120,149 @@ namespace Win3muCore
         [EntryPoint(0x00c9)]
         [DllImport("winmm.dll")]
         public static extern nuint midiOutGetNumDevs();
+
+        internal static bool IsSupportedJoystickId(ushort uJoyID)
+        {
+            return uJoyID < VirtualJoystickCount;
+        }
+
+        internal static Win16.JOYINFO CreateNeutralJoyInfo()
+        {
+            return new Win16.JOYINFO()
+            {
+                wXpos = NeutralJoystickAxis,
+                wYpos = NeutralJoystickAxis,
+                wZpos = NeutralJoystickAxis,
+                wButtons = 0,
+            };
+        }
+
+        internal static Win16.JOYCAPS CreateDefaultJoyCaps()
+        {
+            return new Win16.JOYCAPS()
+            {
+                szPname = "Win3mu virtual joystick",
+                wXmin = 0,
+                wXmax = ushort.MaxValue,
+                wYmin = 0,
+                wYmax = ushort.MaxValue,
+                wZmin = 0,
+                wZmax = ushort.MaxValue,
+                wNumButtons = VirtualJoystickButtons,
+                wPeriodMin = 10,
+                wPeriodMax = 1000,
+            };
+        }
+
+        internal static byte[] StructToBytes<T>(T value)
+        {
+            var size = Marshal.SizeOf<T>();
+            var ptr = Marshal.AllocHGlobal(size);
+            try
+            {
+                Marshal.StructureToPtr(value, ptr, false);
+                var bytes = new byte[size];
+                Marshal.Copy(ptr, bytes, 0, size);
+                return bytes;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(ptr);
+            }
+        }
+
+        // 0065 - JOYGETNUMDEVS - 0065
+        [EntryPoint(0x0065)]
+        public ushort joyGetNumDevs()
+        {
+            Log.WriteLine("MMSystem.joyGetNumDevs");
+            return VirtualJoystickCount;
+        }
+
+        // 0066 - JOYGETDEVCAPS - 0066
+        [EntryPoint(0x0066)]
+        public uint joyGetDevCaps(ushort uJoyID, uint lpCaps, ushort cbjc)
+        {
+            Log.WriteLine("MMSystem.joyGetDevCaps: id={0}, caps=0x{1:X8}, cb={2}", uJoyID, lpCaps, cbjc);
+            if (!IsSupportedJoystickId(uJoyID))
+                return MMSYSERR_NODRIVER;
+            if (lpCaps == 0 || cbjc == 0)
+                return JOYERR_PARMS;
+
+            var bytes = StructToBytes(CreateDefaultJoyCaps());
+            var bytesToWrite = Math.Min((int)cbjc, bytes.Length);
+            _machine.MemoryBus.WriteBytes(lpCaps.Hiword(), lpCaps.Loword(), bytes, bytesToWrite);
+            return MMSYSERR_NOERROR;
+        }
+
+        // 0067 - JOYGETPOS - 0067
+        [EntryPoint(0x0067)]
+        public uint joyGetPos(ushort uJoyID, uint lpInfo)
+        {
+            Log.WriteLine("MMSystem.joyGetPos: id={0}, info=0x{1:X8}", uJoyID, lpInfo);
+            if (!IsSupportedJoystickId(uJoyID))
+                return MMSYSERR_NODRIVER;
+            if (lpInfo == 0)
+                return JOYERR_PARMS;
+
+            _machine.WriteStruct(lpInfo, CreateNeutralJoyInfo());
+            return MMSYSERR_NOERROR;
+        }
+
+        // 0068 - JOYGETTHRESHOLD - 0068
+        [EntryPoint(0x0068)]
+        public uint joyGetThreshold(ushort uJoyID, uint lpThreshold)
+        {
+            Log.WriteLine("MMSystem.joyGetThreshold: id={0}, threshold=0x{1:X8}", uJoyID, lpThreshold);
+            if (!IsSupportedJoystickId(uJoyID))
+                return MMSYSERR_NODRIVER;
+            if (lpThreshold == 0)
+                return JOYERR_PARMS;
+
+            _machine.MemoryBus.WriteWord(lpThreshold.Hiword(), lpThreshold.Loword(), _joyThresholds[uJoyID]);
+            return MMSYSERR_NOERROR;
+        }
+
+        // 0069 - JOYRELEASECAPTURE - 0069
+        [EntryPoint(0x0069)]
+        public uint joyReleaseCapture(ushort uJoyID)
+        {
+            Log.WriteLine("MMSystem.joyReleaseCapture: id={0}", uJoyID);
+            return IsSupportedJoystickId(uJoyID) ? MMSYSERR_NOERROR : MMSYSERR_NODRIVER;
+        }
+
+        // 006A - JOYSETCAPTURE - 006A
+        [EntryPoint(0x006A)]
+        public uint joySetCapture(ushort hWnd, ushort uJoyID, ushort uPeriod, ushort fChanged)
+        {
+            Log.WriteLine("MMSystem.joySetCapture: hwnd=0x{0:X4}, id={1}, period={2}, changed={3}", hWnd, uJoyID, uPeriod, fChanged);
+            return IsSupportedJoystickId(uJoyID) ? MMSYSERR_NOERROR : MMSYSERR_NODRIVER;
+        }
+
+        // 006B - JOYSETTHRESHOLD - 006B
+        [EntryPoint(0x006B)]
+        public uint joySetThreshold(ushort uJoyID, ushort uThreshold)
+        {
+            Log.WriteLine("MMSystem.joySetThreshold: id={0}, threshold={1}", uJoyID, uThreshold);
+            if (!IsSupportedJoystickId(uJoyID))
+                return MMSYSERR_NODRIVER;
+
+            _joyThresholds[uJoyID] = uThreshold;
+            return MMSYSERR_NOERROR;
+        }
+
+        // 006D - JOYSETCALIBRATION - 006D
+        [EntryPoint(0x006D)]
+        public uint joySetCalibration(ushort uJoyID, uint lpCalibration)
+        {
+            Log.WriteLine("MMSystem.joySetCalibration: id={0}, calibration=0x{1:X8}", uJoyID, lpCalibration);
+            if (!IsSupportedJoystickId(uJoyID))
+                return MMSYSERR_NODRIVER;
+            if (lpCalibration == 0)
+                return JOYERR_PARMS;
+
+            return MMSYSERR_NOERROR;
+        }
 
         // 00CA - MIDIOUTGETDEVCAPS - 00CA
         // 00CB - MIDIOUTGETERRORTEXT - 00CB

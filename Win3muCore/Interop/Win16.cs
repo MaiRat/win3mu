@@ -781,6 +781,33 @@ namespace Win3muCore
         public const ushort CB_FINDSTRINGEXACT = WM_USER + 24;
 
         [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        public struct JOYINFO
+        {
+            public ushort wXpos;
+            public ushort wYpos;
+            public ushort wZpos;
+            public ushort wButtons;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2, CharSet = CharSet.Ansi)]
+        public struct JOYCAPS
+        {
+            public ushort wMid;
+            public ushort wPid;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+            public string szPname;
+            public ushort wXmin;
+            public ushort wXmax;
+            public ushort wYmin;
+            public ushort wYmax;
+            public ushort wZmin;
+            public ushort wZmax;
+            public ushort wNumButtons;
+            public ushort wPeriodMin;
+            public ushort wPeriodMax;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
         public struct MCI_OPEN_PARAMS
         {
             public uint dwCallback;
