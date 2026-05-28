@@ -22,6 +22,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using Sharp86;
 
 namespace Win3muCore.MessageSemantics
 {
@@ -83,5 +84,163 @@ namespace Win3muCore.MessageSemantics
             }
         }
         */
+
+        // LB_GETITEMRECT: wParam = item index, lParam = pointer to RECT (output)
+        // 16-bit: lParam is far pointer to Win16.RECT
+        // 32-bit: lParam is pointer to Win32.RECT
+        public class LB_GETITEMRECT : Callable
+        {
+            public override uint Call32from16(Machine machine, bool hook, bool dlgproc, ref Win16.MSG msg16, ref Win32.MSG msg32, Func<IntPtr> callback)
+            {
+                unsafe
+                {
+                    var rc32 = new Win32.RECT();
+                    msg32.wParam = (IntPtr)msg16.wParam;
+                    msg32.lParam = new IntPtr(&rc32);
+                    var ret = callback();
+                    machine.WriteStruct(msg16.lParam, rc32.Convert());
+                    return (uint)ret;
+                }
+            }
+
+            public override IntPtr Call16from32(Machine machine, bool hook, bool dlgproc, ref Win32.MSG msg32, ref Win16.MSG msg16, Func<uint> callback)
+            {
+                var ptr = machine.SysAlloc(new Win16.RECT());
+                msg16.wParam = msg32.wParam.Loword();
+                msg16.lParam = ptr;
+                var ret = callback();
+                var rc16 = machine.SysReadAndFree<Win16.RECT>(ptr);
+                Marshal.StructureToPtr(rc16.Convert(), msg32.lParam, true);
+                return (IntPtr)ret;
+            }
+        }
+
+        // LB_GETSELITEMS: wParam = max items, lParam = pointer to buffer of INT (output)
+        // 16-bit: array of 16-bit signed integers
+        // 32-bit: array of 32-bit signed integers
+        public class LB_GETSELITEMS : Callable
+        {
+            public override uint Call32from16(Machine machine, bool hook, bool dlgproc, ref Win16.MSG msg16, ref Win32.MSG msg32, Func<IntPtr> callback)
+            {
+                unsafe
+                {
+                    int count = msg16.wParam;
+                    if (count == 0)
+                    {
+                        msg32.wParam = IntPtr.Zero;
+                        msg32.lParam = IntPtr.Zero;
+                        return (uint)callback();
+                    }
+
+                    var items32 = new int[count];
+                    fixed (int* pItems = items32)
+                    {
+                        msg32.wParam = (IntPtr)count;
+                        msg32.lParam = (IntPtr)pItems;
+                        var ret = callback();
+                        var retCount = ret.ToInt32();
+
+                        // Write selected item indices back to 16-bit buffer as 16-bit values
+                        if (retCount > 0)
+                        {
+                            for (int i = 0; i < retCount; i++)
+                            {
+                                machine.WriteWord(msg16.lParam.Hiword(),
+                                    (ushort)(msg16.lParam.Loword() + i * 2),
+                                    unchecked((ushort)(short)pItems[i]));
+                            }
+                        }
+                        return ret.DWord();
+                    }
+                }
+            }
+
+            public override IntPtr Call16from32(Machine machine, bool hook, bool dlgproc, ref Win32.MSG msg32, ref Win16.MSG msg16, Func<uint> callback)
+            {
+                int count = (int)msg32.wParam;
+                if (count == 0)
+                {
+                    msg16.wParam = 0;
+                    msg16.lParam = 0;
+                    return (IntPtr)callback();
+                }
+
+                // Allocate 16-bit buffer for indices
+                var ptr = machine.SysAlloc((ushort)(count * 2));
+                msg16.wParam = (ushort)count;
+                msg16.lParam = ptr;
+                var ret = callback();
+
+                // Widen 16-bit indices to 32-bit and write to output buffer
+                var retCount = (int)ret;
+                if (retCount > 0)
+                {
+                    for (int i = 0; i < retCount; i++)
+                    {
+                        var val = (short)machine.ReadWord(ptr.Hiword(), (ushort)(ptr.Loword() + i * 2));
+                        Marshal.WriteInt32(msg32.lParam, i * 4, val);
+                    }
+                }
+
+                machine.SysFree(ptr);
+                return (IntPtr)ret;
+            }
+        }
+
+        // LB_SETTABSTOPS: wParam = count, lParam = pointer to array of INT (tab stop positions)
+        // Same semantics as EM_SETTABSTOPS
+        public class LB_SETTABSTOPS : Callable
+        {
+            public override uint Call32from16(Machine machine, bool hook, bool dlgproc, ref Win16.MSG msg16, ref Win32.MSG msg32, Func<IntPtr> callback)
+            {
+                unsafe
+                {
+                    int count = msg16.wParam;
+                    if (count == 0 || msg16.lParam == 0)
+                    {
+                        msg32.wParam = (IntPtr)count;
+                        msg32.lParam = IntPtr.Zero;
+                        return (uint)callback();
+                    }
+
+                    var tabs32 = new int[count];
+                    for (int i = 0; i < count; i++)
+                    {
+                        tabs32[i] = (short)machine.ReadWord(msg16.lParam.Hiword(), (ushort)(msg16.lParam.Loword() + i * 2));
+                    }
+
+                    fixed (int* pTabs = tabs32)
+                    {
+                        msg32.wParam = (IntPtr)count;
+                        msg32.lParam = (IntPtr)pTabs;
+                        return (uint)callback();
+                    }
+                }
+            }
+
+            public override IntPtr Call16from32(Machine machine, bool hook, bool dlgproc, ref Win32.MSG msg32, ref Win16.MSG msg16, Func<uint> callback)
+            {
+                int count = (int)msg32.wParam;
+                if (count == 0 || msg32.lParam == IntPtr.Zero)
+                {
+                    msg16.wParam = (ushort)count;
+                    msg16.lParam = 0;
+                    return (IntPtr)callback();
+                }
+
+                var ptr = machine.SysAlloc((ushort)(count * 2));
+                for (int i = 0; i < count; i++)
+                {
+                    var val = Marshal.ReadInt32(msg32.lParam, i * 4);
+                    machine.WriteWord(ptr.Hiword(), (ushort)(ptr.Loword() + i * 2), unchecked((ushort)(short)val));
+                }
+
+                msg16.wParam = (ushort)count;
+                msg16.lParam = ptr;
+                var ret = callback();
+                machine.SysFree(ptr);
+                return (IntPtr)ret;
+            }
+        }
     }
 }

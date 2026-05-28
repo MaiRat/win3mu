@@ -348,8 +348,35 @@ namespace Win3muCore
         [DllImport("user32.dll")]
         public static extern bool DestroyWindow([Destroyed] HWND hWnd);
 
-        // 0036 - ENUMWINDOWS
-        // 0037 - ENUMCHILDWINDOWS
+        [DllImport("user32.dll")]
+        static extern bool EnumWindows(Win32.ENUMTHREADWNDPROC callback, IntPtr lParam);
+
+        [EntryPoint(0x0036)]
+        public bool EnumWindows(uint callback, uint lParam)
+        {
+            return EnumWindows((w, lp) =>
+            {
+                _machine.PushWord(HWND.Map.To16(w));
+                _machine.PushDWord(lp.DWord());
+                _machine.CallVM(callback, "EnumWndProc");
+                return _machine.ax != 0;
+            }, BitUtils.DWordToIntPtr(lParam));
+        }
+
+        [DllImport("user32.dll")]
+        static extern bool EnumChildWindows(IntPtr hWndParent, Win32.ENUMTHREADWNDPROC callback, IntPtr lParam);
+
+        [EntryPoint(0x0037)]
+        public bool EnumChildWindows(HWND hWndParent, uint callback, uint lParam)
+        {
+            return EnumChildWindows(hWndParent.value, (w, lp) =>
+            {
+                _machine.PushWord(HWND.Map.To16(w));
+                _machine.PushDWord(lp.DWord());
+                _machine.CallVM(callback, "EnumChildWndProc");
+                return _machine.ax != 0;
+            }, BitUtils.DWordToIntPtr(lParam));
+        }
 
         [DllImport("user32.dll")]
         public static extern bool MoveWindow(HWND hWnd, int x, int y, int w, int h, bool repaint);
@@ -1416,6 +1443,9 @@ namespace Win3muCore
                 case Win16.GCW_HCURSOR:
                 case Win16.GCW_HICON:
                     return HGDIOBJ.To16(SetClassLongPtr(hWnd.value, index, HGDIOBJ.To32(value).value));
+
+                case Win16.GCW_STYLE:
+                    return (ushort)SetClassLong(hWnd, (int)index, value);
             }
 
             return 0;
@@ -1524,6 +1554,13 @@ namespace Win3muCore
                     var old = HWND.HInstanaceOfHWnd(hWnd.value);
                     HWND.RegisterHWndToHInstance(hWnd.value, value);
                     return old;
+                }
+
+                case Win16.GWW_HWNDPARENT:
+                {
+                    var oldParent = GetWindowLongPtr(hWnd.value, Win32.GWL_P_HWNDPARENT);
+                    SetWindowLongPtr(hWnd.value, Win32.GWL_P_HWNDPARENT, HWND.To32(value).value);
+                    return HWND.To16(oldParent);
                 }
 
                 case Win16.GWW_ID:
@@ -2092,10 +2129,31 @@ namespace Win3muCore
             return 0;
         }
 
+        [DllImport("user32.dll", EntryPoint = "GetUpdateRect")]
+        static extern bool _GetUpdateRect(HWND hWnd, IntPtr lpRect, bool erase);
+
         // 00BE - GETUPDATERECT
         [EntryPoint(0x00BE)]
-        [DllImport("user32.dll")]
-        public static extern bool GetUpdateRect(HWND hWnd, Win32.RECT lpRect, bool erase);
+        public bool GetUpdateRect(HWND hWnd, IntPtr lpRect, bool erase)
+        {
+            if (lpRect == IntPtr.Zero)
+                return _GetUpdateRect(hWnd, IntPtr.Zero, erase);
+
+            var rectPtr = Marshal.AllocHGlobal(Marshal.SizeOf<Win32.RECT>());
+            try
+            {
+                if (!_GetUpdateRect(hWnd, rectPtr, erase))
+                    return false;
+
+                var rc32 = Marshal.PtrToStructure<Win32.RECT>(rectPtr);
+                _machine.WriteStruct(unchecked((uint)lpRect.ToInt32()), rc32.Convert());
+                return true;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(rectPtr);
+            }
+        }
 
         [EntryPoint(0x00BF)]
         [DllImport("user32.dll")]
@@ -2150,45 +2208,130 @@ namespace Win3muCore
 
         // 00C6 - CASCADECHILDWINDOWS
         // 00C7 - TILECHILDWINDOWS
-        // 00C8 - OPENCOMM
-        // 00C9 - SETCOMMSTATE
-        // 00CA - GETCOMMSTATE
-        // 00CB - GETCOMMERROR
-        // 00CC - READCOMM
-        // 00CD - WRITECOMM
-
-        [EntryPoint(0x00cd)]
-        public int WriteComm(nint nCid, uint pszString, nint cbString)
+        [EntryPoint(0x00C8)]
+        public short OpenComm(string device, ushort cbInQueue, ushort cbOutQueue)
         {
-            return -1;
+            return _machine.Comm.OpenComm(device, cbInQueue, cbOutQueue);
         }
 
-
-            /*
-        [EntryPoint(0x00cd)]
-        public int WriteComm(nint nCid, uint pszString, nint cbString)
+        [EntryPoint(0x00C9)]
+        public short SetCommState(uint lpDcb)
         {
-            int offset;
-            var buf = _machine.GlobalHeap.GetBuffer(pszString, false, out offset);
-            if (buf == null)
+            return lpDcb == 0 ? (short)-1 : _machine.Comm.SetCommState(_machine.ReadStruct<Win16.DCB>(lpDcb));
+        }
+
+        [EntryPoint(0x00CA)]
+        public short GetCommState(short cid, uint lpDcb)
+        {
+            if (lpDcb == 0 || !_machine.Comm.TryGetCommState(cid, out var dcb))
                 return -1;
 
-            var str = Machine.AnsiEncoding.GetString(buf, offset, cbString);
-
+            _machine.WriteStruct(lpDcb, dcb);
             return 0;
         }
-        */
 
-        // 00CE - TRANSMITCOMMCHAR
-        // 00CF - CLOSECOMM
-        // 00D0 - SETCOMMEVENTMASK
-        // 00D1 - GETCOMMEVENTMASK
-        // 00D2 - SETCOMMBREAK
-        // 00D3 - CLEARCOMMBREAK
-        // 00D4 - UNGETCOMMCHAR
-        // 00D5 - BUILDCOMMDCB
-        // 00D6 - ESCAPECOMMFUNCTION
-        // 00D7 - FLUSHCOMM
+        [EntryPoint(0x00CB)]
+        public short GetCommError(short cid, uint lpStat)
+        {
+            var result = _machine.Comm.GetCommError(cid, out var stat);
+            if (lpStat != 0)
+                _machine.WriteStruct(lpStat, stat);
+            return result;
+        }
+
+        [EntryPoint(0x00CC)]
+        public short ReadComm(short cid, uint lpBuf, short cbRead)
+        {
+            if (lpBuf == 0 || cbRead < 0)
+                return -1;
+
+            var buffer = new byte[cbRead];
+            var read = _machine.Comm.ReadComm(cid, buffer, cbRead);
+            if (read > 0)
+            {
+                if (read != buffer.Length)
+                {
+                    var trimmed = new byte[read];
+                    Array.Copy(buffer, trimmed, read);
+                    buffer = trimmed;
+                }
+                _machine.WriteBytes(lpBuf, buffer);
+            }
+            return read;
+        }
+
+        [EntryPoint(0x00CD)]
+        public short WriteComm(short cid, uint lpBuf, short cbWrite)
+        {
+            if (lpBuf == 0 || cbWrite < 0)
+                return -1;
+
+            return _machine.Comm.WriteComm(cid, _machine.ReadBytes(lpBuf, cbWrite), cbWrite);
+        }
+
+        [EntryPoint(0x00CE)]
+        public short TransmitCommChar(short cid, byte ch)
+        {
+            return _machine.Comm.TransmitCommChar(cid, ch);
+        }
+
+        [EntryPoint(0x00CF)]
+        public short CloseComm(short cid)
+        {
+            return _machine.Comm.CloseComm(cid);
+        }
+
+        [EntryPoint(0x00D0)]
+        public uint SetCommEventMask(short cid, ushort mask)
+        {
+            return _machine.Comm.SetCommEventMask(cid, mask);
+        }
+
+        [EntryPoint(0x00D1)]
+        public ushort GetCommEventMask(short cid, ushort clearMask)
+        {
+            return _machine.Comm.GetCommEventMask(cid, clearMask);
+        }
+
+        [EntryPoint(0x00D2)]
+        public short SetCommBreak(short cid)
+        {
+            return _machine.Comm.SetCommBreak(cid);
+        }
+
+        [EntryPoint(0x00D3)]
+        public short ClearCommBreak(short cid)
+        {
+            return _machine.Comm.ClearCommBreak(cid);
+        }
+
+        [EntryPoint(0x00D4)]
+        public short UngetCommChar(short cid, byte ch)
+        {
+            return _machine.Comm.UngetCommChar(cid, ch);
+        }
+
+        [EntryPoint(0x00D5)]
+        public short BuildCommDCB(string spec, uint lpDcb)
+        {
+            var result = _machine.Comm.BuildCommDCB(spec, out var dcb);
+            if (result == 0 && lpDcb != 0)
+                _machine.WriteStruct(lpDcb, dcb);
+            return result;
+        }
+
+        [EntryPoint(0x00D6)]
+        public int EscapeCommFunction(short cid, ushort function)
+        {
+            return _machine.Comm.EscapeCommFunction(cid, function);
+        }
+
+        [EntryPoint(0x00D7)]
+        public short FlushComm(short cid, short function)
+        {
+            return _machine.Comm.FlushComm(cid, function);
+        }
+
         // 00D8 - USERSEEUSERDO
         // 00D9 - LOOKUPMENUHANDLE
         // 00DA - DIALOGBOXINDIRECT
@@ -2412,7 +2555,12 @@ namespace Win3muCore
         [DllImport("user32.dll")]
         public static extern bool EqualRect(ref Win32.RECT a, ref Win32.RECT b);
 
-        // 00F5 - ENABLECOMMNOTIFICATION
+        [EntryPoint(0x00F5)]
+        public bool EnableCommNotification(short cid, HWND hwnd, short cbWriteNotify, short cbOutQueue)
+        {
+            return _machine.Comm.EnableCommNotification(cid, HWND.To16(hwnd), cbWriteNotify, cbOutQueue);
+        }
+
         // 00F6 - EXITWINDOWSEXEC
         // 00F7 - GETCURSOR
         // 00F8 - GETOPENCLIPBOARDWINDOW

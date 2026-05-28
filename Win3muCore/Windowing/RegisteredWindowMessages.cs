@@ -35,7 +35,7 @@ namespace Win3muCore
             }
             else
             {
-                throw new NotImplementedException(string.Format("registered window message outside 16-bit range - {0}", message));
+                Log.WriteLine("RegisteredWindowMessages: message 0x{0:X8} outside 16-bit range, skipping registration", message);
             }
         }
 

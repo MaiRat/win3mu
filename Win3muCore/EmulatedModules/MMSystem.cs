@@ -29,6 +29,16 @@ namespace Win3muCore
     [Module("MMSYSTEM", @"C:\WINDOWS\SYSTEM\MMSYSTEM.DLL")]
     public class MMSystem : Module32
     {
+        const uint MMSYSERR_NOERROR = 0;
+        const uint MMSYSERR_NODRIVER = 6;
+        const uint JOYERR_PARMS = 165;
+        const int VirtualJoystickCount = 1;
+        const ushort DefaultJoystickThreshold = 0;
+        const ushort NeutralJoystickAxis = 0x7FFF;
+        const ushort VirtualJoystickButtons = 2;
+
+        readonly ushort[] _joyThresholds = Enumerable.Repeat(DefaultJoystickThreshold, VirtualJoystickCount).ToArray();
+
         public string ResolveMediaFile(string filename)
         {
             if (string.IsNullOrEmpty(filename))
@@ -110,6 +120,149 @@ namespace Win3muCore
         [EntryPoint(0x00c9)]
         [DllImport("winmm.dll")]
         public static extern nuint midiOutGetNumDevs();
+
+        internal static bool IsSupportedJoystickId(ushort uJoyID)
+        {
+            return uJoyID < VirtualJoystickCount;
+        }
+
+        internal static Win16.JOYINFO CreateNeutralJoyInfo()
+        {
+            return new Win16.JOYINFO()
+            {
+                wXpos = NeutralJoystickAxis,
+                wYpos = NeutralJoystickAxis,
+                wZpos = NeutralJoystickAxis,
+                wButtons = 0,
+            };
+        }
+
+        internal static Win16.JOYCAPS CreateDefaultJoyCaps()
+        {
+            return new Win16.JOYCAPS()
+            {
+                szPname = "Win3mu virtual joystick",
+                wXmin = 0,
+                wXmax = ushort.MaxValue,
+                wYmin = 0,
+                wYmax = ushort.MaxValue,
+                wZmin = 0,
+                wZmax = ushort.MaxValue,
+                wNumButtons = VirtualJoystickButtons,
+                wPeriodMin = 10,
+                wPeriodMax = 1000,
+            };
+        }
+
+        internal static byte[] StructToBytes<T>(T value)
+        {
+            var size = Marshal.SizeOf<T>();
+            var ptr = Marshal.AllocHGlobal(size);
+            try
+            {
+                Marshal.StructureToPtr(value, ptr, false);
+                var bytes = new byte[size];
+                Marshal.Copy(ptr, bytes, 0, size);
+                return bytes;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(ptr);
+            }
+        }
+
+        // 0065 - JOYGETNUMDEVS - 0065
+        [EntryPoint(0x0065)]
+        public ushort joyGetNumDevs()
+        {
+            Log.WriteLine("MMSystem.joyGetNumDevs");
+            return VirtualJoystickCount;
+        }
+
+        // 0066 - JOYGETDEVCAPS - 0066
+        [EntryPoint(0x0066)]
+        public uint joyGetDevCaps(ushort uJoyID, uint lpCaps, ushort cbjc)
+        {
+            Log.WriteLine("MMSystem.joyGetDevCaps: id={0}, caps=0x{1:X8}, cb={2}", uJoyID, lpCaps, cbjc);
+            if (!IsSupportedJoystickId(uJoyID))
+                return MMSYSERR_NODRIVER;
+            if (lpCaps == 0 || cbjc == 0)
+                return JOYERR_PARMS;
+
+            var bytes = StructToBytes(CreateDefaultJoyCaps());
+            var bytesToWrite = Math.Min((int)cbjc, bytes.Length);
+            _machine.MemoryBus.WriteBytes(lpCaps.Hiword(), lpCaps.Loword(), bytes, bytesToWrite);
+            return MMSYSERR_NOERROR;
+        }
+
+        // 0067 - JOYGETPOS - 0067
+        [EntryPoint(0x0067)]
+        public uint joyGetPos(ushort uJoyID, uint lpInfo)
+        {
+            Log.WriteLine("MMSystem.joyGetPos: id={0}, info=0x{1:X8}", uJoyID, lpInfo);
+            if (!IsSupportedJoystickId(uJoyID))
+                return MMSYSERR_NODRIVER;
+            if (lpInfo == 0)
+                return JOYERR_PARMS;
+
+            _machine.WriteStruct(lpInfo, CreateNeutralJoyInfo());
+            return MMSYSERR_NOERROR;
+        }
+
+        // 0068 - JOYGETTHRESHOLD - 0068
+        [EntryPoint(0x0068)]
+        public uint joyGetThreshold(ushort uJoyID, uint lpThreshold)
+        {
+            Log.WriteLine("MMSystem.joyGetThreshold: id={0}, threshold=0x{1:X8}", uJoyID, lpThreshold);
+            if (!IsSupportedJoystickId(uJoyID))
+                return MMSYSERR_NODRIVER;
+            if (lpThreshold == 0)
+                return JOYERR_PARMS;
+
+            _machine.MemoryBus.WriteWord(lpThreshold.Hiword(), lpThreshold.Loword(), _joyThresholds[uJoyID]);
+            return MMSYSERR_NOERROR;
+        }
+
+        // 0069 - JOYRELEASECAPTURE - 0069
+        [EntryPoint(0x0069)]
+        public uint joyReleaseCapture(ushort uJoyID)
+        {
+            Log.WriteLine("MMSystem.joyReleaseCapture: id={0}", uJoyID);
+            return IsSupportedJoystickId(uJoyID) ? MMSYSERR_NOERROR : MMSYSERR_NODRIVER;
+        }
+
+        // 006A - JOYSETCAPTURE - 006A
+        [EntryPoint(0x006A)]
+        public uint joySetCapture(ushort hWnd, ushort uJoyID, ushort uPeriod, ushort fChanged)
+        {
+            Log.WriteLine("MMSystem.joySetCapture: hwnd=0x{0:X4}, id={1}, period={2}, changed={3}", hWnd, uJoyID, uPeriod, fChanged);
+            return IsSupportedJoystickId(uJoyID) ? MMSYSERR_NOERROR : MMSYSERR_NODRIVER;
+        }
+
+        // 006B - JOYSETTHRESHOLD - 006B
+        [EntryPoint(0x006B)]
+        public uint joySetThreshold(ushort uJoyID, ushort uThreshold)
+        {
+            Log.WriteLine("MMSystem.joySetThreshold: id={0}, threshold={1}", uJoyID, uThreshold);
+            if (!IsSupportedJoystickId(uJoyID))
+                return MMSYSERR_NODRIVER;
+
+            _joyThresholds[uJoyID] = uThreshold;
+            return MMSYSERR_NOERROR;
+        }
+
+        // 006D - JOYSETCALIBRATION - 006D
+        [EntryPoint(0x006D)]
+        public uint joySetCalibration(ushort uJoyID, uint lpCalibration)
+        {
+            Log.WriteLine("MMSystem.joySetCalibration: id={0}, calibration=0x{1:X8}", uJoyID, lpCalibration);
+            if (!IsSupportedJoystickId(uJoyID))
+                return MMSYSERR_NODRIVER;
+            if (lpCalibration == 0)
+                return JOYERR_PARMS;
+
+            return MMSYSERR_NOERROR;
+        }
 
         // 00CA - MIDIOUTGETDEVCAPS - 00CA
         // 00CB - MIDIOUTGETERRORTEXT - 00CB
@@ -209,6 +362,59 @@ namespace Win3muCore
             return _mciDeviceIdMap.To32(deviceId).DWord();
         }
 
+        internal static bool UsesMciDgvOpenParams(uint flags)
+        {
+            return (flags & (WinCommon.MCI_DGV_OPEN_WS | WinCommon.MCI_DGV_OPEN_PARENT | WinCommon.MCI_DGV_OPEN_NOSTATIC | WinCommon.MCI_DGV_OPEN_16BIT | WinCommon.MCI_DGV_OPEN_32BIT)) != 0;
+        }
+
+        internal static Win32.MCI_DGV_RECT_PARMS ConvertMciDgvRectParams(Win16.MCI_DGV_RECT_PARMS st16)
+        {
+            return new Win32.MCI_DGV_RECT_PARMS()
+            {
+                rc = st16.rc.Convert(),
+            };
+        }
+
+        internal static Win16.MCI_DGV_RECT_PARMS ConvertMciDgvRectParams(Win32.MCI_DGV_RECT_PARMS st32)
+        {
+            return new Win16.MCI_DGV_RECT_PARMS()
+            {
+                rc = st32.rc.Convert(),
+            };
+        }
+
+        internal static Win32.MCI_DGV_UPDATE_PARMS ConvertMciDgvUpdateParams(Win16.MCI_DGV_UPDATE_PARMS st16)
+        {
+            return new Win32.MCI_DGV_UPDATE_PARMS()
+            {
+                rc = st16.rc.Convert(),
+            };
+        }
+
+        internal static Win16.MCI_DGV_UPDATE_PARMS ConvertMciDgvUpdateParams(Win32.MCI_DGV_UPDATE_PARMS st32)
+        {
+            return new Win16.MCI_DGV_UPDATE_PARMS()
+            {
+                rc = st32.rc.Convert(),
+            };
+        }
+
+        internal static Win32.MCI_DGV_WINDOW_PARMS ConvertMciDgvWindowParams(Win16.MCI_DGV_WINDOW_PARMS st16)
+        {
+            return new Win32.MCI_DGV_WINDOW_PARMS()
+            {
+                nCmdShow = st16.nCmdShow,
+            };
+        }
+
+        internal static Win16.MCI_DGV_WINDOW_PARMS ConvertMciDgvWindowParams(Win32.MCI_DGV_WINDOW_PARMS st32)
+        {
+            return new Win16.MCI_DGV_WINDOW_PARMS()
+            {
+                nCmdShow = unchecked((ushort)st32.nCmdShow),
+            };
+        }
+
         void SetCallback(ref Win32.MCI_GENERIC_PARAMS st32, uint callback)
         {
             if (HWND.Map.IsValid16(callback.Loword()))
@@ -239,6 +445,49 @@ namespace Win3muCore
                 {
                     using (var ctx = new TempContext(_machine))
                     {
+                        if (UsesMciDgvOpenParams(dwParam1))
+                        {
+                            var dgvOpen16 = _machine.ReadStruct<Win16.MCI_DGV_OPEN_PARAMS>(dwParam2);
+                            var dgvOpen32 = new Win32.MCI_DGV_OPEN_PARAMS();
+
+                            if ((dwParam1 & Win16.MCI_OPEN_TYPE) != 0)
+                            {
+                                if ((dwParam1 & Win16.MCI_OPEN_TYPE_ID) != 0)
+                                    dgvOpen32.lpstrDeviceName = BitUtils.DWordToIntPtr(dgvOpen16.lpstrDeviceName);
+                                else
+                                    dgvOpen32.lpstrDeviceName = ctx.AllocUnmanagedString(_machine.ReadString(dgvOpen16.lpstrDeviceName));
+                            }
+
+                            if ((dwParam1 & Win16.MCI_OPEN_ELEMENT) != 0)
+                            {
+                                if ((dwParam1 & Win16.MCI_OPEN_ELEMENT_ID) != 0)
+                                    dgvOpen32.lpstrElementName = BitUtils.DWordToIntPtr(dgvOpen16.lpstrElementName);
+                                else
+                                    dgvOpen32.lpstrElementName = ctx.AllocUnmanagedString(ResolveMediaFile(_machine.ReadString(dgvOpen16.lpstrElementName)));
+                            }
+
+                            if ((dwParam1 & Win16.MCI_OPEN_ALIAS) != 0)
+                            {
+                                dgvOpen32.lpstrAlias = Marshal.StringToHGlobalUni(_machine.ReadString(dgvOpen16.lpstrAlias));
+                            }
+
+                            dgvOpen32.dwStyle = dgvOpen16.dwStyle;
+                            if (dgvOpen16.hWndParent != 0)
+                                dgvOpen32.hWndParent = HWND.Map.To32(dgvOpen16.hWndParent);
+
+                            if (HWND.Map.IsValid16(dgvOpen16.dwCallback.Loword()))
+                                dgvOpen32.dwCallback = HWND.Map.To32(dgvOpen16.dwCallback.Loword());
+
+                            unsafe
+                            {
+                                Win32.MCI_DGV_OPEN_PARAMS* p = &dgvOpen32;
+                                uint retv = mciSendCommand(uDeviceId, Win32.MCI_OPEN, (IntPtr)dwParam1, (IntPtr)p);
+                                dgvOpen16.wDeviceID = retv == 0 ? DeviceIdTo16(dgvOpen32.wDeviceID) : (ushort)0;
+                                _machine.WriteStruct(dwParam2, dgvOpen16);
+                                return retv;
+                            }
+                        }
+
                         var op16 = _machine.ReadStruct<Win16.MCI_OPEN_PARAMS>(dwParam2);
                         var op32 = new Win32.MCI_OPEN_PARAMS();
 
@@ -350,7 +599,161 @@ namespace Win3muCore
 
                 case Win16.MCI_STOP:
                 case Win16.MCI_PAUSE:
+                case Win16.MCI_RESUME:
+                case Win16.MCI_SPIN:
+                case Win16.MCI_STEP:
+                case Win16.MCI_CUE:
+                case Win16.MCI_BREAK:
+                case Win16.MCI_ESCAPE:
+                case Win16.MCI_REALIZE:
+                case Win16.MCI_FREEZE:
+                case Win16.MCI_UNFREEZE:
+                case Win16.MCI_CUT:
+                case Win16.MCI_COPY:
+                case Win16.MCI_PASTE:
+                case Win16.MCI_DELETE:
                     return SendGenericMciCommand(uDeviceId, uMessage, dwParam1, dwParam2);
+
+                case Win16.MCI_SET:
+                {
+                    var st32 = new Win32.MCI_SET_PARAMS();
+                    if (dwParam2 != 0)
+                    {
+                        var st16 = _machine.ReadStruct<Win16.MCI_SET_PARAMS>(dwParam2);
+                        st32.dwTimeFormat = st16.dwTimeFormat;
+                        st32.dwAudio = st16.dwAudio;
+                        if (HWND.Map.IsValid16(st16.dwCallback.Loword()))
+                            st32.dwCallback = HWND.Map.To32(st16.dwCallback.Loword());
+                    }
+
+                    unsafe
+                    {
+                        return mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_SET, (IntPtr)dwParam1, (IntPtr)(&st32));
+                    }
+                }
+
+                case Win16.MCI_GETDEVCAPS:
+                {
+                    var st32 = new Win32.MCI_GETDEVCAPS_PARAMS();
+                    if (dwParam2 != 0)
+                    {
+                        var st16 = _machine.ReadStruct<Win16.MCI_GETDEVCAPS_PARAMS>(dwParam2);
+                        st32.dwItem = st16.dwItem;
+                        if (HWND.Map.IsValid16(st16.dwCallback.Loword()))
+                            st32.dwCallback = HWND.Map.To32(st16.dwCallback.Loword());
+                    }
+
+                    unsafe
+                    {
+                        uint retv = mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_GETDEVCAPS, (IntPtr)dwParam1, (IntPtr)(&st32));
+                        if (dwParam2 != 0)
+                        {
+                            var st16 = _machine.ReadStruct<Win16.MCI_GETDEVCAPS_PARAMS>(dwParam2);
+                            st16.dwReturn = st32.dwReturn;
+                            _machine.WriteStruct(dwParam2, st16);
+                        }
+                        return retv;
+                    }
+                }
+
+                case Win16.MCI_INFO:
+                {
+                    if (dwParam2 == 0)
+                        return mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_INFO, (IntPtr)dwParam1, IntPtr.Zero);
+
+                    var st16 = _machine.ReadStruct<Win16.MCI_INFO_PARAMS>(dwParam2);
+                    var bufferSize = (int)st16.dwRetSize;
+                    if (bufferSize <= 0)
+                        bufferSize = 256;
+
+                    var nativeBuffer = Marshal.AllocHGlobal(bufferSize * 2); // Unicode chars
+                    try
+                    {
+                        var st32 = new Win32.MCI_INFO_PARAMS();
+                        st32.lpstrReturn = nativeBuffer;
+                        st32.dwRetSize = (uint)bufferSize;
+                        if (HWND.Map.IsValid16(st16.dwCallback.Loword()))
+                            st32.dwCallback = HWND.Map.To32(st16.dwCallback.Loword());
+
+                        unsafe
+                        {
+                            uint retv = mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_INFO, (IntPtr)dwParam1, (IntPtr)(&st32));
+                            if (retv == 0 && st16.lpstrReturn != 0)
+                            {
+                                var result = Marshal.PtrToStringUni(nativeBuffer) ?? "";
+                                _machine.WriteString(st16.lpstrReturn, result, (ushort)Math.Min((uint)ushort.MaxValue, st16.dwRetSize));
+                            }
+                            return retv;
+                        }
+                    }
+                    finally
+                    {
+                        Marshal.FreeHGlobal(nativeBuffer);
+                    }
+                }
+
+                case Win16.MCI_RECORD:
+                {
+                    var st32 = new Win32.MCI_RECORD_PARAMS();
+                    if (dwParam2 != 0)
+                    {
+                        var st16 = _machine.ReadStruct<Win16.MCI_RECORD_PARAMS>(dwParam2);
+                        st32.dwFrom = st16.dwFrom;
+                        st32.dwTo = st16.dwTo;
+                        if (HWND.Map.IsValid16(st16.dwCallback.Loword()))
+                            st32.dwCallback = HWND.Map.To32(st16.dwCallback.Loword());
+                    }
+
+                    unsafe
+                    {
+                        return mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_RECORD, (IntPtr)dwParam1, (IntPtr)(&st32));
+                    }
+                }
+
+                case Win16.MCI_SAVE:
+                case Win16.MCI_LOAD:
+                {
+                    // MCI_SAVE and MCI_LOAD use MCI_SAVE_PARAMS / MCI_LOAD_PARAMS which have the same layout:
+                    // dwCallback + lpfilename
+                    // We pass them through as generic since the filename pointer requires conversion
+                    if (dwParam2 == 0)
+                        return mciSendCommand(DeviceIdTo32(uDeviceId), uMessage, (IntPtr)dwParam1, IntPtr.Zero);
+
+                    // Read the 16-bit struct: dwCallback (4 bytes) + lpfilename (4 bytes = seg:ofs)
+                    var st16Callback = _machine.ReadDWord(dwParam2);
+                    var st16Filename = _machine.ReadDWord(dwParam2 + 4);
+
+                    using (var ctx = new TempContext(_machine))
+                    {
+                        var st32 = new Win32.MCI_GENERIC_PARAMS();
+                        if (HWND.Map.IsValid16(st16Callback.Loword()))
+                            st32.dwCallback = HWND.Map.To32(st16Callback.Loword());
+
+                        // Allocate a native buffer big enough for callback + filename pointer
+                        var bufSize = IntPtr.Size * 2;
+                        var nativeBuf = Marshal.AllocHGlobal(bufSize);
+                        try
+                        {
+                            Marshal.WriteIntPtr(nativeBuf, 0, st32.dwCallback);
+                            if (st16Filename != 0)
+                            {
+                                var filename = _machine.ReadString(st16Filename);
+                                filename = ResolveMediaFile(filename);
+                                Marshal.WriteIntPtr(nativeBuf, IntPtr.Size, ctx.AllocUnmanagedString(filename));
+                            }
+                            else
+                            {
+                                Marshal.WriteIntPtr(nativeBuf, IntPtr.Size, IntPtr.Zero);
+                            }
+
+                            return mciSendCommand(DeviceIdTo32(uDeviceId), uMessage, (IntPtr)dwParam1, nativeBuf);
+                        }
+                        finally
+                        {
+                            Marshal.FreeHGlobal(nativeBuf);
+                        }
+                    }
+                }
 
                 case Win16.MCI_SEEK:
                 {
@@ -368,12 +771,172 @@ namespace Win3muCore
                         return mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_SEEK, (IntPtr)dwParam1, (IntPtr)(&st32));
                     }
                 }
+
+                case Win16.MCI_SYSINFO:
+                {
+                    if (dwParam2 == 0)
+                        return mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_SYSINFO, (IntPtr)dwParam1, IntPtr.Zero);
+
+                    var st16 = _machine.ReadStruct<Win16.MCI_SYSINFO_PARAMS>(dwParam2);
+                    var bufferSize = (int)st16.dwRetSize;
+                    if (bufferSize <= 0)
+                        bufferSize = 256;
+
+                    var nativeBuffer = Marshal.AllocHGlobal(bufferSize * 2); // Unicode chars
+                    try
+                    {
+                        var st32 = new Win32.MCI_SYSINFO_PARAMS();
+                        st32.lpstrReturn = nativeBuffer;
+                        st32.dwRetSize = (uint)bufferSize;
+                        st32.dwNumber = st16.dwNumber;
+                        st32.wDeviceType = st16.wDeviceType;
+                        if (HWND.Map.IsValid16(st16.dwCallback.Loword()))
+                            st32.dwCallback = HWND.Map.To32(st16.dwCallback.Loword());
+
+                        unsafe
+                        {
+                            uint retv = mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_SYSINFO, (IntPtr)dwParam1, (IntPtr)(&st32));
+                            if (retv == 0 && st16.lpstrReturn != 0)
+                            {
+                                // SYSINFO_QUANTITY returns an integer in the buffer
+                                if ((dwParam1 & WinCommon.MCI_SYSINFO_QUANTITY) != 0)
+                                {
+                                    // The result is stored as a DWORD at the start of the buffer
+                                    uint count = (uint)Marshal.ReadInt32(nativeBuffer);
+                                    _machine.MemoryBus.WriteDWord(st16.lpstrReturn.Hiword(), st16.lpstrReturn.Loword(), count);
+                                }
+                                else
+                                {
+                                    var result = Marshal.PtrToStringUni(nativeBuffer) ?? "";
+                                    _machine.WriteString(st16.lpstrReturn, result, (ushort)Math.Min((uint)ushort.MaxValue, st16.dwRetSize));
+                                }
+                            }
+                            return retv;
+                        }
+                    }
+                    finally
+                    {
+                        Marshal.FreeHGlobal(nativeBuffer);
+                    }
+                }
+
+                case Win16.MCI_WINDOW:
+                {
+                    if (dwParam2 == 0)
+                        return mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_WINDOW, (IntPtr)dwParam1, IntPtr.Zero);
+
+                    using (var ctx = new TempContext(_machine))
+                    {
+                        var st16 = _machine.ReadStruct<Win16.MCI_DGV_WINDOW_PARMS>(dwParam2);
+                        var st32 = ConvertMciDgvWindowParams(st16);
+
+                        if (HWND.Map.IsValid16(st16.dwCallback.Loword()))
+                            st32.dwCallback = HWND.Map.To32(st16.dwCallback.Loword());
+                        if (st16.hWnd != 0)
+                            st32.hWnd = HWND.Map.To32(st16.hWnd);
+                        if ((dwParam1 & WinCommon.MCI_DGV_WINDOW_TEXT) != 0 && st16.lpstrText != 0)
+                            st32.lpstrText = ctx.AllocUnmanagedString(_machine.ReadString(st16.lpstrText));
+
+                        unsafe
+                        {
+                            uint retv = mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_WINDOW, (IntPtr)dwParam1, (IntPtr)(&st32));
+                            if (retv == 0)
+                            {
+                                var result16 = ConvertMciDgvWindowParams(st32);
+                                result16.dwCallback = st16.dwCallback;
+                                result16.lpstrText = st16.lpstrText;
+                                result16.hWnd = st32.hWnd == IntPtr.Zero ? (ushort)0 : HWND.To16((HWND)st32.hWnd);
+                                _machine.WriteStruct(dwParam2, result16);
+                            }
+                            return retv;
+                        }
+                    }
+                }
+
+                case Win16.MCI_PUT:
+                case Win16.MCI_WHERE:
+                {
+                    if (dwParam2 == 0)
+                        return mciSendCommand(DeviceIdTo32(uDeviceId), uMessage, (IntPtr)dwParam1, IntPtr.Zero);
+
+                    var st16 = _machine.ReadStruct<Win16.MCI_DGV_RECT_PARMS>(dwParam2);
+                    var st32 = ConvertMciDgvRectParams(st16);
+                    if (HWND.Map.IsValid16(st16.dwCallback.Loword()))
+                        st32.dwCallback = HWND.Map.To32(st16.dwCallback.Loword());
+
+                    unsafe
+                    {
+                        uint retv = mciSendCommand(DeviceIdTo32(uDeviceId), uMessage, (IntPtr)dwParam1, (IntPtr)(&st32));
+                        if (retv == 0)
+                        {
+                            var result16 = ConvertMciDgvRectParams(st32);
+                            result16.dwCallback = st16.dwCallback;
+                            _machine.WriteStruct(dwParam2, result16);
+                        }
+                        return retv;
+                    }
+                }
+
+                case Win16.MCI_UPDATE:
+                {
+                    if (dwParam2 == 0)
+                        return mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_UPDATE, (IntPtr)dwParam1, IntPtr.Zero);
+
+                    var st16 = _machine.ReadStruct<Win16.MCI_DGV_UPDATE_PARMS>(dwParam2);
+                    var st32 = ConvertMciDgvUpdateParams(st16);
+                    if (HWND.Map.IsValid16(st16.dwCallback.Loword()))
+                        st32.dwCallback = HWND.Map.To32(st16.dwCallback.Loword());
+                    if (st16.hDC != 0)
+                        st32.hDC = HDC.To32(st16.hDC).value;
+
+                    unsafe
+                    {
+                        uint retv = mciSendCommand(DeviceIdTo32(uDeviceId), Win32.MCI_UPDATE, (IntPtr)dwParam1, (IntPtr)(&st32));
+                        if (retv == 0)
+                        {
+                            var result16 = ConvertMciDgvUpdateParams(st32);
+                            result16.dwCallback = st16.dwCallback;
+                            result16.hDC = st32.hDC == IntPtr.Zero ? (ushort)0 : HDC.To16((HDC)st32.hDC);
+                            _machine.WriteStruct(dwParam2, result16);
+                        }
+                        return retv;
+                    }
+                }
             }
 
-            throw new NotImplementedException($"[mciSendCommand] Unsupported MCI command: 0x{uMessage:X4}");
+            Log.WriteLine("[mciSendCommand] Unsupported MCI command: 0x{0:X4}", uMessage);
+            return 263; // MCIERR_UNSUPPORTED_FUNCTION
         }
 
-        // 02BE - MCISENDSTRING - 02BE
+        [DllImport("winmm.dll", CharSet = CharSet.Unicode, EntryPoint = "mciSendStringW")]
+        static extern uint _mciSendString(string lpstrCommand, StringBuilder lpstrReturnString, uint uReturnLength, IntPtr hwndCallback);
+
+        [EntryPoint(0x02be)]
+        public uint mciSendString(uint pszCommand, uint pszReturnString, ushort uReturnLength, ushort hwndCallback)
+        {
+            var command = _machine.ReadString(pszCommand);
+
+            StringBuilder sb = null;
+            uint returnLen = uReturnLength;
+            if (pszReturnString != 0 && uReturnLength > 0)
+            {
+                sb = new StringBuilder((int)returnLen);
+            }
+
+            IntPtr hWndCb = IntPtr.Zero;
+            if (hwndCallback != 0 && HWND.Map.IsValid16(hwndCallback))
+                hWndCb = HWND.Map.To32(hwndCallback);
+
+            uint retv = _mciSendString(command, sb, returnLen, hWndCb);
+
+            if (retv == 0 && sb != null && pszReturnString != 0)
+            {
+                _machine.WriteString(pszReturnString, sb.ToString(), uReturnLength);
+            }
+
+            return retv;
+        }
+
         // 02BF - MCIGETDEVICEID - 02BF
         // 02C0 - MCIPARSECOMMAND - 02C0
         // 02C1 - MCILOADCOMMANDRESOURCE - 02C1

@@ -27,7 +27,7 @@ using Sharp86;
 
 namespace Win3muCore
 {
-    public class Machine : CPU, DosApi.ISite, IMemoryBus
+    public class Machine : CPU, DosApi.ISite, IMemoryBus, IPortBus
     {
         public Machine()
         {
@@ -53,9 +53,11 @@ namespace Win3muCore
             _expressionContext = new ExpressionContext(this);
             _symbolResolver = new SymbolResolver(this);
             _stackWalker = new StackWalker(this);
+            _comm = new CommSupport();
             _expressionContext.PushSymbolScope(_symbolResolver);
 
             this.MemoryBus = _globalHeap;
+            this.PortBus = this;
             MachineStatusWord = 0x0001;
 
             RegisterVariables();
@@ -78,6 +80,7 @@ namespace Win3muCore
             _moduleManager.LoadModule(new Gdi());
             _moduleManager.LoadModule(new MMSystem());
             _moduleManager.LoadModule(new Keyboard());
+            _moduleManager.LoadModule(new Comm());
 //            _moduleManager.LoadModule(new Shell());
             _moduleManager.LoadModule(new DdeML());
             _moduleManager.LoadModule(new Sound());
@@ -147,8 +150,10 @@ namespace Win3muCore
         DebuggerCore _debugger;
         StackWalker _stackWalker;
         DosApi _dos;
+        CommSupport _comm;
         Kernel _kernel;
         public Kernel Kernel { get { return _kernel; } }
+        public CommSupport Comm { get { return _comm; } }
         User _user;
         public User User { get { return _user; } }
 
@@ -964,14 +969,26 @@ namespace Win3muCore
             }
         }
 
+        public byte ReadPortByte(ushort port)
+        {
+            Log.WriteLine("ReadPortByte: port 0x{0:X4} - returning 0xFF", port);
+            return 0xFF;
+        }
+
+        public void WritePortByte(ushort port, byte value)
+        {
+            Log.WriteLine("WritePortByte: port 0x{0:X4} value 0x{1:X2} - ignored", port, value);
+        }
+
         public ushort ReadPortWord(ushort port)
         {
-            throw new NotImplementedException();
+            return (ushort)(ReadPortByte(port) | ReadPortByte((ushort)(port + 1)) << 8);
         }
 
         public void WritePortWord(ushort port, ushort value)
         {
-            throw new NotImplementedException();
+            WritePortByte(port, (byte)(value & 0xFF));
+            WritePortByte((ushort)(port + 1), (byte)(value >> 8));
         }
 
 

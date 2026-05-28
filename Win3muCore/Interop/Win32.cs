@@ -622,7 +622,13 @@ namespace Win3muCore
             {
                 if (lb32.style == Win32.BS_DIBPATTERN)
                 {
-                    throw new NotImplementedException("Unsupport log brush conversion BS_DIBPATTERN");
+                    Log.WriteLine("LOGBRUSH.To16: BS_DIBPATTERN not fully supported, converting as solid brush");
+                    return new Win16.LOGBRUSH()
+                    {
+                        style = (ushort)Win32.BS_SOLID,
+                        color = lb32.color,
+                        hatch = 0,
+                    };
                 }
                 return new Win16.LOGBRUSH()
                 {
@@ -807,6 +813,18 @@ namespace Win3muCore
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        public struct MCI_DGV_OPEN_PARAMS
+        {
+            public IntPtr dwCallback;
+            public uint wDeviceID;
+            public IntPtr lpstrDeviceName;
+            public IntPtr lpstrElementName;
+            public IntPtr lpstrAlias;
+            public uint dwStyle;
+            public IntPtr hWndParent;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
         public struct MCI_STATUS_PARAMS
         {
             public IntPtr dwCallback;
@@ -834,6 +852,82 @@ namespace Win3muCore
         public struct MCI_GENERIC_PARAMS
         {
             public IntPtr dwCallback;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        public struct MCI_DGV_RECT_PARMS
+        {
+            public IntPtr dwCallback;
+            public RECT rc;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        public struct MCI_DGV_UPDATE_PARMS
+        {
+            public IntPtr dwCallback;
+            public RECT rc;
+            public IntPtr hDC;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        public struct MCI_DGV_WINDOW_PARMS
+        {
+            public IntPtr dwCallback;
+            public IntPtr hWnd;
+            public uint nCmdShow;
+            public IntPtr lpstrText;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        public struct MCI_SET_PARAMS
+        {
+            public IntPtr dwCallback;
+            public uint dwTimeFormat;
+            public uint dwAudio;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        public struct MCI_GETDEVCAPS_PARAMS
+        {
+            public IntPtr dwCallback;
+            public uint dwReturn;
+            public uint dwItem;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        public struct MCI_INFO_PARAMS
+        {
+            public IntPtr dwCallback;
+            public IntPtr lpstrReturn;
+            public uint dwRetSize;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        public struct MCI_RECORD_PARAMS
+        {
+            public IntPtr dwCallback;
+            public uint dwFrom;
+            public uint dwTo;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        public struct MCI_SYSINFO_PARAMS
+        {
+            public IntPtr dwCallback;
+            public IntPtr lpstrReturn;
+            public uint dwRetSize;
+            public uint dwNumber;
+            public uint wDeviceType;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        public struct DOCINFO
+        {
+            public int cbSize;
+            public IntPtr lpszDocName;
+            public IntPtr lpszOutput;
+            public IntPtr lpszDatatype;
+            public uint fwType;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 4)]

@@ -217,6 +217,64 @@ namespace Win3muCore
             }
         }
 
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct COMSTAT
+        {
+            public byte status;
+            public ushort cbInQue;
+            public ushort cbOutQue;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct DCB
+        {
+            public byte Id;
+            public ushort BaudRate;
+            public byte ByteSize;
+            public byte Parity;
+            public byte StopBits;
+            public ushort RlsTimeout;
+            public ushort CtsTimeout;
+            public ushort DsrTimeout;
+            public byte Flags1;
+            public byte Flags2;
+            public byte XonChar;
+            public byte XoffChar;
+            public ushort XonLim;
+            public ushort XoffLim;
+            public byte PeChar;
+            public byte EofChar;
+            public byte EvtChar;
+            public ushort TxDelay;
+
+            bool GetFlag(byte mask, bool highByte)
+            {
+                return ((highByte ? Flags2 : Flags1) & mask) != 0;
+            }
+
+            void SetFlag(byte mask, bool highByte, bool value)
+            {
+                if (highByte)
+                    Flags2 = value ? (byte)(Flags2 | mask) : (byte)(Flags2 & ~mask);
+                else
+                    Flags1 = value ? (byte)(Flags1 | mask) : (byte)(Flags1 & ~mask);
+            }
+
+            public bool fBinary { get => GetFlag(0x01, false); set => SetFlag(0x01, false, value); }
+            public bool fRtsDisable { get => GetFlag(0x02, false); set => SetFlag(0x02, false, value); }
+            public bool fParity { get => GetFlag(0x04, false); set => SetFlag(0x04, false, value); }
+            public bool fOutxCtsFlow { get => GetFlag(0x08, false); set => SetFlag(0x08, false, value); }
+            public bool fOutxDsrFlow { get => GetFlag(0x10, false); set => SetFlag(0x10, false, value); }
+            public bool fDtrDisable { get => GetFlag(0x80, false); set => SetFlag(0x80, false, value); }
+            public bool fOutX { get => GetFlag(0x01, true); set => SetFlag(0x01, true, value); }
+            public bool fInX { get => GetFlag(0x02, true); set => SetFlag(0x02, true, value); }
+            public bool fPeChar { get => GetFlag(0x04, true); set => SetFlag(0x04, true, value); }
+            public bool fNull { get => GetFlag(0x08, true); set => SetFlag(0x08, true, value); }
+            public bool fChEvt { get => GetFlag(0x10, true); set => SetFlag(0x10, true, value); }
+            public bool fDtrflow { get => GetFlag(0x20, true); set => SetFlag(0x20, true, value); }
+            public bool fRtsflow { get => GetFlag(0x40, true); set => SetFlag(0x40, true, value); }
+        }
+
         [StructLayout(LayoutKind.Sequential, Pack = 2)]
         public struct CWPSTRUCT
         {
@@ -723,6 +781,33 @@ namespace Win3muCore
         public const ushort CB_FINDSTRINGEXACT = WM_USER + 24;
 
         [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        public struct JOYINFO
+        {
+            public ushort wXpos;
+            public ushort wYpos;
+            public ushort wZpos;
+            public ushort wButtons;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2, CharSet = CharSet.Ansi)]
+        public struct JOYCAPS
+        {
+            public ushort wMid;
+            public ushort wPid;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+            public string szPname;
+            public ushort wXmin;
+            public ushort wXmax;
+            public ushort wYmin;
+            public ushort wYmax;
+            public ushort wZmin;
+            public ushort wZmax;
+            public ushort wNumButtons;
+            public ushort wPeriodMin;
+            public ushort wPeriodMax;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
         public struct MCI_OPEN_PARAMS
         {
             public uint dwCallback;
@@ -731,6 +816,19 @@ namespace Win3muCore
             public uint lpstrDeviceName;
             public uint lpstrElementName;
             public uint lpstrAlias;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        public struct MCI_DGV_OPEN_PARAMS
+        {
+            public uint dwCallback;
+            public ushort wDeviceID;
+            public ushort wReserved;
+            public uint lpstrDeviceName;
+            public uint lpstrElementName;
+            public uint lpstrAlias;
+            public uint dwStyle;
+            public ushort hWndParent;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 2)]
@@ -761,6 +859,80 @@ namespace Win3muCore
         public struct MCI_GENERIC_PARAMS
         {
             public uint dwCallback;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        public struct MCI_DGV_RECT_PARMS
+        {
+            public uint dwCallback;
+            public RECT rc;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        public struct MCI_DGV_UPDATE_PARMS
+        {
+            public uint dwCallback;
+            public RECT rc;
+            public ushort hDC;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        public struct MCI_DGV_WINDOW_PARMS
+        {
+            public uint dwCallback;
+            public ushort hWnd;
+            public ushort nCmdShow;
+            public uint lpstrText;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        public struct MCI_SET_PARAMS
+        {
+            public uint dwCallback;
+            public uint dwTimeFormat;
+            public uint dwAudio;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        public struct MCI_GETDEVCAPS_PARAMS
+        {
+            public uint dwCallback;
+            public uint dwReturn;
+            public uint dwItem;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        public struct MCI_INFO_PARAMS
+        {
+            public uint dwCallback;
+            public uint lpstrReturn;
+            public uint dwRetSize;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        public struct MCI_RECORD_PARAMS
+        {
+            public uint dwCallback;
+            public uint dwFrom;
+            public uint dwTo;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        public struct MCI_SYSINFO_PARAMS
+        {
+            public uint dwCallback;
+            public uint lpstrReturn;  // seg:offset pointer
+            public uint dwRetSize;
+            public uint dwNumber;
+            public ushort wDeviceType;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        public struct DOCINFO
+        {
+            public short cbSize;
+            public uint lpszDocName;
+            public uint lpszOutput;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 2)]

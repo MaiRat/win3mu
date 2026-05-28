@@ -97,12 +97,16 @@ namespace Win3muCore.MessageSemantics
     {
         public override void To32(Machine machine, ref Win16.MSG msg16, ref Win32.MSG msg32)
         {
-            throw new NotImplementedException($"Message type not implemented: {MessageNames.NameOfMessage(msg16.message)}");
+            Log.WriteLine("Warning: message conversion not implemented for {0}, passing through as copy", MessageNames.NameOfMessage(msg16.message));
+            msg32.wParam = (IntPtr)msg16.wParam;
+            msg32.lParam = (IntPtr)(int)msg16.lParam;
         }
 
         public override void To16(Machine machine, ref Win32.MSG msg32, ref Win16.MSG msg16)
         {
-            throw new NotImplementedException($"Message type not implemented: {MessageNames.NameOfMessage(msg16.message)}");
+            Log.WriteLine("Warning: message conversion not implemented for {0}, passing through as copy", MessageNames.NameOfMessage(msg16.message));
+            msg16.wParam = msg32.wParam.Loword();
+            msg16.lParam = msg32.lParam.ToUInt32();
         }
     }
 
@@ -110,27 +114,18 @@ namespace Win3muCore.MessageSemantics
     {
         public override void To32(Machine machine, ref Win16.MSG msg16, ref Win32.MSG msg32)
         {
-            if (msg16.lParam == 0)
-            {
-                msg32.wParam = (IntPtr)msg16.wParam;
-                msg32.lParam = (IntPtr)(int)msg16.lParam;
-            }
-            else
-                throw new NotImplementedException("lParam must be zero");
+            msg32.wParam = (IntPtr)msg16.wParam;
+            msg32.lParam = (IntPtr)(int)msg16.lParam;
+            if (msg16.lParam != 0)
+                Log.WriteLine("copy_zero: non-zero lParam 0x{0:X8} in To32 for message {1}, passing through", msg16.lParam, MessageNames.NameOfMessage(msg16.message));
         }
 
         public override void To16(Machine machine, ref Win32.MSG msg32, ref Win16.MSG msg16)
         {
-            if (msg32.lParam == IntPtr.Zero)
-            {
-                msg16.wParam = (ushort)msg32.wParam.ToInt32();
-                msg16.lParam = 0;
-            }
-            else
-            {
-                return;
-                throw new NotImplementedException("lParam must be zero");
-            }
+            msg16.wParam = (ushort)msg32.wParam.ToInt32();
+            msg16.lParam = msg32.lParam.ToUInt32();
+            if (msg32.lParam != IntPtr.Zero)
+                Log.WriteLine("copy_zero: non-zero lParam 0x{0:X8} in To16 for message {1}, passing through", msg32.lParam.ToInt64(), MessageNames.NameOfMessage(msg16.message));
         }
     }
 

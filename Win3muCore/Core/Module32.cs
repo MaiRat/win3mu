@@ -112,6 +112,37 @@ namespace Win3muCore
 
     public class Module32 : ModuleBase
     {
+        static int ResolveBufferCapacity(object value)
+        {
+            var type = value.GetType();
+            if (type == typeof(int))
+            {
+                return (int)value;
+            }
+            else if (type == typeof(ushort))
+            {
+                return (int)(ushort)value;
+            }
+            else if (type == typeof(nint))
+            {
+                return (nint)value;
+            }
+            else if (type == typeof(short))
+            {
+                return (int)(short)value;
+            }
+            else if (type == typeof(uint))
+            {
+                return (int)(uint)value;
+            }
+            else if (type == typeof(nuint))
+            {
+                return (int)(uint)(nuint)value;
+            }
+
+            throw new NotImplementedException();
+        }
+
         public Module32()
         {
             _attributes = (ModuleAttribute)GetType().GetCustomAttributes(typeof(ModuleAttribute), true).FirstOrDefault();
@@ -189,7 +220,6 @@ namespace Win3muCore
 
         public override void Uninit(Machine machine)
         {
-            throw new NotImplementedException();
         }
 
         public override ushort GetOrdinalFromName(string functionName)
@@ -310,7 +340,25 @@ namespace Win3muCore
                 var convertMethod = pt.GetMethod("To32");
                 return SizeOfType16(convertMethod.GetParameters()[0].ParameterType);
             }
+            if (pt.IsEnum)
+            {
+                return SizeOfType16(Enum.GetUnderlyingType(pt));
+            }
+            if (IsRawValueStruct(pt))
+            {
+                return WordAlign(Marshal.SizeOf(pt));
+            }
             throw new NotImplementedException(string.Format("Type not supported by thunking layer - {0}", pt));
+        }
+
+        static bool IsRawValueStruct(Type pt)
+        {
+            return pt != null && pt.IsValueType && !pt.IsPrimitive && !pt.IsEnum;
+        }
+
+        static ushort WordAlign(int size)
+        {
+            return unchecked((ushort)((size + 1) & ~1));
         }
 
         ushort CalculateSizeOfParametersOnStack(MethodInfo mi)
@@ -473,6 +521,12 @@ namespace Win3muCore
                     return;
                 }
 
+                if (retType == typeof(IntPtr))
+                {
+                    _machine.dxax = unchecked((uint)((IntPtr)retValue).ToInt32());
+                    return;
+                }
+
                 if (MappedTypeAttribute.Is(retType))
                 {
                     var convertMethod = retType.GetMethod("To16");
@@ -481,7 +535,48 @@ namespace Win3muCore
                     return;
                 }
 
+                if (retType.IsEnum)
+                {
+                    SetReturnValue(Enum.GetUnderlyingType(retType), Convert.ChangeType(retValue, Enum.GetUnderlyingType(retType)));
+                    return;
+                }
+
+                if (IsRawValueStruct(retType))
+                {
+                    var size = Marshal.SizeOf(retType);
+                    var bytes = StructureToBytes(retValue, size);
+                    if (size <= 2)
+                    {
+                        _machine.ax = BitConverter.ToUInt16(bytes, 0);
+                        return;
+                    }
+                    if (size <= 4)
+                    {
+                        _machine.dxax = BitConverter.ToUInt32(bytes, 0);
+                        return;
+                    }
+
+                    throw new NotImplementedException(string.Format("Return type not supported by thunking layer - {0} (size {1})", retType, size));
+                }
+
                 throw new NotImplementedException(string.Format("Return type not supported by thunking layer - {0}", retType));
+            }
+
+            static byte[] StructureToBytes(object value, int size)
+            {
+                var bytes = new byte[Math.Max(size, 4)];
+                var ptr = Marshal.AllocHGlobal(size);
+                try
+                {
+                    Marshal.StructureToPtr(value, ptr, false);
+                    Marshal.Copy(ptr, bytes, 0, size);
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(ptr);
+                }
+
+                return bytes;
             }
 
             public void RegisterPostInvokeCallback(Action callback)
@@ -590,24 +685,7 @@ namespace Win3muCore
                         // Work out buffer size capacity
                         var bufsize = pi.GetCustomAttribute<BufSizeAttribute>();
                         int bufsizeParamIndex = paramIndex + bufsize.ParamDX;
-
-                        var type = _paramValues[bufsizeParamIndex].GetType();
-                        if (type == typeof(int))
-                        {
-                            capacity = (int)_paramValues[bufsizeParamIndex];
-                        }
-                        else if (type == typeof(ushort))
-                        {
-                            capacity = (int)(ushort)_paramValues[bufsizeParamIndex];
-                        }
-                        else if (type == typeof(nint))
-                        {
-                            capacity = (nint)_paramValues[bufsizeParamIndex];
-                        }
-                        else
-                        {
-                            throw new NotImplementedException();
-                        }
+                        capacity = ResolveBufferCapacity(_paramValues[bufsizeParamIndex]);
 
                         // Create string builder
                         var sb = new StringBuilder(fna!=null ? 512 : capacity);
@@ -647,24 +725,20 @@ namespace Win3muCore
                 }
                 if (pt == typeof(IntPtr))
                 {
-                    if (pi!=null)
-                    {
-                        if (pi.GetCustomAttribute<MustBeNullAttribute>() == null)
-                        {
-                            throw new NotImplementedException("IntPtr parameters must have MustBeNull attribute");
-                        }
-                    }
-
                     var ptrOffset = _machine.ReadWord(_machine.ss, _paramPos);
                     var ptrSeg = _machine.ReadWord(_machine.ss, (ushort)(_paramPos + 2));
                     _paramPos += 4;
 
-                    if (ptrOffset!=0 || ptrSeg!=0)
+                    if (pi != null && pi.GetCustomAttribute<MustBeNullAttribute>() != null)
                     {
-                        throw new NotImplementedException("Non-null IntPtr parameter passed");
+                        if (ptrOffset != 0 || ptrSeg != 0)
+                        {
+                            Log.WriteLine("Non-null IntPtr parameter passed where MustBeNull expected, treating as zero");
+                        }
+                        return IntPtr.Zero;
                     }
 
-                    return IntPtr.Zero;
+                    return BitUtils.DWordToIntPtr(BitUtils.MakeDWord(ptrOffset, ptrSeg));
                 }
                 if (MappedTypeAttribute.Is(pt))
                 {
@@ -738,6 +812,21 @@ namespace Win3muCore
                     }
                 }
 
+                if (pt.IsEnum)
+                {
+                    var underlyingType = Enum.GetUnderlyingType(pt);
+                    var rawValue = ReadParamFromStack(underlyingType, null);
+                    return Enum.ToObject(pt, rawValue);
+                }
+
+                if (IsRawValueStruct(pt))
+                {
+                    var ptr = BitUtils.MakeDWord(_paramPos, _machine.ss);
+                    var val = _machine.ReadStruct(pt, ptr);
+                    _paramPos += WordAlign(Marshal.SizeOf(pt));
+                    return val;
+                }
+
                 throw new NotImplementedException(string.Format("Parameter type not supported by thunking layer - {0}", pt));
             }
 
@@ -768,5 +857,3 @@ namespace Win3muCore
 
 
 }
-
-

@@ -352,5 +352,356 @@ namespace Win3muCoreUnitTests
             Assert.AreEqual((byte)0xFF, cpu.al);
             Assert.IsFalse(cpu.FlagC);
         }
+
+        [TestMethod]
+        public void Int1A_UnsupportedService_SetsCarryWithoutThrowing()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0x80;
+            cpu.FlagC = false;
+
+            dos.DispatchInt1A();
+
+            Assert.IsTrue(cpu.FlagC);
+        }
+
+        [TestMethod]
+        public void Int21_UnsupportedFunction_SetsCarryAndErrorCodeWithoutThrowing()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0xFE;
+            cpu.FlagC = false;
+
+            dos.DispatchInt21();
+
+            Assert.IsTrue(cpu.FlagC);
+            Assert.AreEqual(DosError.FunctionNumberInvalid, cpu.ax);
+        }
+
+        [TestMethod]
+        public void Int2F_UnsupportedMultiplexService_ReturnsZeroWithoutThrowing()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ax = 0xFF00;
+
+            dos.DispatchInt2f();
+
+            Assert.AreEqual((ushort)0, cpu.ax);
+        }
+
+        [TestMethod]
+        public void Int21_GetCtrlCCheckFlag_ReturnsZero()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0x33;
+            cpu.al = 0x00;
+
+            dos.DispatchInt21();
+
+            Assert.IsFalse(cpu.FlagC);
+            Assert.AreEqual((byte)0, cpu.dl);
+        }
+
+        [TestMethod]
+        public void Int21_SetCtrlCCheckFlag_SucceedsWithoutError()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0x33;
+            cpu.al = 0x01;
+            cpu.dl = 1;
+
+            dos.DispatchInt21();
+
+            Assert.IsFalse(cpu.FlagC);
+        }
+
+        [TestMethod]
+        public void Int21_GetBootDrive_ReturnsDriveC()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0x33;
+            cpu.al = 0x05;
+
+            dos.DispatchInt21();
+
+            Assert.IsFalse(cpu.FlagC);
+            Assert.AreEqual((byte)3, cpu.dl); // C: drive
+        }
+
+        [TestMethod]
+        public void Int21_GetDiskFreeSpace_ReturnsValidValues()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0x36;
+            cpu.dl = 0; // Default drive
+
+            dos.DispatchInt21();
+
+            Assert.IsFalse(cpu.FlagC);
+            Assert.AreNotEqual((ushort)0xFFFF, cpu.ax); // Not invalid drive
+            Assert.IsTrue(cpu.ax > 0);     // sectors per cluster
+            Assert.IsTrue(cpu.cx > 0);     // bytes per sector
+            Assert.IsTrue(cpu.dx > 0);     // total clusters
+            Assert.IsTrue(cpu.bx > 0);     // available clusters
+        }
+
+        [TestMethod]
+        public void Int21_AllocateMemory_ReturnsInsufficientMemoryError()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0x48;
+            cpu.bx = 0x100; // Request 256 paragraphs
+
+            dos.DispatchInt21();
+
+            Assert.IsTrue(cpu.FlagC);
+            Assert.AreEqual((ushort)0x08, cpu.ax); // Insufficient memory
+        }
+
+        [TestMethod]
+        public void Int21_FreeMemory_SucceedsWithoutError()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0x49;
+            cpu.es = 0x1000;
+
+            dos.DispatchInt21();
+
+            Assert.IsFalse(cpu.FlagC);
+        }
+
+        [TestMethod]
+        public void Int21_ResizeMemoryBlock_SucceedsWithoutError()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+            cpu.ah = 0x4A;
+            cpu.es = 0x1000;
+            cpu.bx = 0x200;
+
+            dos.DispatchInt21();
+
+            Assert.IsFalse(cpu.FlagC);
+        }
+
+        [TestMethod]
+        public void Int21_GetFileDateTime_UnopenedFileHandle_SetsCarry()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            // Try to get date/time on an invalid handle
+            cpu.ah = 0x57;
+            cpu.al = 0x00;
+            cpu.bx = 0xFFFF; // Invalid handle
+
+            dos.DispatchInt21();
+
+            // Should set carry for invalid handle
+            Assert.IsTrue(cpu.FlagC);
+        }
+
+        [TestMethod]
+        public void Int21_Ioctl_SetDeviceInfo_SucceedsWithoutError()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x01; // Set Device Information
+            cpu.bx = 0x0001; // handle
+            cpu.dx = 0x0000;
+            cpu.FlagC = false;
+
+            dos.DispatchInt21();
+
+            // Should succeed (no carry flag set — it's a no-op accept)
+            Assert.IsFalse(cpu.FlagC);
+        }
+
+        [TestMethod]
+        public void Int21_Ioctl_GetOutputStatus_ReturnsReady()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x07; // Get Output Status
+            cpu.bx = 0x0001; // stdout
+            cpu.FlagC = false;
+
+            dos.DispatchInt21();
+
+            Assert.IsFalse(cpu.FlagC);
+            Assert.AreEqual((byte)0xFF, cpu.al); // device ready
+        }
+
+        [TestMethod]
+        public void Int21_Ioctl_CheckRemovable_ReturnsFixed()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x08; // Check if removable
+            cpu.bl = 0x03; // drive C:
+            cpu.FlagC = false;
+
+            dos.DispatchInt21();
+
+            Assert.IsFalse(cpu.FlagC);
+            Assert.AreEqual((ushort)1, cpu.ax); // fixed
+        }
+
+        [TestMethod]
+        public void Int21_Ioctl_UnsupportedSubfunction_SetsCarry()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x0C; // Unsupported IOCTL subfunction
+            cpu.FlagC = false;
+
+            dos.DispatchInt21();
+
+            Assert.IsTrue(cpu.FlagC);
+        }
+
+        [TestMethod]
+        public void Ioctl_ReadFromCharacterDevice_ReturnsZeroBytes()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x02; // Read from character device
+            cpu.bx = 0;    // handle
+            cpu.cx = 10;   // bytes to read
+
+            dos.DispatchInt21();
+
+            Assert.AreEqual((ushort)0, cpu.ax); // no data available
+        }
+
+        [TestMethod]
+        public void Ioctl_WriteToCharacterDevice_ReportsAllBytesWritten()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x03; // Write to character device
+            cpu.bx = 0;    // handle
+            cpu.cx = 25;   // bytes to write
+
+            dos.DispatchInt21();
+
+            Assert.AreEqual((ushort)25, cpu.ax); // all bytes written
+        }
+
+        [TestMethod]
+        public void Ioctl_ReadFromBlockDevice_ReturnsZeroBytes()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x04; // Read from block device
+            cpu.bl = 3;    // drive C:
+            cpu.cx = 512;  // bytes to read
+
+            dos.DispatchInt21();
+
+            Assert.AreEqual((ushort)0, cpu.ax); // no data available
+        }
+
+        [TestMethod]
+        public void Ioctl_WriteToBlockDevice_ReportsAllBytesWritten()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x05; // Write to block device
+            cpu.bl = 3;    // drive C:
+            cpu.cx = 512;  // bytes to write
+
+            dos.DispatchInt21();
+
+            Assert.AreEqual((ushort)512, cpu.ax); // all bytes written
+        }
+
+        [TestMethod]
+        public void Ioctl_CheckRemoteDevice_ReturnsLocal()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x09; // Check if block device is remote
+            cpu.bl = 3;    // drive C:
+
+            dos.DispatchInt21();
+
+            Assert.AreEqual((ushort)0, cpu.dx); // local (bit 12 clear)
+        }
+
+        [TestMethod]
+        public void Ioctl_CheckRemoteHandle_ReturnsLocal()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x0A; // Check if handle is remote
+            cpu.bx = 1;    // handle
+
+            dos.DispatchInt21();
+
+            Assert.AreEqual((ushort)0, cpu.dx); // local (bit 15 clear)
+        }
+
+        [TestMethod]
+        public void Ioctl_SetSharingRetryCount_Succeeds()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x0B; // Set sharing retry count
+            cpu.cx = 3;    // retries
+            cpu.dx = 1;    // pause
+
+            dos.DispatchInt21();
+
+            // Should not set carry flag (accepted)
+            Assert.IsFalse(cpu.FlagC);
+        }
+
+        [TestMethod]
+        public void Ioctl_GetLogicalDriveMap_ReturnsZero()
+        {
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, new TestSite());
+
+            cpu.ah = 0x44;
+            cpu.al = 0x0E; // Get logical drive map
+            cpu.bl = 3;    // drive C:
+
+            dos.DispatchInt21();
+
+            Assert.AreEqual((byte)0, cpu.al); // only one drive letter
+        }
+
     }
 }

@@ -22,6 +22,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using Sharp86;
 
 namespace Win3muCore.MessageSemantics
 {
@@ -37,6 +38,36 @@ namespace Win3muCore.MessageSemantics
             if ((style & (CBS_OWNERDRAWFIXED | CBS_OWNERDRAWVARIABLE)) == 0)
                 return true;
             return (style & CBS_HASSTRINGS)!= 0;
+        }
+
+        // CB_GETDROPPEDCONTROLRECT: wParam = 0, lParam = pointer to RECT (output)
+        // 16-bit: lParam is far pointer to Win16.RECT
+        // 32-bit: lParam is pointer to Win32.RECT
+        public class CB_GETDROPPEDCONTROLRECT : Callable
+        {
+            public override uint Call32from16(Machine machine, bool hook, bool dlgproc, ref Win16.MSG msg16, ref Win32.MSG msg32, Func<IntPtr> callback)
+            {
+                unsafe
+                {
+                    var rc32 = new Win32.RECT();
+                    msg32.wParam = IntPtr.Zero;
+                    msg32.lParam = new IntPtr(&rc32);
+                    var ret = callback();
+                    machine.WriteStruct(msg16.lParam, rc32.Convert());
+                    return (uint)ret;
+                }
+            }
+
+            public override IntPtr Call16from32(Machine machine, bool hook, bool dlgproc, ref Win32.MSG msg32, ref Win16.MSG msg16, Func<uint> callback)
+            {
+                var ptr = machine.SysAlloc(new Win16.RECT());
+                msg16.wParam = 0;
+                msg16.lParam = ptr;
+                var ret = callback();
+                var rc16 = machine.SysReadAndFree<Win16.RECT>(ptr);
+                Marshal.StructureToPtr(rc16.Convert(), msg32.lParam, true);
+                return (IntPtr)ret;
+            }
         }
 
         public class CB_ADDSTRING : copy_string

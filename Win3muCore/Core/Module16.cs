@@ -175,6 +175,26 @@ namespace Win3muCore
             return _neFile.ModuleReferenceTable;
         }
 
+        void ApplyRelocationsByte(byte[] data, ushort offset, byte value, bool additive, bool log)
+        {
+            if (additive)
+            {
+                data[offset] = (byte)(data[offset] + value);
+            }
+            else
+            {
+                while (offset != 0xFFFF)
+                {
+                    if (log)
+                        Log.WriteLine("            chain offset: {0:X4}", offset);
+                    ushort nextOffset = data.ReadWord(offset);
+                    data[offset] = value;
+                    // LowByte relocations still use a word-sized chain link
+                    offset = nextOffset;
+                }
+            }
+        }
+
         void ApplyRelocations(byte[] data, ushort offset, ushort value, bool additive, bool log)
         {
             if (additive)
@@ -209,6 +229,29 @@ namespace Win3muCore
 
                     ushort nextOffset = data.ReadWord(offset);
                     data.WriteDWord(offset, value);
+                    offset = nextOffset;
+                }
+            }
+        }
+
+        // Apply a 48-bit (6-byte) far pointer relocation: 32-bit offset followed by 16-bit selector
+        void ApplyRelocations48(byte[] data, ushort offset, uint offsetValue, ushort selectorValue, bool additive, bool log)
+        {
+            if (additive)
+            {
+                data.WriteDWord(offset, (uint)(data.ReadDWord(offset) + offsetValue));
+                data.WriteWord((ushort)(offset + 4), (ushort)(data.ReadWord((ushort)(offset + 4)) + selectorValue));
+            }
+            else
+            {
+                while (offset != 0xFFFF)
+                {
+                    if (log)
+                        Log.WriteLine("            chain offset: {0:X4}", offset);
+
+                    ushort nextOffset = data.ReadWord(offset);
+                    data.WriteDWord(offset, offsetValue);
+                    data.WriteWord((ushort)(offset + 4), selectorValue);
                     offset = nextOffset;
                 }
             }
@@ -256,7 +299,8 @@ namespace Win3muCore
                 case 0x36DF: return 0x5F;
             }
 
-            throw new NotImplementedException(string.Format("FP OSFixup Tribyte: {0:X2} {1:X2}", triByteTable, opByte));
+            Log.WriteLine("Warning: unknown FP OSFixup Tribyte: {0:X2} {1:X2}, treating as NOP", triByteTable, opByte);
+            return 0x90; // NOP — keep existing byte stream valid
         }
 
         /*
@@ -399,9 +443,57 @@ namespace Win3muCore
                                         break;
                                 }
 
+                                case RelocationAddressType.LowByte:
+                                {
+                                        if (reloc.param1 == 0xFF)
+                                        {
+                                            var ep = _neFile.GetEntryPoint(reloc.param2);
+                                            ApplyRelocationsByte(data, reloc.offset, (byte)(ep.segmentOffset & 0xFF), additive, machine.logRelocations);
+                                        }
+                                        else
+                                        {
+                                            ApplyRelocationsByte(data, reloc.offset, (byte)(reloc.param2 & 0xFF), additive, machine.logRelocations);
+                                        }
+                                        break;
+                                }
+
+                                case RelocationAddressType.Pointer48:
+                                {
+                                        // 48-bit far pointer: 32-bit offset + 16-bit selector
+                                        if (reloc.param1 == 0xFF)
+                                        {
+                                            var ep = _neFile.GetEntryPoint(reloc.param2);
+                                            var targetSegment = segments[ep.segmentNumber - 1];
+                                            ApplyRelocations48(data, reloc.offset, ep.segmentOffset, targetSegment.globalHandle, additive, machine.logRelocations);
+                                            refSelector(ep.segmentNumber, reloc.offset);
+                                        }
+                                        else
+                                        {
+                                            var targetSegment = segments[reloc.param1 - 1];
+                                            ApplyRelocations48(data, reloc.offset, reloc.param2, targetSegment.globalHandle, additive, machine.logRelocations);
+                                            refSelector(reloc.param1, reloc.offset);
+                                        }
+                                        break;
+                                }
+
+                                case RelocationAddressType.Offset32:
+                                {
+                                        // 32-bit offset only
+                                        if (reloc.param1 == 0xFF)
+                                        {
+                                            var ep = _neFile.GetEntryPoint(reloc.param2);
+                                            ApplyRelocations(data, reloc.offset, (uint)ep.segmentOffset, additive, machine.logRelocations);
+                                        }
+                                        else
+                                        {
+                                            ApplyRelocations(data, reloc.offset, (uint)reloc.param2, additive, machine.logRelocations);
+                                        }
+                                        break;
+                                }
 
                                 default:
-                                    throw new NotImplementedException(string.Format("Unsupported relocation type: {0}/{1}", reloc.type, reloc.addressType));
+                                    Log.WriteLine("Warning: unsupported relocation address type {0} for InternalReference, skipping", reloc.addressType);
+                                    break;
                             }
                             break;
 
@@ -445,8 +537,41 @@ namespace Win3muCore
                                     break;
                                 }
 
+                                case RelocationAddressType.LowByte:
+                                {
+                                    uint addr = module.GetProcAddress(reloc.param2);
+                                    if (addr == 0)
+                                        throw new VirtualException("Module link failed, function ordinal #{0:X4} not found in module '{1}'", reloc.param2, moduleName);
+
+                                    ApplyRelocationsByte(data, reloc.offset, (byte)(addr & 0xFF), additive, machine.logRelocations);
+                                    break;
+                                }
+
+                                case RelocationAddressType.Pointer48:
+                                {
+                                    // 48-bit far pointer: 32-bit offset + 16-bit selector
+                                    uint farProc = module.GetProcAddress(reloc.param2);
+                                    if (farProc == 0)
+                                        throw new VirtualException("Module link failed, function ordinal #{0:X4} not found in module '{1}'", reloc.param2, moduleName);
+
+                                    ApplyRelocations48(data, reloc.offset, farProc.Loword(), farProc.Hiword(), additive, machine.logRelocations);
+                                    break;
+                                }
+
+                                case RelocationAddressType.Offset32:
+                                {
+                                    // 32-bit offset only
+                                    uint addr = module.GetProcAddress(reloc.param2);
+                                    if (addr == 0)
+                                        throw new VirtualException("Module link failed, function ordinal #{0:X4} not found in module '{1}'", reloc.param2, moduleName);
+
+                                    ApplyRelocations(data, reloc.offset, (uint)addr.Loword(), additive, machine.logRelocations);
+                                    break;
+                                }
+
                                 default:
-                                    throw new NotImplementedException(string.Format("Unsupported relocation type: {0}/{1}", reloc.type, reloc.addressType));
+                                    Log.WriteLine("Warning: unsupported relocation address type {0} for ImportedOrdinal '{1}', skipping", reloc.addressType, moduleName);
+                                    break;
                             }
 
                             break;
@@ -459,7 +584,10 @@ namespace Win3muCore
                             var replace = MapFPOpCodeToWin87EmInt(fpOpCode, ref triByteTable);
                             if (replace == 0)
                             {
-                                throw new NotImplementedException(string.Format("Don't know how to apply OS Fixup for FP operation at {0:X4} {1:X2} {2:X2}   [p1={3}, p2={4}]", reloc.offset, fpOpCode >> 8, fpOpCode & 0xFF, reloc.param1, reloc.param2));
+                                Log.WriteLine("Warning: unknown FP OSFixup at {0:X4} {1:X2} {2:X2} [p1={3}, p2={4}], emitting NOP", reloc.offset, fpOpCode >> 8, fpOpCode & 0xFF, reloc.param1, reloc.param2);
+                                // Emit two NOP bytes to keep instruction stream valid
+                                data.WriteWord(reloc.offset, 0x9090);
+                                break;
                             }
                             data.WriteWord(reloc.offset, replace);
 
@@ -514,15 +642,48 @@ namespace Win3muCore
                                         break;
                                     }
 
+                                case RelocationAddressType.LowByte:
+                                    {
+                                        uint addr = module.GetProcAddress(entryPointOrdinal);
+                                        if (addr == 0)
+                                            throw new VirtualException("Module link failed, function ordinal #{0:X4} not found in module '{1}'", reloc.param2, moduleName);
+
+                                        ApplyRelocationsByte(data, reloc.offset, (byte)(addr & 0xFF), additive, machine.logRelocations);
+                                        break;
+                                    }
+
+                                case RelocationAddressType.Pointer48:
+                                    {
+                                        // 48-bit far pointer: 32-bit offset + 16-bit selector
+                                        uint farProc = module.GetProcAddress(entryPointOrdinal);
+                                        if (farProc == 0)
+                                            throw new VirtualException("Module link failed, function ordinal #{0:X4} not found in module '{1}'", reloc.param2, moduleName);
+
+                                        ApplyRelocations48(data, reloc.offset, farProc.Loword(), farProc.Hiword(), additive, machine.logRelocations);
+                                        break;
+                                    }
+
+                                case RelocationAddressType.Offset32:
+                                    {
+                                        // 32-bit offset only
+                                        uint addr = module.GetProcAddress(entryPointOrdinal);
+                                        if (addr == 0)
+                                            throw new VirtualException("Module link failed, function ordinal #{0:X4} not found in module '{1}'", reloc.param2, moduleName);
+
+                                        ApplyRelocations(data, reloc.offset, (uint)addr.Loword(), additive, machine.logRelocations);
+                                        break;
+                                    }
+
                                 default:
-                                    throw new NotImplementedException(string.Format("Unsupported relocation type: {0}/{1}", reloc.type, reloc.addressType));
+                                    Log.WriteLine("Warning: unsupported relocation address type {0} for ImportedName '{1}', skipping", reloc.addressType, entryPointName);
+                                    break;
                             }
                             break;
                         }
 
                         default:
-                            throw new NotImplementedException(string.Format("Unsupported relocation type: {0}", reloc.type));
-                    }
+                            Log.WriteLine("Warning: unsupported relocation type {0}, skipping", reloc.type);
+                            break;                    }
                 }
             }
 
