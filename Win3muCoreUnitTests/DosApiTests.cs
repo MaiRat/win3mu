@@ -354,6 +354,27 @@ namespace Win3muCoreUnitTests
         }
 
         [TestMethod]
+        public void FindFiles_DirectoryPathWithTrailingSlash_DoesNotCollapseToPathNotFound()
+        {
+            using var site = new TempMappedTestSite();
+            site.CreateFile(@"A:\START\DATA.DAT", new byte[] { 1, 2, 3 });
+
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, site);
+
+            dos.FindFiles(@"A:\START\", DosApi.DosFileAttributes.Directory);
+
+            var foundNames = new List<string>();
+            while (dos.FindNextFile(out var ffs))
+            {
+                foundNames.Add(ffs.name);
+            }
+
+            CollectionAssert.Contains(foundNames, ".");
+            Assert.IsTrue(foundNames.Count > 0);
+        }
+
+        [TestMethod]
         public void Int1A_UnsupportedService_SetsCarryWithoutThrowing()
         {
             var cpu = new TestCpu();
