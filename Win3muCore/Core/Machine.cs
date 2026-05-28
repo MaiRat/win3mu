@@ -89,7 +89,7 @@ namespace Win3muCore
             _moduleManager.LoadModule(new Keyboard());
             _moduleManager.LoadModule(new Comm());
             _moduleManager.LoadModule(new CommDlg());
-           _moduleManager.LoadModule(new Winspool());
+            _moduleManager.LoadModule(new Winspool());
 //            _moduleManager.LoadModule(new Shell());
             _moduleManager.LoadModule(new DdeML());
             _moduleManager.LoadModule(new Sound());

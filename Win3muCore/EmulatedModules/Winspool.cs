@@ -185,7 +185,8 @@ namespace Win3muCore
         [EntryPoint(74)]
         public bool WritePrinter(ushort hPrinter, uint pBuf, ushort cbBuf, uint pcWritten)
         {
-            if (!TryGetPrinter(hPrinter, out var printer) || !printer.DocumentOpen || (cbBuf != 0 && pBuf == 0))
+            bool isInvalidBuffer = cbBuf != 0 && pBuf == 0;
+            if (!TryGetPrinter(hPrinter, out var printer) || !printer.DocumentOpen || isInvalidBuffer)
             {
                 WriteCount(_machine, pcWritten, 0);
                 return false;
