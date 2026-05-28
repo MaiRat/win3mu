@@ -31,6 +31,7 @@ namespace Win3muCore
     {
         static Machine()
         {
+            // Register legacy DOS/Windows code pages before any GetEncoding(...) calls.
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             AnsiEncoding = Encoding.GetEncoding(1252);
         }

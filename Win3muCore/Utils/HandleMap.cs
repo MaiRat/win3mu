@@ -48,7 +48,7 @@ namespace Win3muCore
                 if (existing16 == handle16)
                     return;
 
-                throw new InvalidOperationException("32-bit handle is already mapped");
+                throw new InvalidOperationException(string.Format("32-bit handle '{0}' is already mapped to 0x{1:X4}", handle32, existing16));
             }
 
             _map16to32.Add(handle16, handle32);

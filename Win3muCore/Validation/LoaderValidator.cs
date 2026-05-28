@@ -89,6 +89,7 @@ namespace Win3muCore.Validation
                     }
                     catch
                     {
+                        // Ignore cleanup failures so the original validation result is preserved.
                     }
                 }
             }
