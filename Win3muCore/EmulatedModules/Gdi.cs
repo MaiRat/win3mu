@@ -530,8 +530,8 @@ namespace Win3muCore
         [DllImport("gdi32.dll", EntryPoint = "EnumFontsW", CharSet = CharSet.Unicode)]
         public static extern int EnumFonts(IntPtr hDC, string faceName, EnumFontsDelegate enumProc, IntPtr lParam);
 
-        [DllImport("gdi32.dll")]
-        public static extern int EnumObjects(HDC hDC, int nObjectType, EnumObjectsDelegate enumProc, IntPtr lParam);
+        [DllImport("gdi32.dll", EntryPoint = "EnumObjects")]
+        public static extern int EnumObjectsWin32(HDC hDC, int nObjectType, EnumObjectsDelegate enumProc, IntPtr lParam);
 
         [EntryPoint(0x0046)]
         public nint EnumFonts(HDC hDC, string name, uint enumProc, uint lParam)
@@ -562,7 +562,7 @@ namespace Win3muCore
         [EntryPoint(0x0047)]
         public nint EnumObjects(HDC hDC, nint nObjectType, uint enumProc, uint lParam)
         {
-            return EnumObjects(hDC, nObjectType, (pLogObject, lp) =>
+            return EnumObjectsWin32(hDC, nObjectType, (pLogObject, lp) =>
             {
                 uint pObject16;
                 switch ((uint)(int)nObjectType)
@@ -1024,6 +1024,7 @@ namespace Win3muCore
         // Legacy printer-era helper with no gdi32 equivalent; report unsupported.
         public short ScanLR(HDC hDC, short x, short y, uint color, short dirStyle)
         {
+            Log.WriteLine("ScanLR: unsupported legacy GDI export");
             return -1;
         }
 
@@ -1869,10 +1870,16 @@ namespace Win3muCore
             if (lpszUnicode == 0)
                 return 0;
 
+            int unicodeOffset;
+            var unicodeBuffer = _machine.GlobalHeap.GetBuffer(lpszUnicode, false, out unicodeOffset);
+            if (unicodeBuffer == null)
+                return 0;
+
             var chars = new List<char>();
-            for (int i = 0; i < 0x7FFF; i++)
+            int maxChars = Math.Min(0x7FFF, (unicodeBuffer.Length - unicodeOffset) / sizeof(ushort));
+            for (int i = 0; i < maxChars; i++)
             {
-                ushort ch = _machine.ReadWord((uint)(lpszUnicode + i * sizeof(ushort)));
+                ushort ch = unicodeBuffer.ReadWord(unicodeOffset + i * sizeof(ushort));
                 if (ch == 0)
                     break;
                 chars.Add((char)ch);
