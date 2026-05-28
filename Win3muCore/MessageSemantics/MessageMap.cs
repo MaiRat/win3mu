@@ -61,6 +61,8 @@ namespace Win3muCore.MessageSemantics
             }
             catch (Exception)
             {
+                // Never let error-reporting recurse or fail while formatting an
+                // unknown-message exception; fall back to the message-only text.
             }
             finally
             {
