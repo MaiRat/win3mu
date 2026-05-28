@@ -213,12 +213,12 @@ namespace Win3muCore.Validation
                 module.PrepareRun(machine, null, 1);
 
                 initialCpuTime = machine.CpuTime;
-                var remainingInstructions = ExecutionInstructionLimit;
-                while (remainingInstructions > 0)
+                var executedInstructions = 0;
+                while (executedInstructions < ExecutionInstructionLimit)
                 {
-                    var slice = Math.Min(remainingInstructions, ExecutionSliceSize);
+                    var slice = Math.Min(ExecutionInstructionLimit - executedInstructions, ExecutionSliceSize);
                     var aborted = machine.Run(slice);
-                    remainingInstructions = Math.Max(0, ExecutionInstructionLimit - (int)(machine.CpuTime - initialCpuTime));
+                    executedInstructions = (int)(machine.CpuTime - initialCpuTime);
 
                     if (aborted || machine.Halted)
                     {
