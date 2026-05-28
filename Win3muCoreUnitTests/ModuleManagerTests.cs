@@ -24,10 +24,11 @@ namespace Win3muCoreUnitTests
                 var machine = new Machine();
                 var module = new Module16(filePath);
                 module.hModule = 1;
+                var loadedModulesField = typeof(ModuleManager).GetField("_loadedModules", BindingFlags.Instance | BindingFlags.NonPublic);
 
-                var loadedModules = (Dictionary<string, ModuleBase>)typeof(ModuleManager)
-                    .GetField("_loadedModules", BindingFlags.Instance | BindingFlags.NonPublic)
-                    .GetValue(machine.ModuleManager);
+                Assert.IsNotNull(loadedModulesField);
+
+                var loadedModules = (Dictionary<string, ModuleBase>)loadedModulesField.GetValue(machine.ModuleManager);
 
                 loadedModules[module.GetModuleName()] = module;
 
@@ -37,7 +38,8 @@ namespace Win3muCoreUnitTests
             }
             finally
             {
-                Directory.Delete(tempRoot, true);
+                if (Directory.Exists(tempRoot))
+                    Directory.Delete(tempRoot, true);
             }
         }
 
@@ -66,6 +68,9 @@ namespace Win3muCoreUnitTests
                     signature = MzHeader.SIGNATURE,
                     offsetNEHeader = neHeaderOffset,
                 });
+
+                if (stream.Position > mzHeaderOffset)
+                    throw new InvalidOperationException("Minimal NE header exceeded expected MZ header padding.");
 
                 writer.Write(new byte[mzHeaderOffset - stream.Position]);
 
