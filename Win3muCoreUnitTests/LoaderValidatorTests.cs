@@ -107,6 +107,18 @@ namespace Win3muCoreUnitTests
             Assert.IsTrue(result.Symbols.Exists(x => x.Name == "start"));
         }
 
+        [TestMethod]
+        public void Validate_SamplesDirectory_ProcessesAllSamplesSuccessfully()
+        {
+            var validator = new LoaderValidator();
+
+            var report = validator.Validate(GetRepositoryFile("Samples"));
+
+            Assert.AreEqual(report.FilesDiscovered, report.FilesProcessed);
+            Assert.AreEqual(0, report.FailureCount);
+            Assert.IsTrue(report.Results.All(x => x.Success));
+        }
+
         static string CreateTempDirectory()
         {
             var path = Path.Combine(Path.GetTempPath(), "win3mu-tests", Guid.NewGuid().ToString("N"));

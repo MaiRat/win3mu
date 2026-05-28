@@ -55,7 +55,6 @@ Current limitations:
 
 - The CLI only drives the executable start code far enough to expose missing dependencies and early control flow.
 - GUI calls and other host Windows services still depend on platform DLLs such as `user32.dll`/`gdi32.dll`, so execution will usually stop once the sample reaches those boundaries.
-- Missing companion modules (for example `COMMDLG` in some samples) still surface as loader failures before execution begins.
 
 Original links and source code
 ==============================
