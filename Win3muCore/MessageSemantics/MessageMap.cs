@@ -481,9 +481,18 @@ namespace Win3muCore.MessageSemantics
             Add(WndClassKind.Edit, Win32.EM_GETRECT, Win16.EM_GETRECT, new ClassEdit.EM_GETRECT());
             Add(WndClassKind.Edit, Win32.EM_SETRECT, Win16.EM_SETRECT, new ClassEdit.EM_SETRECT());
             Add(WndClassKind.Edit, Win32.EM_SETRECTNP, Win16.EM_SETRECTNP, new ClassEdit.EM_SETRECT());
+            Add(WndClassKind.Edit, Win32.EM_SCROLL, new bypass());
+            Add(WndClassKind.Edit, Win32.EM_SCROLLCARET, new bypass());
+            Add(WndClassKind.Edit, Win32.EM_GETTHUMB, new bypass());
             Add(WndClassKind.Edit, Win32.EM_GETLINE, Win16.EM_GETLINE, new ClassEdit.EM_GETLINE());
             Add(WndClassKind.Edit, Win32.EM_SETTABSTOPS, Win16.EM_SETTABSTOPS, new ClassEdit.EM_SETTABSTOPS());
+            Add(WndClassKind.Edit, Win32.EM_SETMARGINS, new bypass());
+            Add(WndClassKind.Edit, Win32.EM_GETMARGINS, new bypass());
+            Add(WndClassKind.Edit, Win32.EM_GETLIMITTEXT, new bypass());
+            Add(WndClassKind.Edit, Win32.EM_POSFROMCHAR, new bypass());
             Add(WndClassKind.Edit, Win32.EM_CHARFROMPOS, new bypass());
+            Add(WndClassKind.Edit, Win32.EM_SETIMESTATUS, new bypass());
+            Add(WndClassKind.Edit, Win32.EM_GETIMESTATUS, new bypass());
 
             // Listbox
             Add(WndClassKind.Listbox, Win32.LB_ADDSTRING, Win16.LB_ADDSTRING, new ClassListBox.LB_ADDSTRING());
