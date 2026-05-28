@@ -43,6 +43,11 @@ namespace Win3muCore.MessageSemantics
             throw new VirtualException($"Unknown windows message {MessageNames.NameOfMessage(message)} for window class '{User.GetClassName(hWnd32)}' ({WindowClassKind.Get(hWnd32)})");
         }
 
+        internal static bool ShouldBypassUnknownMessage32(uint message32)
+        {
+            return message32 >= Win32.WM_USER && message32 < Win32.WM_REGISTEREDBASE;
+        }
+
         public Base LookupMessage32(IntPtr hWnd, uint message32, out ushort message16)
         {
             // Look up standard messages first
@@ -78,6 +83,14 @@ namespace Win3muCore.MessageSemantics
             {
                 message16 = mi.message16;
                 return mi.semantics;
+            }
+
+            // Unknown control-private/app-defined message?
+            // Let the native window handle these instead of treating them as
+            // unmapped Win16 messages.
+            if (ShouldBypassUnknownMessage32(message32))
+            {
+                return bypass.Instance;
             }
 
             if (wk > WndClassKind.Unknown)
