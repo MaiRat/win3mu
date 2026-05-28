@@ -483,6 +483,7 @@ namespace Win3muCore.MessageSemantics
             Add(WndClassKind.Edit, Win32.EM_SETRECTNP, Win16.EM_SETRECTNP, new ClassEdit.EM_SETRECT());
             Add(WndClassKind.Edit, Win32.EM_GETLINE, Win16.EM_GETLINE, new ClassEdit.EM_GETLINE());
             Add(WndClassKind.Edit, Win32.EM_SETTABSTOPS, Win16.EM_SETTABSTOPS, new ClassEdit.EM_SETTABSTOPS());
+            Add(WndClassKind.Edit, Win32.EM_CHARFROMPOS, new bypass());
 
             // Listbox
             Add(WndClassKind.Listbox, Win32.LB_ADDSTRING, Win16.LB_ADDSTRING, new ClassListBox.LB_ADDSTRING());
