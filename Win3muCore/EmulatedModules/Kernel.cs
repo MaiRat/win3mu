@@ -277,7 +277,7 @@ namespace Win3muCore
 
             // We only ever have one task so we'll just
             // use the process module handle as the task handle
-            return _machine.ProcessModule?.hModule ?? (ushort)0;
+            return _machine.ProcessModule?.hModule ?? 0;
         }
 
         [EntryPoint(0x0025)]
@@ -1190,7 +1190,7 @@ namespace Win3muCore
             if (sel == null || sel.allocation == null || sel.allocation.buffer == null)
                 return true;
 
-            int offset = ((ptr.Hiword() >> 3) - sel.selectorIndex) << 16 | ptr.Loword();
+            int offset = GetSelectorOffset(ptr, sel);
             if (offset < 0 || offset >= sel.allocation.buffer.Length)
                 return true;
 
@@ -1270,11 +1270,21 @@ namespace Win3muCore
             if (requireCode && !sel.isCode)
                 return true;
 
-            int offset = ((ptr.Hiword() >> 3) - sel.selectorIndex) << 16 | ptr.Loword();
+            int offset = GetSelectorOffset(ptr, sel);
             if (offset < 0)
                 return true;
 
             return offset > sel.allocation.buffer.Length - cb;
+        }
+
+        static int GetSelectorOffset(uint ptr, GlobalHeap.Selector sel)
+        {
+            // Win16 uses selector aliases to address 64 KiB windows inside a shared
+            // allocation. Converting the far pointer back to a byte offset requires
+            // normalizing the selector to a selector-table index, subtracting the
+            // allocation's base selector index, then combining that page delta with
+            // the 16-bit offset.
+            return ((ptr.Hiword() >> 3) - sel.selectorIndex) << 16 | ptr.Loword();
         }
     }
 }
