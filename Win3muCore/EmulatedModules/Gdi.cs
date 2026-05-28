@@ -74,15 +74,15 @@ namespace Win3muCore
         public static extern bool SetTextJustification(HDC hDC, nint extra, nint count);
 
         [DllImport("gdi32.dll")]
-        public static extern bool SetWindowOrgEx(HDC hDC, int x, int y, out Win32.SIZE size);
+        public static extern bool SetWindowOrgEx(HDC hDC, int x, int y, out Win32.POINT point);
 
         [EntryPoint(0x000B)]
         public uint SetWindowOrg(HDC hDC, short x, short y)
         {
-            Win32.SIZE size;
-            SetWindowOrgEx(hDC, x, y, out size);
+            Win32.POINT point;
+            SetWindowOrgEx(hDC, x, y, out point);
 
-            return BitUtils.MakeDWord((ushort)(short)size.Width, (ushort)(short)size.Height);
+            return point.ToDWord();
         }
 
 
@@ -525,9 +525,13 @@ namespace Win3muCore
         public static extern bool DeleteObject([Destroyed] HGDIOBJ hGdiObj);
 
         public delegate int EnumFontsDelegate(IntPtr pLogFont, IntPtr pTextMetric, uint dwType, IntPtr lParam);
+        public delegate int EnumObjectsDelegate(IntPtr pLogObject, IntPtr lParam);
 
         [DllImport("gdi32.dll", EntryPoint = "EnumFontsW", CharSet = CharSet.Unicode)]
         public static extern int EnumFonts(IntPtr hDC, string faceName, EnumFontsDelegate enumProc, IntPtr lParam);
+
+        [DllImport("gdi32.dll", EntryPoint = "EnumObjects")]
+        public static extern int EnumObjectsWin32(HDC hDC, int nObjectType, EnumObjectsDelegate enumProc, IntPtr lParam);
 
         [EntryPoint(0x0046)]
         public nint EnumFonts(HDC hDC, string name, uint enumProc, uint lParam)
@@ -555,11 +559,45 @@ namespace Win3muCore
             }, IntPtr.Zero);
         }
 
-        // 0047 - ENUMOBJECTS
+        [EntryPoint(0x0047)]
+        public nint EnumObjects(HDC hDC, nint nObjectType, uint enumProc, uint lParam)
+        {
+            return EnumObjectsWin32(hDC, nObjectType, (pLogObject, lp) =>
+            {
+                uint pObject16;
+                switch ((uint)(int)nObjectType)
+                {
+                    case Win32.OBJ_PEN:
+                        pObject16 = _machine.SysAlloc(Win32.LOGPEN.To16(Marshal.PtrToStructure<Win32.LOGPEN>(pLogObject)));
+                        break;
+
+                    case Win32.OBJ_BRUSH:
+                        pObject16 = _machine.SysAlloc(Win32.LOGBRUSH.To16(Marshal.PtrToStructure<Win32.LOGBRUSH>(pLogObject)));
+                        break;
+
+                    default:
+                        Log.WriteLine("EnumObjects: unsupported object type {0}", nObjectType);
+                        return 0;
+                }
+
+                _machine.PushDWord(pObject16);
+                _machine.PushDWord(lParam);
+                _machine.CallVM(enumProc, "EnumObjectsProc");
+                _machine.SysFree(pObject16);
+                return _machine.ax;
+            }, IntPtr.Zero);
+        }
+
         [EntryPoint(0x0048)]
         [DllImport("gdi32.dll")]
         public static extern bool EqualRgn(HGDIOBJ hRgn1, HGDIOBJ hRgn2);
-        // 0049 - EXCLUDEVISRECT
+
+        [EntryPoint(0x0049)]
+        public bool ExcludeVisRect(HDC hDC, nint left, nint top, nint right, nint bottom)
+        {
+            // Win16 visible-rectangle exclusion maps closely enough to clipping exclusion for this emulation layer.
+            return ExcludeClipRect(hDC, left, top, right, bottom);
+        }
 
         [DllImport("gdi32.dll")]
         public static extern int GetBitmapBits(IntPtr hBitmap, int cbBuffer, IntPtr pBuffer);
@@ -982,8 +1020,17 @@ namespace Win3muCore
                 _machine.WriteStruct(pRect, rc.Convert());
             return retv;
         }
-        // 0087 - SCANLR
-        // 0088 - REMOVEFONTRESOURCE
+        [EntryPoint(0x0087)]
+        // Legacy printer-era helper with no gdi32 equivalent; report unsupported.
+        public short ScanLR(HDC hDC, short x, short y, uint color, short dirStyle)
+        {
+            Log.WriteLine("ScanLR: unsupported legacy GDI export");
+            return -1;
+        }
+
+        [EntryPoint(0x0088)]
+        [DllImport("gdi32.dll", CharSet = CharSet.Unicode, EntryPoint = "RemoveFontResourceW")]
+        public static extern bool RemoveFontResource([FileName(false)] string lpszFilename);
 
         [DllImport("gdi32.dll")]
         public static extern bool SetBrushOrgEx(HDC hDC, int x, int y, out Win32.POINT pptOld);
@@ -1782,29 +1829,316 @@ namespace Win3muCore
         {
             return hObject.value != IntPtr.Zero;
         }
-        // 01CF - MAKEOBJECTPRIVATE
-        // 01D0 - FIXUPBOGUSPUBLISHERMETAFILE
-        // 01D1 - RECTVISIBLE_EHH
-        // 01D2 - RECTINREGION_EHH
-        // 01D3 - UNICODETOANSI
-        // 01D4 - GETBITMAPDIMENSIONEX
-        // 01D5 - GETBRUSHORGEX
-        // 01D6 - GETCURRENTPOSITIONEX
-        // 01D7 - GETTEXTEXTENTPOINT
-        // 01D8 - GETVIEWPORTEXTEX
-        // 01D9 - GETVIEWPORTORGEX
-        // 01DA - GETWINDOWEXTEX
-        // 01DB - GETWINDOWORGEX
-        // 01DC - OFFSETVIEWPORTORGEX
-        // 01DD - OFFSETWINDOWORGEX
-        // 01DE - SETBITMAPDIMENSIONEX
-        // 01DF - SETVIEWPORTEXTEX
-        // 01E0 - SETVIEWPORTORGEX
-        // 01E1 - SETWINDOWEXTEX
-        // 01E2 - SETWINDOWORGEX
-        // 01E3 - MOVETOEX
-        // 01E4 - SCALEVIEWPORTEXTEX
-        // 01E5 - SCALEWINDOWEXTEX
-        // 01E6 - GETASPECTRATIOFILTEREX
+        [EntryPoint(0x01CF)]
+        // Internal Win16 GDI helper; modern gdi32 has no equivalent.
+        public bool MakeObjectPrivate(HGDIOBJ hObject, nint reserved)
+        {
+            return hObject.value != IntPtr.Zero;
+        }
+
+        [EntryPoint(0x01D0)]
+        // Internal Win16 GDI metafile fixup hook; no modern equivalent.
+        public bool FixupBogusPublisherMetafile(HENHMETAFILE hMetaFile, uint reserved)
+        {
+            return hMetaFile.value != IntPtr.Zero;
+        }
+
+        [EntryPoint(0x01D1)]
+        public bool RectVisible_Ehh(HDC hDC, uint prcRect)
+        {
+            if (prcRect == 0)
+                return false;
+
+            var rc32 = _machine.ReadStruct<Win16.RECT>(prcRect).Convert();
+            return RectVisible(hDC, ref rc32);
+        }
+
+        [EntryPoint(0x01D2)]
+        public bool RectInRegion_Ehh(HGDIOBJ hRgn, uint prcRect)
+        {
+            if (prcRect == 0)
+                return false;
+
+            var rc32 = _machine.ReadStruct<Win16.RECT>(prcRect).Convert();
+            return RectInRegion(hRgn, ref rc32);
+        }
+
+        [EntryPoint(0x01D3)]
+        // Win16 helper for copying UTF-16 input into an ANSI output buffer.
+        public short UnicodeToAnsi(uint lpszUnicode, uint lpszAnsi, short cchAnsi)
+        {
+            if (lpszUnicode == 0)
+                return 0;
+
+            int unicodeOffset;
+            var unicodeBuffer = _machine.GlobalHeap.GetBuffer(lpszUnicode, false, out unicodeOffset);
+            if (unicodeBuffer == null)
+                return 0;
+
+            var chars = new List<char>();
+            int maxChars = Math.Min(0x7FFF, (unicodeBuffer.Length - unicodeOffset) / sizeof(ushort));
+            for (int i = 0; i < maxChars; i++)
+            {
+                ushort ch = unicodeBuffer.ReadWord(unicodeOffset + i * sizeof(ushort));
+                if (ch == 0)
+                    break;
+                chars.Add((char)ch);
+            }
+
+            var ansiBytes = Machine.AnsiEncoding.GetBytes(chars.ToArray());
+            if (lpszAnsi == 0 || cchAnsi <= 0)
+                return unchecked((short)ansiBytes.Length);
+
+            int copied = Math.Min(ansiBytes.Length, cchAnsi - 1);
+            ushort ansiSeg = lpszAnsi.Hiword();
+            ushort ansiOff = lpszAnsi.Loword();
+            for (int i = 0; i < copied; i++)
+            {
+                _machine.WriteByte(ansiSeg, (ushort)(ansiOff + i), ansiBytes[i]);
+            }
+            _machine.WriteByte(ansiSeg, (ushort)(ansiOff + copied), 0);
+            return unchecked((short)copied);
+        }
+
+        [EntryPoint(0x01D4)]
+        public bool GetBitmapDimensionEx(HGDIOBJ hBitmap, uint lpSize)
+        {
+            Win32.SIZE size;
+            if (!GetBitmapDimensionEx(hBitmap, out size))
+                return false;
+
+            if (lpSize != 0)
+                _machine.WriteStruct(lpSize, size.Convert());
+            return true;
+        }
+
+        [EntryPoint(0x01D5)]
+        public bool GetBrushOrgEx(HDC hDC, uint lpPoint)
+        {
+            Win32.POINT point;
+            if (!GetBrushOrgEx(hDC, out point))
+                return false;
+
+            if (lpPoint != 0)
+                _machine.WriteStruct(lpPoint, point.Convert());
+            return true;
+        }
+
+        [EntryPoint(0x01D6)]
+        public bool GetCurrentPositionEx(HDC hDC, uint lpPoint)
+        {
+            Win32.POINT point;
+            if (!GetCurrentPositionEx(hDC, out point))
+                return false;
+
+            if (lpPoint != 0)
+                _machine.WriteStruct(lpPoint, point.Convert());
+            return true;
+        }
+
+        [EntryPoint(0x01D7)]
+        public bool GetTextExtentPoint(HDC hDC, uint pszString, nint cbString, uint lpSize)
+        {
+            if (cbString < 0)
+                return false;
+
+            var str = _machine.GlobalHeap.ReadCharacters(pszString, cbString);
+            Win32.SIZE size;
+            if (!GetTextExtentPoint(hDC, str, cbString, out size))
+                return false;
+
+            if (lpSize != 0)
+                _machine.WriteStruct(lpSize, size.Convert());
+            return true;
+        }
+
+        [EntryPoint(0x01D8)]
+        public bool GetViewportExtEx(HDC hDC, uint lpSize)
+        {
+            Win32.SIZE size;
+            if (!GetViewportExtEx(hDC, out size))
+                return false;
+
+            if (lpSize != 0)
+                _machine.WriteStruct(lpSize, size.Convert());
+            return true;
+        }
+
+        [EntryPoint(0x01D9)]
+        public bool GetViewportOrgEx(HDC hDC, uint lpPoint)
+        {
+            Win32.POINT point;
+            if (!GetViewportOrgEx(hDC, out point))
+                return false;
+
+            if (lpPoint != 0)
+                _machine.WriteStruct(lpPoint, point.Convert());
+            return true;
+        }
+
+        [EntryPoint(0x01DA)]
+        public bool GetWindowExtEx(HDC hDC, uint lpSize)
+        {
+            Win32.SIZE size;
+            if (!GetWindowExtEx(hDC, out size))
+                return false;
+
+            if (lpSize != 0)
+                _machine.WriteStruct(lpSize, size.Convert());
+            return true;
+        }
+
+        [EntryPoint(0x01DB)]
+        public bool GetWindowOrgEx(HDC hDC, uint lpPoint)
+        {
+            Win32.POINT point;
+            if (!GetWindowOrgEx(hDC, out point))
+                return false;
+
+            if (lpPoint != 0)
+                _machine.WriteStruct(lpPoint, point.Convert());
+            return true;
+        }
+
+        [EntryPoint(0x01DC)]
+        public bool OffsetViewportOrgEx(HDC hDC, short x, short y, uint lpPoint)
+        {
+            Win32.POINT point;
+            if (!OffsetViewportOrgEx(hDC, x, y, out point))
+                return false;
+
+            if (lpPoint != 0)
+                _machine.WriteStruct(lpPoint, point.Convert());
+            return true;
+        }
+
+        [EntryPoint(0x01DD)]
+        public bool OffsetWindowOrgEx(HDC hDC, short x, short y, uint lpPoint)
+        {
+            Win32.POINT point;
+            if (!OffsetWindowOrgEx(hDC, x, y, out point))
+                return false;
+
+            if (lpPoint != 0)
+                _machine.WriteStruct(lpPoint, point.Convert());
+            return true;
+        }
+
+        [EntryPoint(0x01DE)]
+        public bool SetBitmapDimensionEx(HGDIOBJ hBitmap, short width, short height, uint lpSize)
+        {
+            Win32.SIZE size;
+            if (!SetBitmapDimensionEx(hBitmap, width, height, out size))
+                return false;
+
+            if (lpSize != 0)
+                _machine.WriteStruct(lpSize, size.Convert());
+            return true;
+        }
+
+        [EntryPoint(0x01DF)]
+        public bool SetViewportExtEx(HDC hDC, short x, short y, uint lpSize)
+        {
+            Win32.SIZE size;
+            if (!SetViewportExtEx(hDC, x, y, out size))
+                return false;
+
+            if (lpSize != 0)
+                _machine.WriteStruct(lpSize, size.Convert());
+            return true;
+        }
+
+        [EntryPoint(0x01E0)]
+        public bool SetViewportOrgEx(HDC hDC, short x, short y, uint lpPoint)
+        {
+            Win32.POINT point;
+            if (!SetViewportOrgEx(hDC, x, y, out point))
+                return false;
+
+            if (lpPoint != 0)
+                _machine.WriteStruct(lpPoint, point.Convert());
+            return true;
+        }
+
+        [EntryPoint(0x01E1)]
+        public bool SetWindowExtEx(HDC hDC, short x, short y, uint lpSize)
+        {
+            Win32.SIZE size;
+            if (!SetWindowExtEx(hDC, x, y, out size))
+                return false;
+
+            if (lpSize != 0)
+                _machine.WriteStruct(lpSize, size.Convert());
+            return true;
+        }
+
+        [EntryPoint(0x01E2)]
+        public bool SetWindowOrgEx(HDC hDC, short x, short y, uint lpPoint)
+        {
+            Win32.POINT point;
+            if (!SetWindowOrgEx(hDC, x, y, out point))
+                return false;
+
+            if (lpPoint != 0)
+                _machine.WriteStruct(lpPoint, point.Convert());
+            return true;
+        }
+
+        [EntryPoint(0x01E3)]
+        public bool MoveToEx(HDC hDC, nint x, nint y, uint lpPoint)
+        {
+            if (lpPoint == 0)
+                return MoveToEx(hDC, x, y, IntPtr.Zero);
+
+            IntPtr pPoint = Marshal.AllocHGlobal(Marshal.SizeOf<Win32.POINT>());
+            try
+            {
+                if (!MoveToEx(hDC, x, y, pPoint))
+                    return false;
+
+                _machine.WriteStruct(lpPoint, Marshal.PtrToStructure<Win32.POINT>(pPoint).Convert());
+                return true;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(pPoint);
+            }
+        }
+
+        [EntryPoint(0x01E4)]
+        public bool ScaleViewportExtEx(HDC hDC, short xNum, short xDenom, short yNum, short yDenom, uint lpSize)
+        {
+            Win32.SIZE size;
+            if (!ScaleViewportExtEx(hDC, xNum, xDenom, yNum, yDenom, out size))
+                return false;
+
+            if (lpSize != 0)
+                _machine.WriteStruct(lpSize, size.Convert());
+            return true;
+        }
+
+        [EntryPoint(0x01E5)]
+        public bool ScaleWindowExtEx(HDC hDC, short xNum, short xDenom, short yNum, short yDenom, uint lpSize)
+        {
+            Win32.SIZE size;
+            if (!ScaleWindowExtEx(hDC, xNum, xDenom, yNum, yDenom, out size))
+                return false;
+
+            if (lpSize != 0)
+                _machine.WriteStruct(lpSize, size.Convert());
+            return true;
+        }
+
+        [EntryPoint(0x01E6)]
+        public bool GetAspectRatioFilterEx(HDC hDC, uint lpSize)
+        {
+            Win32.SIZE size;
+            if (!GetAspectRatioFilterEx(hDC, out size))
+                return false;
+
+            if (lpSize != 0)
+                _machine.WriteStruct(lpSize, size.Convert());
+            return true;
+        }
     }
 }
