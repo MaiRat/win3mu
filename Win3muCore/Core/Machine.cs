@@ -738,6 +738,14 @@ namespace Win3muCore
                 case 0x2f:
                     _dos.DispatchInt2f();
                     return;
+
+                case byte interrupt when interrupt >= 0x34 && interrupt <= 0x3D:
+                {
+                    var win87em = _moduleManager.GetModule("WIN87EM") as Win87Em;
+                    if (win87em != null && win87em.HandleInterrupt(interrupt))
+                        return;
+                    break;
+                }
             }
 
             base.RaiseInterrupt(interruptNumber);
