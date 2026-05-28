@@ -29,6 +29,13 @@ namespace Win3muCore
 {
     public class Machine : CPU, DosApi.ISite, IMemoryBus, IPortBus
     {
+        static Machine()
+        {
+            // Register legacy DOS/Windows code pages before any GetEncoding(...) calls.
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            AnsiEncoding = Encoding.GetEncoding(1252);
+        }
+
         public Machine()
         {
             if (!System.Diagnostics.Debugger.IsAttached)
@@ -1060,7 +1067,7 @@ namespace Win3muCore
             return (uint)(dx << 16 | ax);
         }
 
-        public static Encoding AnsiEncoding = Encoding.GetEncoding(1252);
+        public static Encoding AnsiEncoding;
 
         ushort _hEnvironment = 0;
         public ushort GetDosEnvironmentSegment()

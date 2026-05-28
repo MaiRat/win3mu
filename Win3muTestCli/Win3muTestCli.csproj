@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Win3muTestCli</RootNamespace>
+    <AssemblyName>Win3muTestCli</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <BaseOutputPath>../build/</BaseOutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Win3muCore/Win3muCore.csproj" />
+  </ItemGroup>
+</Project>
