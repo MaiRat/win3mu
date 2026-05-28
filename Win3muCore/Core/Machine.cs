@@ -77,6 +77,9 @@ namespace Win3muCore
             _globalHeap.SetSelectorAttributes(_systemCodeSelector, true, true);
             _systemDataHeap = _globalHeap.CreateLocalHeap("System Local Heap", 0);
             _globalHeap.SetSelectorAttributes(_systemDataHeap.GlobalHandle, false, false);
+            _interruptVectorSelector = _globalHeap.Alloc("Interrupt Vector Table", 0, 0x0400);
+            _globalHeap.SetSelectorAttributes(_interruptVectorSelector, false, false);
+            idt = _interruptVectorSelector;
 
             // Initialise the system return thunk
             CreateSysRetThunk();
@@ -654,6 +657,7 @@ namespace Win3muCore
         #region System Heap
 
         ushort _systemCodeSelector;
+        ushort _interruptVectorSelector;
         ushort _systemCodeGenPos = 0;
         ushort SystemCodeSelector
         {
@@ -878,22 +882,22 @@ namespace Win3muCore
                 return;
             }
 
-            void InstallWin87EmInvalidOpcodeHandler()
-            {
-                var handler = CreateInterruptThunk(() =>
-                {
-                    var win87em = _moduleManager.GetModule("WIN87EM") as Win87Em;
-                    if (win87em != null && win87em.HandleInvalidOpcodeFault())
-                        return;
-
-                    throw new InvalidOpCodeException();
-                }, "WIN87EM Invalid Opcode");
-
-                WriteWord(0, (ushort)(6 * 4), handler.Loword());
-                WriteWord(0, (ushort)(6 * 4 + 2), handler.Hiword());
-            }
-
             _freeProcInstances.Add(ptr.Loword());
+        }
+
+        void InstallWin87EmInvalidOpcodeHandler()
+        {
+            var handler = CreateInterruptThunk(() =>
+            {
+                var win87em = _moduleManager.GetModule("WIN87EM") as Win87Em;
+                if (win87em != null && win87em.HandleInvalidOpcodeFault())
+                    return;
+
+                throw new InvalidOpCodeException();
+            }, "WIN87EM Invalid Opcode");
+
+            _globalHeap.WriteWord(_interruptVectorSelector, (ushort)(6 * 4), handler.Loword());
+            _globalHeap.WriteWord(_interruptVectorSelector, (ushort)(6 * 4 + 2), handler.Hiword());
         }
 
         #endregion

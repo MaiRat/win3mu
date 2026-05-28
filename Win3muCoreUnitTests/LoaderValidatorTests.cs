@@ -130,7 +130,7 @@ namespace Win3muCoreUnitTests
             var result = report.Results[0];
             Assert.IsTrue(result.Success);
             Assert.IsNotNull(result.Execution);
-            StringAssert.DoesNotContain(result.Execution.StopReason ?? string.Empty, "InvalidOpCodeException");
+            Assert.IsFalse((result.Execution.StopReason ?? string.Empty).Contains("InvalidOpCodeException", StringComparison.InvariantCulture));
         }
 
         static string CreateTempDirectory()

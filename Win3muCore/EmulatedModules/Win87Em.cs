@@ -184,18 +184,19 @@ namespace Win3muCore
                     _machine.dx = 0xFFFF;
                     break;
             }
+        }
 
-            public bool HandleInvalidOpcodeFault()
-            {
-                ushort faultIp = _machine.ReadWord(_machine.ss, _machine.sp);
-                ushort faultCs = _machine.ReadWord(_machine.ss, (ushort)(_machine.sp + 2));
-                ushort nextIp;
-                if (!TryHandleEscInstruction(faultCs, faultIp, out nextIp))
-                    return false;
+        public bool HandleInvalidOpcodeFault()
+        {
+            ushort faultIp = _machine.ReadWord(_machine.ss, _machine.sp);
+            ushort faultCs = _machine.ReadWord(_machine.ss, (ushort)(_machine.sp + 2));
+            ushort nextIp;
+            if (!TryHandleEscInstruction(faultCs, faultIp, out nextIp))
+                return false;
 
-                _machine.WriteWord(_machine.ss, _machine.sp, nextIp);
-                return true;
-            }
+            _machine.WriteWord(_machine.ss, _machine.sp, nextIp);
+            return true;
+        }
 
             bool TryHandleEscInstruction(ushort cs, ushort ip, out ushort nextIp)
             {
@@ -292,10 +293,10 @@ namespace Win3muCore
 
                 nextIp = decodedNextIp;
                 return true;
-            }
+        }
 
-            bool TryResolveMemoryOperand(ushort cs, ushort instructionIp, ushort segmentOverride, out ushort operandSegment, out ushort operandOffset, out ushort nextIp)
-            {
+        bool TryResolveMemoryOperand(ushort cs, ushort instructionIp, ushort segmentOverride, out ushort operandSegment, out ushort operandOffset, out ushort nextIp)
+        {
                 byte modrm = _machine.ReadByte(cs, (ushort)(instructionIp + 1));
                 int mod = (modrm >> 6) & 0x03;
                 int rm = modrm & 0x07;
@@ -379,9 +380,8 @@ namespace Win3muCore
 
                 operandSegment = segmentOverride != 0 ? segmentOverride : (usesStackSegment ? _machine.ss : _machine.ds);
                 operandOffset = (ushort)(baseOffset + displacement);
-                nextIp = (ushort)(instructionIp + 2 + displacementSize);
-                return true;
-            }
+            nextIp = (ushort)(instructionIp + 2 + displacementSize);
+            return true;
         }
 
         [EntryPoint(3, "__WinEm87Info")]
