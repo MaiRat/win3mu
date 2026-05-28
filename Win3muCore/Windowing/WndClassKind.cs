@@ -53,12 +53,17 @@ namespace Win3muCore
 
         public static WndClassKind Get(HWND hWnd)
         {
-            // Get the class name
-            var className = User.GetClassName(hWnd).ToLowerInvariant();
+            return Get(User.GetClassName(hWnd));
+        }
+
+        public static WndClassKind Get(string className)
+        {
+            if (string.IsNullOrEmpty(className))
+                return WndClassKind.Unknown;
 
             // Known class?
             WndClassKind kind;
-            if (_mapClassNameClassKind.TryGetValue(className, out kind))
+            if (_mapClassNameClassKind.TryGetValue(className.ToLowerInvariant(), out kind))
             {
                 return kind;
             }
