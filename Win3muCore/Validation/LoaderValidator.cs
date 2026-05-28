@@ -230,7 +230,7 @@ namespace Win3muCore.Validation
             }
             catch (Exception x)
             {
-                execution.StopReason = UnwrapException(x).Message;
+                execution.StopReason = FormatExecutionStopReason(UnwrapException(x).Message);
                 if (machine != null)
                     execution.InstructionsExecuted = (int)(machine.CpuTime - initialCpuTime);
             }
@@ -256,6 +256,18 @@ namespace Win3muCore.Validation
             }
 
             return execution;
+        }
+
+        static string FormatExecutionStopReason(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+                return message;
+
+            using (var reader = new StringReader(message))
+            {
+                var firstLine = reader.ReadLine();
+                return string.IsNullOrWhiteSpace(firstLine) ? message.Trim() : firstLine.Trim();
+            }
         }
 
         static Exception UnwrapException(Exception x)
