@@ -6,7 +6,17 @@ Win3mu fork from Topten Software
 Compilation
 ===========
 
-Requires Visual Studio 2017 and .NET 4.6.1
+Build the solution with:
+
+```bash
+dotnet build Win3mu.sln
+```
+
+Run the core unit tests with:
+
+```bash
+dotnet test Win3muCoreUnitTests/Win3muCoreUnitTests.csproj
+```
 
 Development Roadmap
 ===================
@@ -21,6 +31,25 @@ Right-click on your .16-bit exe file, then choose "Convert with Win3mu". If ever
 You can then run the new executable. If it complains about some modules (SHELL, COMMDLG, OLECLI...), copy the corresponding DLL file from the original WINDOWS\SYSTEM to the current folder, and try again.
 
 Finally, if you get some error like "Unsupported ordinal #**** in module **** invoked", then sorry, this particular function hasn't been implemented yet.
+
+Validation CLI
+==============
+
+The repository now includes a cross-platform loader validation CLI in `Win3muTestCli`.
+
+Build just the validator with:
+
+```bash
+dotnet build Win3muTestCli/Win3muTestCli.csproj
+```
+
+Run it against a single file or a directory tree:
+
+```bash
+dotnet run --project Win3muTestCli/Win3muTestCli.csproj -- <file-or-directory>
+```
+
+The tool recursively scans directories for `.exe` and `.dll` files, attempts to load and link each candidate with the Win3mu loader, prints per-file fixup details, and ends with a success/failure summary.
 
 Original links and source code
 ==============================

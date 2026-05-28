@@ -134,6 +134,66 @@ namespace Win3muCore
             }
         }
 
+        ModuleBase LoadModuleInternalForValidation(string fileOrModuleName, string parentPath)
+        {
+            // Remove trailing '.' - VBRUN100 calls LoadLibrary("gdi.")
+            if (fileOrModuleName.EndsWith("."))
+                fileOrModuleName = fileOrModuleName.Substring(0, fileOrModuleName.Length - 1);
+
+            // Look for already loaded module with correct name
+            ModuleBase module;
+            if (_loadedModules.TryGetValue(fileOrModuleName, out module))
+            {
+                module.LoadCount++;
+                return module;
+            }
+
+            // Look for module with same filename
+            foreach (var kv in _loadedModules)
+            {
+                if (System.IO.Path.GetFileName(kv.Value.GetModuleFileName()).ToLowerInvariant() == fileOrModuleName.ToLowerInvariant())
+                {
+                    kv.Value.LoadCount++;
+                    return kv.Value;
+                }
+            }
+
+            // Locate the module
+            var locatedModuleGuest = LocateModule(fileOrModuleName, parentPath);
+            if (locatedModuleGuest == null)
+                throw new VirtualException(string.Format("Can't find module '{0}'", fileOrModuleName));
+
+            // Look for already loaded module
+            var existingModule = _loadedModules.Values.FirstOrDefault(x => x.GetModuleFileName() == locatedModuleGuest);
+            if (existingModule != null)
+            {
+                existingModule.LoadCount++;
+                return existingModule;
+            }
+
+            // Load it
+            var locatedModuleHost = _machine.PathMapper.MapGuestToHost(locatedModuleGuest, false);
+            var nativeModule = new Module16(locatedModuleHost);
+
+            if (_machine.logModules)
+            {
+                nativeModule.NeFile.Dump(_machine.logRelocations);
+            }
+
+            nativeModule.SetGuestFileName(locatedModuleGuest.ToUpper());
+
+            try
+            {
+                LoadModuleForValidation(nativeModule);
+                return nativeModule;
+            }
+            catch (VirtualException)
+            {
+                nativeModule.Unload(_machine);
+                throw;
+            }
+        }
+
         string _processPath;
         public void SetProcessPath(string path)
         {
@@ -293,6 +353,78 @@ namespace Win3muCore
                     _pendingLink = null;
                     throw;
                 }
+            }
+
+            return module;
+        }
+
+        public ModuleBase LoadModuleForValidation(Module16 module)
+        {
+            if (_loadDepth == 0)
+                _pendingLink = new List<ModuleBase>();
+
+            _loadDepth++;
+
+            try
+            {
+                module.LoadCount++;
+
+                if (module.LoadCount == 1)
+                {
+                    System.Diagnostics.Debug.Assert(!_loadedModules.ContainsKey(module.GetModuleName()));
+                    var referencedModules = new List<ModuleBase>();
+
+                    try
+                    {
+                        _loadedModules.Add(module.GetModuleName(), module);
+
+                        foreach (var m in module.GetReferencedModules())
+                        {
+                            referencedModules.Add(LoadModuleInternalForValidation(m, System.IO.Path.GetDirectoryName(module.GetModuleFileName())));
+                        }
+
+                        module.Load(_machine);
+                        _pendingLink.Add(module);
+                    }
+                    catch (VirtualException)
+                    {
+                        foreach (var m in referencedModules)
+                        {
+                            UnloadModule(m);
+                        }
+
+                        _loadedModules.Remove(module.GetModuleName());
+                        throw;
+                    }
+                }
+            }
+            catch (VirtualException)
+            {
+                _loadDepth--;
+                if (_loadDepth == 0)
+                    _pendingLink = null;
+                throw;
+            }
+
+            _loadDepth--;
+            if (_loadDepth == 0)
+            {
+                try
+                {
+                    foreach (var m in _pendingLink)
+                    {
+                        Log.WriteLine("Linking module '{0}'...", m.GetModuleName());
+                        m.Link(_machine);
+                    }
+                }
+                catch (VirtualException)
+                {
+                    UnloadModule(module);
+                    _pendingLink = null;
+                    throw;
+                }
+
+                _pendingLink = null;
             }
 
             return module;

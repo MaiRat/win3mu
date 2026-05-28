@@ -82,17 +82,44 @@ namespace Win3muCore
         }
 
 
+        static string NormalizePathSeparators(string path)
+        {
+            if (path == null)
+                return null;
+
+            return path.Replace('\\', '/');
+        }
+
+        static string ConvertHostSuffixToGuest(string suffix)
+        {
+            if (suffix == null)
+                return null;
+
+            return suffix.Replace('/', '\\');
+        }
+
+        static string CombineHostPath(string root, string guestSuffix)
+        {
+            if (string.IsNullOrEmpty(guestSuffix))
+                return root;
+
+            return root + guestSuffix.Replace('\\', System.IO.Path.DirectorySeparatorChar);
+        }
+
         bool DoesPathPrefixMatch(string prefix, string path)
         {
+            prefix = NormalizePathSeparators(prefix);
+            path = NormalizePathSeparators(path);
+
             if (!path.StartsWith(prefix, StringComparison.InvariantCultureIgnoreCase))
                 return false;
 
-            if (!prefix.EndsWith("\\"))
+            if (!prefix.EndsWith("/"))
             {
                 var prefixLen = prefix.Length;
                 if (prefixLen < path.Length)
                 {
-                    return path[prefixLen] == '\\';
+                    return path[prefixLen] == '/';
                 }
             }
 
@@ -144,14 +171,14 @@ namespace Win3muCore
                 {
                     if (DoesPathPrefixMatch(mp.hostWrite, hostPath))
                     {
-                        mapped = mp.guest + hostPath.Substring(mp.hostWrite.Length);
+                        mapped = mp.guest + ConvertHostSuffixToGuest(hostPath.Substring(mp.hostWrite.Length));
                     }
                 }
                 else
                 {
                     if (DoesPathPrefixMatch(mp.host, hostPath))
                     {
-                        mapped = mp.guest + hostPath.Substring(mp.host.Length);
+                        mapped = mp.guest + ConvertHostSuffixToGuest(hostPath.Substring(mp.host.Length));
                     }
                 }
 
@@ -188,7 +215,7 @@ namespace Win3muCore
                     if (DoesPathPrefixMatch(mp.guest, guestPath))
                     {
                         // Work out the read-only path
-                        var readPath = mp.host + guestPath.Substring(mp.guest.Length);
+                        var readPath = CombineHostPath(mp.host, guestPath.Substring(mp.guest.Length));
 
                         if (!forWrite && System.IO.Directory.Exists(readPath))
                         {
@@ -199,7 +226,7 @@ namespace Win3muCore
                         if (mp.hostWrite != null)
                         {
                             // Work out the write path
-                            var writePath = mp.hostWrite + guestPath.Substring(mp.guest.Length);
+                            var writePath = CombineHostPath(mp.hostWrite, guestPath.Substring(mp.guest.Length));
 
                             // Does it already exist?
                             if (System.IO.Directory.Exists(writePath))

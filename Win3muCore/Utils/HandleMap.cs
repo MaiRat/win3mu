@@ -33,6 +33,24 @@ namespace Win3muCore
 
         public void DefineMapping(IntPtr handle32, ushort handle16)
         {
+            IntPtr existing32;
+            if (_map16to32.TryGetValue(handle16, out existing32))
+            {
+                if (existing32 == handle32)
+                    return;
+
+                throw new InvalidOperationException(string.Format("16-bit handle 0x{0:X4} is already mapped", handle16));
+            }
+
+            ushort existing16;
+            if (_map32to16.TryGetValue(handle32, out existing16))
+            {
+                if (existing16 == handle16)
+                    return;
+
+                throw new InvalidOperationException("32-bit handle is already mapped");
+            }
+
             _map16to32.Add(handle16, handle32);
             _map32to16.Add(handle32, handle16);
         }
