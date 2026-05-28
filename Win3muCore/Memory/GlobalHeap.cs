@@ -83,6 +83,7 @@ namespace Win3muCore
         {
             public string name;
             public ushort selectorIndex;
+            public ushort baseSelectorIndex;
             public Allocation allocation;
             public bool isCode;
             public bool readOnly;
@@ -116,6 +117,7 @@ namespace Win3muCore
 
             // Multi segment
             sel.selectorIndex = (ushort)(_selectorAllocator.Alloc(pages, false, false).Position);
+            sel.baseSelectorIndex = sel.selectorIndex;
 
             // Update the high memory page map for all selectors
             for (int i = 0; i < pages; i++)
@@ -311,6 +313,32 @@ namespace Win3muCore
             return sel.selector;
         }
 
+        public uint GetSelectorBase(ushort selector)
+        {
+            var sel = GetSelector(selector);
+            if (sel == null)
+                return 0;
+
+            int pageOffset = (selector >> 3) - sel.baseSelectorIndex;
+            if (pageOffset < 0)
+                return 0;
+
+            return (uint)pageOffset << 16;
+        }
+
+        public uint GetSelectorLimit(ushort selector)
+        {
+            var sel = GetSelector(selector);
+            if (sel == null || sel.allocation == null || sel.allocation.buffer == null)
+                return 0;
+
+            uint baseOffset = GetSelectorBase(selector);
+            if (baseOffset >= sel.allocation.buffer.Length)
+                return 0;
+
+            return (uint)(sel.allocation.buffer.Length - 1 - baseOffset);
+        }
+
         public HeapPointer GetHeapPointer(uint ptr, bool forWrite)
         {
             return new HeapPointer(this, ptr, forWrite);
@@ -350,7 +378,7 @@ namespace Win3muCore
             }
 
             // Work out offset in buffer
-            offset = ((ptr.Hiword() >> 3) - sel.selectorIndex) << 16 | ptr.Loword();
+            offset = ((ptr.Hiword() >> 3) - sel.baseSelectorIndex) << 16 | ptr.Loword();
 
             // Return the buffer
             return sel.allocation.buffer;
@@ -406,7 +434,7 @@ namespace Win3muCore
 
             try
             {
-                return sel.allocation.buffer[((seg >> 3) - sel.selectorIndex) << 16 | offset];
+                return sel.allocation.buffer[((seg >> 3) - sel.baseSelectorIndex) << 16 | offset];
             }
             catch (NullReferenceException)
             {
@@ -428,7 +456,7 @@ namespace Win3muCore
                     throw new Sharp86.GeneralProtectionFaultException(seg, offset, false);
 
                 // Write byte
-                sel.allocation.buffer[((seg >> 3) - sel.selectorIndex) << 16 | offset] = value;
+                sel.allocation.buffer[((seg >> 3) - sel.baseSelectorIndex) << 16 | offset] = value;
             }
             catch (NullReferenceException)
             {

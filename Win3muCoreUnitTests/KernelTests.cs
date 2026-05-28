@@ -90,6 +90,45 @@ namespace Win3muCoreUnitTests
             CollectionAssert.AreEqual(new byte[] { (byte)'H', (byte)'e', (byte)'l', 0 }, Slice(destBuffer, 4));
         }
 
+        [TestMethod]
+        public void Kernel_SelectorHelpers_ReportCopiedDescriptorState()
+        {
+            var machine = new Machine();
+            var kernel = machine.ModuleManager.GetModule("KERNEL") as Kernel;
+            ushort multiSelector = machine.GlobalHeap.Alloc("KernelTests Multi", 0, 0x11000);
+            ushort pageTwoSelector = (ushort)(multiSelector + 0x0008);
+            ushort copiedSelector = kernel.AllocSelector(pageTwoSelector);
+            ushort codeAlias = kernel.AllocDSToCSAlias(pageTwoSelector);
+
+            Assert.AreNotEqual((ushort)0, copiedSelector);
+            Assert.AreEqual((uint)0x00010000, kernel.GetSelectorBase(pageTwoSelector));
+            Assert.AreEqual((uint)0x00010000, kernel.GetSelectorBase(copiedSelector));
+            Assert.AreEqual((uint)0x00000FFF, kernel.GetSelectorLimit(pageTwoSelector));
+            Assert.AreEqual((uint)0x00000FFF, kernel.GetSelectorLimit(copiedSelector));
+            Assert.AreEqual((ushort)0x00F2, kernel.SelectorAccessRights(copiedSelector, 0, 0));
+            Assert.AreEqual((ushort)0x00FA, kernel.SelectorAccessRights(codeAlias, 0, 0));
+            Assert.IsTrue(kernel.IsSharedSelector(copiedSelector));
+            Assert.IsFalse(kernel.IsSharedSelector(0x2222));
+        }
+
+        [TestMethod]
+        public void Kernel_SelectorAccessRights_SetterUpdatesSelectorKind()
+        {
+            var machine = new Machine();
+            var kernel = machine.ModuleManager.GetModule("KERNEL") as Kernel;
+            ushort selector = machine.GlobalHeap.Alloc("KernelTests Selector Rights", 0, 16);
+
+            Assert.AreEqual((ushort)0x00F2, kernel.SelectorAccessRights(selector, 0, 0));
+
+            Assert.AreEqual((ushort)0, kernel.SelectorAccessRights(selector, 1, 0x00F0));
+            Assert.AreEqual((ushort)0x00F0, kernel.SelectorAccessRights(selector, 0, 0));
+
+            Assert.AreEqual((ushort)0, kernel.SelectorAccessRights(selector, 1, 0x00FA));
+            Assert.AreEqual((ushort)0x00FA, kernel.SelectorAccessRights(selector, 0, 0));
+            Assert.IsTrue(kernel.IsBadWritePtr(BitUtils.MakeDWord(0, selector), 1));
+            Assert.IsFalse(kernel.IsBadCodePtr(BitUtils.MakeDWord(0, selector)));
+        }
+
         static byte[] Slice(byte[] buffer, int count)
         {
             var result = new byte[count];

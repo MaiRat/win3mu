@@ -1048,6 +1048,7 @@ namespace Win3muCore
             newSel.allocation = sel.allocation;
             newSel.isCode = false;
             newSel.readOnly = false;
+            newSel.baseSelectorIndex = (ushort)(newSel.selectorIndex - GetSelectorPageOffset(wSelector, sel));
 
             return newSel.selector;
         }
@@ -1065,6 +1066,7 @@ namespace Win3muCore
             newSel.allocation = sel.allocation;
             newSel.isCode = true;
             newSel.readOnly = true;
+            newSel.baseSelectorIndex = (ushort)(newSel.selectorIndex - GetSelectorPageOffset(wSelector, sel));
 
             return newSel.selector;
         }
@@ -1076,7 +1078,22 @@ namespace Win3muCore
         [EntryPoint(0x00AF)]
         public ushort AllocSelector(ushort src)
         {
-            return _machine.GlobalHeap.FreeSelector(src);
+            var newSel = _machine.GlobalHeap.AllocSelector(string.Format("Selector copy for 0x{0:X4}", src), 1);
+            if (src == 0)
+                return newSel.selector;
+
+            var srcSel = _machine.GlobalHeap.GetSelector(src);
+            if (srcSel == null)
+            {
+                _machine.GlobalHeap.FreeSelector(newSel.selector);
+                return 0;
+            }
+
+            newSel.allocation = srcSel.allocation;
+            newSel.isCode = srcSel.isCode;
+            newSel.readOnly = srcSel.readOnly;
+            newSel.baseSelectorIndex = (ushort)(newSel.selectorIndex - GetSelectorPageOffset(src, srcSel));
+            return newSel.selector;
         }
 
         [EntryPoint(0x00B0)]
@@ -1116,9 +1133,19 @@ namespace Win3muCore
         // 00B7 - __0000H
         // 00B8 - GLOBALDOSALLOC
         // 00B9 - GLOBALDOSFREE
-        // 00BA - GETSELECTORBASE
+        [EntryPoint(0x00BA)]
+        public uint GetSelectorBase(ushort selector)
+        {
+            return _machine.GlobalHeap.GetSelectorBase(selector);
+        }
+
         // 00BB - SETSELECTORBASE
-        // 00BC - GETSELECTORLIMIT
+        [EntryPoint(0x00BC)]
+        public uint GetSelectorLimit(ushort selector)
+        {
+            return _machine.GlobalHeap.GetSelectorLimit(selector);
+        }
+
         // 00BD - SETSELECTORLIMIT
         // 00BE - __E000H
         // 00BF - GLOBALPAGELOCK
@@ -1126,7 +1153,23 @@ namespace Win3muCore
         // 00C1 - __0040H
         // 00C2 - __F000H
         // 00C3 - __C000H
-        // 00C4 - SELECTORACCESSRIGHTS
+        [EntryPoint(0x00C4)]
+        public ushort SelectorAccessRights(ushort selector, ushort op, ushort value)
+        {
+            var sel = _machine.GlobalHeap.GetSelector(selector);
+            if (sel == null)
+                return 0;
+
+            if (op == 0)
+                return GetSelectorAccessRights(sel);
+
+            bool isCode = (value & 0x0008) != 0;
+            bool writable = (value & 0x0002) != 0;
+            sel.isCode = isCode;
+            sel.readOnly = isCode || !writable;
+            return 0;
+        }
+
         // 00C5 - GLOBALFIX
         // 00C6 - GLOBALUNFIX
         // 00C7 - SETHANDLECOUNT
@@ -1210,7 +1253,12 @@ namespace Win3muCore
         // 0155 - TOOLHELPHOOK
         // 0157 - REGISTERWINOLDAPHOOK
         // 0158 - GETWINOLDAPHOOKS
-        // 0159 - ISSHAREDSELECTOR
+        [EntryPoint(0x0159)]
+        public bool IsSharedSelector(ushort selector)
+        {
+            return _machine.GlobalHeap.GetSelector(selector) != null;
+        }
+
         // 015A - ISBADHUGEREADPTR
         // 015B - ISBADHUGEWRITEPTR
         [EntryPoint(0x015C)]
@@ -1282,9 +1330,23 @@ namespace Win3muCore
             // Win16 uses selector aliases to address 64 KiB windows inside a shared
             // allocation. Converting the far pointer back to a byte offset requires
             // normalizing the selector to a selector-table index (selector >> 3),
-            // subtracting the allocation's base selector index, then shifting that
+            // subtracting the selector's mapped base selector index, then shifting that
             // page delta back into bytes (<< 16) before adding the 16-bit offset.
-            return ((ptr.Hiword() >> 3) - sel.selectorIndex) << 16 | ptr.Loword();
+            return ((ptr.Hiword() >> 3) - sel.baseSelectorIndex) << 16 | ptr.Loword();
+        }
+
+        static int GetSelectorPageOffset(ushort selector, GlobalHeap.Selector sel)
+        {
+            return (selector >> 3) - sel.baseSelectorIndex;
+        }
+
+        static ushort GetSelectorAccessRights(GlobalHeap.Selector sel)
+        {
+            byte type = sel.isCode
+                ? (byte)0x0A
+                : (byte)(sel.readOnly ? 0x00 : 0x02);
+
+            return (ushort)(0x80 | 0x60 | 0x10 | type);
         }
     }
 }

@@ -88,7 +88,7 @@ namespace Win3muCore.Debugging
                 return;
             }
 
-            uint offset = (uint)(((address.Segment >> 3) - sel.selectorIndex) << 16 | address.Offset);
+            uint offset = (uint)(((address.Segment >> 3) - sel.baseSelectorIndex) << 16 | address.Offset);
             if (offset > sel.allocation.buffer.Length)
             {
                 debugger.WriteLine("Address is past end of allocation");
