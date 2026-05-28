@@ -30,6 +30,7 @@ namespace Win3muCore
     public class Machine : CPU, DosApi.ISite, IMemoryBus, IPortBus
     {
         const int HighestUsableSyntheticWorkingDirectoryDrive = 24; // Y:
+        const int LowestUsableSyntheticWorkingDirectoryDrive = 2;   // C:
 
         static Machine()
         {
@@ -329,7 +330,7 @@ namespace Win3muCore
 
             if (workingDirectoryGuest == null)
             {
-                for (var drive = HighestUsableSyntheticWorkingDirectoryDrive; drive >= 0; drive--)
+                for (var drive = HighestUsableSyntheticWorkingDirectoryDrive; drive >= LowestUsableSyntheticWorkingDirectoryDrive; drive--)
                 {
                     var guestRoot = string.Format("{0}:\\", (char)('A' + drive));
                     if (_pathMapper.DoesGuestDirectoryExist(guestRoot))
@@ -345,7 +346,7 @@ namespace Win3muCore
             if (workingDirectoryGuest == null)
             {
                 workingDirectoryGuest = programDirectoryGuest;
-                if (logWarnings)
+                if (this.logWarnings)
                 {
                     Log.WriteLine("Warning: couldn't reserve a guest drive for launch working directory '{0}', falling back to executable directory '{1}'.", launchDirectoryHost, programDirectoryGuest);
                 }
@@ -353,7 +354,7 @@ namespace Win3muCore
 
             _dos.WorkingDirectory = workingDirectoryGuest;
 
-            if (logWarnings && !string.Equals(workingDirectoryGuest, programDirectoryGuest, StringComparison.OrdinalIgnoreCase))
+            if (this.logWarnings && !string.Equals(workingDirectoryGuest, programDirectoryGuest, StringComparison.OrdinalIgnoreCase))
             {
                 Log.WriteLine("Warning: executable module path '{0}' differs from launch working directory '{1}' (host '{2}'). Relative file access uses the launch working directory; module loading still uses the executable path.", programDirectoryGuest, workingDirectoryGuest, launchDirectoryHost);
             }

@@ -57,7 +57,7 @@ namespace Win3muCoreUnitTests
                 Environment.CurrentDirectory = launchDirectory;
                 InvokeConfigureLaunchWorkingDirectory(machine, @"C:\TEST\TEST.EXE");
 
-                StringAssert.Matches(machine.Dos.WorkingDirectory, new System.Text.RegularExpressions.Regex(@"^[A-Y]:\\$"));
+                StringAssert.Matches(machine.Dos.WorkingDirectory, new System.Text.RegularExpressions.Regex(@"^[C-Y]:\\$"));
                 Assert.AreEqual(NormalizeDirectoryPath(launchDirectory), NormalizeDirectoryPath(machine.PathMapper.TryMapGuestToHost(machine.Dos.WorkingDirectory, false)));
                 Assert.AreEqual(Path.Combine(launchDirectory, "DATA.DAT"), machine.PathMapper.TryMapGuestToHost(machine.Dos.QualifyPath("DATA.DAT"), false));
             }
