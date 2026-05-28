@@ -85,15 +85,9 @@ namespace Win3muCore
                 return module;
             }
 
-            // Look for module with same filename
-            foreach (var kv in _loadedModules)
-            {
-                if (DosPath.GetFileName(kv.Value.GetModuleFileName()).ToLowerInvariant() == fileOrModuleName.ToLowerInvariant())
-                {
-                    kv.Value.LoadCount++;
-                    return kv.Value;
-                }
-            }
+            module = FindLoadedModuleByFileNameAlias(fileOrModuleName);
+            if (module != null)
+                return module;
 
             // Locate the module
             var locatedModuleGuest = LocateModule(fileOrModuleName, parentPath);
@@ -148,15 +142,9 @@ namespace Win3muCore
                 return module;
             }
 
-            // Look for module with same filename
-            foreach (var kv in _loadedModules)
-            {
-                if (DosPath.GetFileName(kv.Value.GetModuleFileName()).ToLowerInvariant() == fileOrModuleName.ToLowerInvariant())
-                {
-                    kv.Value.LoadCount++;
-                    return kv.Value;
-                }
-            }
+            module = FindLoadedModuleByFileNameAlias(fileOrModuleName);
+            if (module != null)
+                return module;
 
             // Locate the module
             var locatedModuleGuest = LocateModule(fileOrModuleName, parentPath);
@@ -249,6 +237,23 @@ namespace Win3muCore
                 foreach (var p in path.Split(';'))
                     yield return p;
             }
+        }
+
+        ModuleBase FindLoadedModuleByFileNameAlias(string fileOrModuleName)
+        {
+            foreach (var kv in _loadedModules)
+            {
+                if (!(kv.Value is Module32))
+                    continue;
+
+                if (string.Equals(DosPath.GetFileName(kv.Value.GetModuleFileName()), fileOrModuleName, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    kv.Value.LoadCount++;
+                    return kv.Value;
+                }
+            }
+
+            return null;
         }
 
         int _loadDepth = 0;
