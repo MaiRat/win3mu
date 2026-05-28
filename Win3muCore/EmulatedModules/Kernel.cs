@@ -998,7 +998,12 @@ namespace Win3muCore
         // 008D - INITTASK1
         // 0096 - DIRECTEDYIELD
         // 0097 - WINOLDAPCALL
-        // 0098 - GETNUMTASKS
+        [EntryPoint(0x0098)]
+        public ushort GetNumTasks()
+        {
+            return 1;
+        }
+
         // 009A - GLOBALNOTIFY
         // 009B - GETTASKDS
         // 009C - LIMITEMSPAGES
@@ -1047,7 +1052,23 @@ namespace Win3muCore
             return newSel.selector;
         }
 
-        // 00AB - ALLOCDSTOCSALIAS
+        [EntryPoint(0x00AB)]
+        public ushort AllocDSToCSAlias(ushort wSelector)
+        {
+            var sel = _machine.GlobalHeap.GetSelector(wSelector);
+            if (sel == null || sel.allocation == null)
+                return 0;
+            if (sel.isCode)
+                return 0;
+
+            var newSel = _machine.GlobalHeap.AllocSelector(string.Format("DS to CS alias for 0x{0:X4}", wSelector), 1);
+            newSel.allocation = sel.allocation;
+            newSel.isCode = true;
+            newSel.readOnly = true;
+
+            return newSel.selector;
+        }
+
         // 00AC - ALLOCALIAS
         // 00AD - __ROMBIOS
         // 00AE - __A000H
@@ -1127,7 +1148,12 @@ namespace Win3muCore
         // 013C - GETFREEMEMINFO
         // 013E - FATALEXITHOOK
         // 013F - FLUSHCACHEDFILEHANDLE
-        // 0140 - ISTASK
+        [EntryPoint(0x0140)]
+        public bool IsTask(ushort hTask)
+        {
+            return hTask == GetCurrentTask();
+        }
+
         // 0143 - ISROMMODULE
         // 0144 - LOGERROR
         // 0145 - LOGPARAMERROR
@@ -1136,10 +1162,48 @@ namespace Win3muCore
         // 0148 - _DEBUGOUTPUT
         // 0149 - K329
         // 014C - THHOOK
-        // 014E - ISBADREADPTR
-        // 014F - ISBADWRITEPTR
-        // 0150 - ISBADCODEPTR
-        // 0151 - ISBADSTRINGPTR
+        [EntryPoint(0x014E)]
+        public bool IsBadReadPtr(uint ptr, ushort cb)
+        {
+            return IsBadPointerRange(ptr, cb, requireWritable: false, requireCode: false);
+        }
+
+        [EntryPoint(0x014F)]
+        public bool IsBadWritePtr(uint ptr, ushort cb)
+        {
+            return IsBadPointerRange(ptr, cb, requireWritable: true, requireCode: false);
+        }
+
+        [EntryPoint(0x0150)]
+        public bool IsBadCodePtr(uint ptr)
+        {
+            return IsBadPointerRange(ptr, 1, requireWritable: false, requireCode: true);
+        }
+
+        [EntryPoint(0x0151)]
+        public bool IsBadStringPtr(uint ptr, ushort cchMax)
+        {
+            if (cchMax == 0)
+                return false;
+
+            var sel = _machine.GlobalHeap.GetSelector(ptr.Hiword());
+            if (sel == null || sel.allocation == null || sel.allocation.buffer == null)
+                return true;
+
+            int offset = ((ptr.Hiword() >> 3) - sel.selectorIndex) << 16 | ptr.Loword();
+            if (offset < 0 || offset >= sel.allocation.buffer.Length)
+                return true;
+
+            int maxLength = Math.Min(sel.allocation.buffer.Length - offset, cchMax);
+            for (int i = 0; i < maxLength; i++)
+            {
+                if (sel.allocation.buffer[offset + i] == 0)
+                    return false;
+            }
+
+            return true;
+        }
+
         // 0152 - HASGPHANDLER
         // 0153 - DIAGQUERY
         // 0154 - DIAGOUTPUT
@@ -1149,15 +1213,68 @@ namespace Win3muCore
         // 0159 - ISSHAREDSELECTOR
         // 015A - ISBADHUGEREADPTR
         // 015B - ISBADHUGEWRITEPTR
-        // 015C - HMEMCPY
+        [EntryPoint(0x015C)]
+        public void hmemcpy(uint dest, uint src, int count)
+        {
+            if (count <= 0)
+                return;
+
+            if (IsBadPointerRange(src, (ushort)Math.Min(count, ushort.MaxValue), requireWritable: false, requireCode: false))
+                return;
+            if (IsBadPointerRange(dest, (ushort)Math.Min(count, ushort.MaxValue), requireWritable: true, requireCode: false))
+                return;
+
+            int srcOffset;
+            int destOffset;
+            var srcBuffer = _machine.GlobalHeap.GetBuffer(src, false, out srcOffset);
+            var destBuffer = _machine.GlobalHeap.GetBuffer(dest, true, out destOffset);
+            Buffer.BlockCopy(srcBuffer, srcOffset, destBuffer, destOffset, count);
+        }
+
         // 015D - _HREAD
         // 015E - _HWRITE
         // 015F - BUNNY_351
-        // 0161 - LSTRCPYN
+        [EntryPoint(0x0161)]
+        public uint lstrcpyn(uint destPtr, string srcPtr, int iMaxLength)
+        {
+            if (iMaxLength <= 0)
+                return destPtr;
+
+            string value = srcPtr ?? string.Empty;
+            if (value.Length >= iMaxLength)
+                value = value.Substring(0, iMaxLength - 1);
+
+            _machine.WriteString(destPtr, value, (ushort)iMaxLength);
+            return destPtr;
+        }
+
         // 0162 - GETAPPCOMPATFLAGS
         // 0163 - GETWINDEBUGINFO
         // 0164 - SETWINDEBUGINFO
         // 0193 - K403
         // 0194 - K404
+
+        bool IsBadPointerRange(uint ptr, ushort cb, bool requireWritable, bool requireCode)
+        {
+            if (cb == 0)
+                return false;
+            if (ptr == 0)
+                return true;
+
+            var sel = _machine.GlobalHeap.GetSelector(ptr.Hiword());
+            if (sel == null || sel.allocation == null || sel.allocation.buffer == null)
+                return true;
+
+            if (requireWritable && (sel.readOnly || sel.isCode))
+                return true;
+            if (requireCode && !sel.isCode)
+                return true;
+
+            int offset = ((ptr.Hiword() >> 3) - sel.selectorIndex) << 16 | ptr.Loword();
+            if (offset < 0)
+                return true;
+
+            return offset > sel.allocation.buffer.Length - cb;
+        }
     }
 }
