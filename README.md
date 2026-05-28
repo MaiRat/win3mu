@@ -32,6 +32,8 @@ You can then run the new executable. If it complains about some modules (SHELL, 
 
 Finally, if you get some error like "Unsupported ordinal #**** in module **** invoked", then sorry, this particular function hasn't been implemented yet.
 
+Relative file access follows the real host current directory from which the NE executable is launched, even if the executable itself is mapped to a different guest module path. If that launch directory is outside the configured guest mounts, Win3mu exposes it through a temporary guest drive for working-directory based file I/O; module loading still uses the executable's mapped guest path, and a warning is logged when the two directories differ.
+
 Validation CLI
 ==============
 

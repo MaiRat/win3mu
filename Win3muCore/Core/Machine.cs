@@ -268,8 +268,10 @@ namespace Win3muCore
                 // Map the program name to 8.3 name
                 var programName16 = _pathMapper.MapHostToGuest(programName, false);
 
-                // Set the current directory
-                _dos.WorkingDirectory = System.IO.Path.GetDirectoryName(programName16);
+                // Set the current directory to the real host launch directory so
+                // relative DOS file access follows where the process was started,
+                // even if the executable itself is mapped to a different guest path.
+                ConfigureLaunchWorkingDirectory(programName16);
 
                 // Look for unqualified dll paths in same folder as the program
                 _moduleManager.SetProcessPath(System.IO.Path.GetDirectoryName(programName16));
@@ -315,6 +317,55 @@ namespace Win3muCore
         {
             get;
             private set;
+        }
+
+        void ConfigureLaunchWorkingDirectory(string programName16)
+        {
+            var programDirectoryGuest = System.IO.Path.GetDirectoryName(programName16);
+            var launchDirectoryHost = System.IO.Path.GetFullPath(System.IO.Directory.GetCurrentDirectory());
+            var workingDirectoryGuest = _pathMapper.TryMapHostToGuest(launchDirectoryHost, false);
+
+            if (workingDirectoryGuest == null)
+            {
+                for (var drive = 24; drive >= 0; drive--)
+                {
+                    var guestRoot = string.Format("{0}:\\", (char)('A' + drive));
+                    if (_pathMapper.DoesGuestDirectoryExist(guestRoot))
+                        continue;
+
+                    var launchDirectoryHostRoot = EnsureTrailingDirectorySeparator(launchDirectoryHost);
+                    _pathMapper.AddMount(guestRoot, launchDirectoryHostRoot, launchDirectoryHostRoot);
+                    workingDirectoryGuest = guestRoot;
+                    break;
+                }
+            }
+
+            if (workingDirectoryGuest == null)
+            {
+                workingDirectoryGuest = programDirectoryGuest;
+                if (logWarnings)
+                {
+                    Log.WriteLine("Warning: couldn't reserve a guest drive for launch working directory '{0}', falling back to executable directory '{1}'.", launchDirectoryHost, programDirectoryGuest);
+                }
+            }
+
+            _dos.WorkingDirectory = workingDirectoryGuest;
+
+            if (logWarnings && !string.Equals(workingDirectoryGuest, programDirectoryGuest, StringComparison.InvariantCultureIgnoreCase))
+            {
+                Log.WriteLine("Warning: executable module path '{0}' differs from launch working directory '{1}' (host '{2}'). Relative file access uses the launch working directory; module loading still uses the executable path.", programDirectoryGuest, workingDirectoryGuest, launchDirectoryHost);
+            }
+        }
+
+        static string EnsureTrailingDirectorySeparator(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return path;
+
+            if (path[path.Length - 1] == System.IO.Path.DirectorySeparatorChar || path[path.Length - 1] == System.IO.Path.AltDirectorySeparatorChar)
+                return path;
+
+            return path + System.IO.Path.DirectorySeparatorChar;
         }
 
         ushort ReadWordSafe(ushort seg, ushort offset)
