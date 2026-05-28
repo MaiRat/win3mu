@@ -43,6 +43,7 @@ namespace Win3muCore
         readonly Dictionary<IntPtr, ABORTPROC> _abortProcs = new Dictionary<IntPtr, ABORTPROC>();
         readonly Dictionary<ushort, LegacySpoolJob> _legacySpoolJobs = new Dictionary<ushort, LegacySpoolJob>();
         ushort _nextLegacySpoolJob = 1;
+        ushort _relAbsMode;
         const int LegacySpoolJobPresentStatus = 1;
         const int LegacySpoolJobPageOpenStatus = 2;
 
@@ -52,6 +53,7 @@ namespace Win3muCore
             _abortProcs.Clear();
             _legacySpoolJobs.Clear();
             _nextLegacySpoolJob = 1;
+            _relAbsMode = 0;
         }
 
         ushort AllocateLegacySpoolJob()
@@ -94,7 +96,13 @@ namespace Win3muCore
         public static extern nint SetROP2(HDC hDC, nint mode);
 
 
-        // 0005 - SETRELABS
+        [EntryPoint(0x0005)]
+        public ushort SetRelAbs(ushort mode)
+        {
+            ushort previousMode = _relAbsMode;
+            _relAbsMode = (ushort)(mode != 0 ? 1 : 0);
+            return previousMode;
+        }
 
         [EntryPoint(0x0006)]
         [DllImport("gdi32.dll")]
@@ -825,7 +833,11 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern nint GetROP2(HDC hDC);
 
-        // 0056 - GETRELABS
+        [EntryPoint(0x0056)]
+        public ushort GetRelAbs()
+        {
+            return _relAbsMode;
+        }
 
         [EntryPoint(0x0057)]
         [DllImport("gdi32.dll")]
@@ -934,7 +946,11 @@ namespace Win3muCore
             return point.ToDWord();
         }
 
-        // 0062 - INTERSECTVISRECT
+        [EntryPoint(0x0062)]
+        public bool IntersectVisRect(HDC hDC, nint left, nint top, nint right, nint bottom)
+        {
+            return IntersectClipRect(hDC, left, top, right, bottom);
+        }
 
         [DllImport("gdi32.dll")]
         static extern bool LPtoDP(IntPtr hdc, [In, Out] Win32.POINT[] lpPoints, int nCount);
@@ -983,7 +999,27 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern nint OffsetRgn(HGDIOBJ hRgn, nint x, nint y);
 
-        // 0066 - OFFSETVISRGN
+        [EntryPoint(0x0066)]
+        public nint OffsetVisRgn(HDC hDC, nint x, nint y)
+        {
+            var hClipRgn = CreateRectRgn(0, 0, 0, 0);
+            if (hClipRgn.value == IntPtr.Zero)
+                return 0;
+
+            try
+            {
+                if (GetClipRgn(hDC, hClipRgn) != 1)
+                    return 0;
+
+                var result = OffsetRgn(hClipRgn, x, y);
+                SelectClipRgn(hDC, hClipRgn);
+                return result;
+            }
+            finally
+            {
+                DeleteObject(hClipRgn);
+            }
+        }
 
         [EntryPoint(0x0067)]
         [DllImport("gdi32.dll")]
@@ -1012,8 +1048,16 @@ namespace Win3muCore
             }
         }
 
-        // 0075 - SETDCORG
-        // 0077 - ADDFONTRESOURCE
+        [EntryPoint(0x0075)]
+        public uint SetDCOrg(HDC hDC, short x, short y)
+        {
+            return SetViewportOrg(hDC, x, y);
+        }
+
+        [EntryPoint(0x0077)]
+        [DllImport("gdi32.dll", CharSet = CharSet.Unicode, EntryPoint = "AddFontResourceW")]
+        public static extern int AddFontResource([FileName(false)] string lpszFilename);
+
         // 0079 - DEATH
         // 007A - RESURRECTION
  
@@ -2212,8 +2256,24 @@ namespace Win3muCore
         [EntryPoint(0x01BC)]
         [DllImport("gdi32.dll")]
         public static extern HGDIOBJ CreateRoundRectRgn(nint left, nint top, nint right, nint bottom, nint widthEllipse, nint heightEllipse);
-        // 01BD - CREATEDIBPATTERNBRUSH
-        // 01C1 - DEVICECOLORMATCH
+
+        [DllImport("gdi32.dll", EntryPoint = "CreateDIBPatternBrushPt")]
+        static extern HGDIOBJ _CreateDIBPatternBrush(IntPtr packedDib, uint usage);
+
+        [EntryPoint(0x01BD)]
+        public HGDIOBJ CreateDIBPatternBrush(uint hPackedDib, uint usage)
+        {
+            using (var hp = _machine.GlobalHeap.GetHeapPointer(hPackedDib, false))
+            {
+                return _CreateDIBPatternBrush(hp, usage);
+            }
+        }
+
+        [EntryPoint(0x01C1)]
+        public uint DeviceColorMatch(HDC hDC, uint color)
+        {
+            return GetNearestColor(hDC, color);
+        }
 
         [DllImport("gdi32.dll")]
         static extern HGDIOBJ CreatePolyPolygonRgn(Win32.POINT[] points, int[] polygonPointCounts, int polygonCount, int fillMode);
