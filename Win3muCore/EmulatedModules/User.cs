@@ -2616,9 +2616,28 @@ namespace Win3muCore
         [EntryPoint(0x0102)]
         [DllImport("user32.dll", SetLastError = true)]
         public static extern int MapWindowPoints(HWND hWndFrom, HWND hWndTo, ref Win16.POINT []lpPoints, uint cPoints);
-        // 0103 - BEGINDEFERWINDOWPOS
-        // 0104 - DEFERWINDOWPOS
-        // 0105 - ENDDEFERWINDOWPOS
+
+        [EntryPoint(0x0103)]
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern nint BeginDeferWindowPos(int nNumWindows);
+
+        [DllImport("user32.dll", SetLastError = true, EntryPoint = "DeferWindowPos")]
+        static extern nint _DeferWindowPos(nint hWinPosInfo, HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx, int cy, nuint uFlags);
+
+        [EntryPoint(0x0104)]
+        public nint DeferWindowPos(nint hWinPosInfo, HWND hWnd, HWND hWndInsertAfter, short X, short Y, short cx, short cy, nuint uFlags)
+        {
+            if ((uFlags & Win32.SWP_NOSIZE) == 0)
+            {
+                AdjustWindowSize(_GetWindowLong(hWnd, Win32.GWL_STYLE), _GetWindowLong(hWnd, Win32.GWL_EXSTYLE), ref cx, ref cy);
+            }
+
+            return _DeferWindowPos(hWinPosInfo, hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
+        }
+
+        [EntryPoint(0x0105)]
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool EndDeferWindowPos(nint hWinPosInfo);
 
         [EntryPoint(0x0106)]
         [DllImport("user32.dll", SetLastError = true)]
@@ -2695,7 +2714,13 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern nuint RealizePalette(HDC hDC);
 
-        // 011C - GETFREESYSTEMRESOURCES
+        [EntryPoint(0x011C)]
+        public ushort GetFreeSystemResources(ushort fuSysResource)
+        {
+            Log.WriteLine("User.GetFreeSystemResources: reporting full availability for flags 0x{0:X4}", fuSysResource);
+            return 100;
+        }
+
         // 011D - BEAR285
 
         [EntryPoint(0x011e)]
@@ -2710,13 +2735,23 @@ namespace Win3muCore
         [DllImport("user32.dll")]
         public static extern IntPtr GetMessageExtraInfo();
 
-        // 0121 - KEYBD_EVENT
+        [EntryPoint(0x0121)]
+        [DllImport("user32.dll", EntryPoint = "keybd_event")]
+        public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, nuint dwExtraInfo);
+
         // 0122 - REDRAWWINDOW
         // 0123 - SETWINDOWSHOOKEX
         // 0124 - UNHOOKWINDOWSHOOKEX
         // 0125 - CALLNEXTHOOKEX
-        // 0126 - LOCKWINDOWUPDATE
-        // 012B - MOUSE_EVENT
+
+        [EntryPoint(0x0126)]
+        [DllImport("user32.dll")]
+        public static extern bool LockWindowUpdate(HWND hWndLock);
+
+        [EntryPoint(0x012B)]
+        [DllImport("user32.dll", EntryPoint = "mouse_event")]
+        public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, nuint dwExtraInfo);
+
         // 012D - BOZOSLIVEHERE
         // 0132 - BEAR306
         // 0134 - DEFDLGPROC

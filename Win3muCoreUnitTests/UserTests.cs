@@ -14,12 +14,19 @@ namespace Win3muCoreUnitTests
             Assert.AreEqual((ushort)0x00E2, user.GetOrdinalFromName("LockInput"));
             Assert.AreEqual((ushort)0x00E6, user.GetOrdinalFromName("GetNextWindow"));
             Assert.AreEqual((ushort)0x00F7, user.GetOrdinalFromName("GetCursor"));
+            Assert.AreEqual((ushort)0x0103, user.GetOrdinalFromName("BeginDeferWindowPos"));
+            Assert.AreEqual((ushort)0x0104, user.GetOrdinalFromName("DeferWindowPos"));
+            Assert.AreEqual((ushort)0x0105, user.GetOrdinalFromName("EndDeferWindowPos"));
             Assert.AreEqual((ushort)0x0108, user.GetOrdinalFromName("GetMenuItemID"));
             Assert.AreEqual((ushort)0x0116, user.GetOrdinalFromName("GetDesktopHwnd"));
+            Assert.AreEqual((ushort)0x011C, user.GetOrdinalFromName("GetFreeSystemResources"));
             Assert.AreEqual((ushort)0x014C, user.GetOrdinalFromName("UserYield"));
             Assert.AreEqual((ushort)0x0166, user.GetOrdinalFromName("IsMenu"));
             Assert.AreEqual((ushort)0x01B1, user.GetOrdinalFromName("IsCharAlpha"));
             Assert.AreEqual((ushort)0x01E2, user.GetOrdinalFromName("EnableScrollBar"));
+            Assert.AreEqual((ushort)0x0121, user.GetOrdinalFromName("keybd_event"));
+            Assert.AreEqual((ushort)0x0126, user.GetOrdinalFromName("LockWindowUpdate"));
+            Assert.AreEqual((ushort)0x012B, user.GetOrdinalFromName("mouse_event"));
         }
 
         [TestMethod]
@@ -45,6 +52,7 @@ namespace Win3muCoreUnitTests
 
             Assert.IsTrue(user.LockInput(true));
             Assert.AreEqual((ushort)0, user.GetSystemDebugState());
+            Assert.AreEqual((ushort)100, user.GetFreeSystemResources(0));
         }
     }
 }
