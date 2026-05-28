@@ -9,6 +9,8 @@ namespace Win3muCore.Validation
     public class LoaderValidator
     {
         const string ValidationGuestFolder = @"C:\INPUT";
+        const int ExecutionInstructionLimit = 50000;
+        const int ExecutionSliceSize = 256;
 
         public LoaderValidationReport Validate(string path)
         {
@@ -59,19 +61,15 @@ namespace Win3muCore.Validation
 
             try
             {
-                machine = new Machine();
-                machine.logModules = false;
-                machine.logRelocations = false;
-                machine.logWarnings = false;
-
-                var containingDirectory = Path.GetDirectoryName(filePath);
-                machine.PathMapper.AddMount(ValidationGuestFolder, containingDirectory, containingDirectory);
-
-                module = new Module16(filePath);
-                module.SetGuestFileName(DosPath.Join(ValidationGuestFolder, BuildGuestFileName(filePath)));
-
+                machine = CreateMachine(filePath);
+                module = CreateModule(filePath);
                 PopulateMetadata(module.NeFile, result);
                 machine.ModuleManager.LoadModuleForValidation(module);
+                PopulateSymbolMap(module, result);
+
+                if (!module.IsDll)
+                    result.Execution = ExecuteStartCode(filePath, result);
+
                 result.Success = true;
             }
             catch (Exception x)
@@ -95,6 +93,25 @@ namespace Win3muCore.Validation
             }
 
             return result;
+        }
+
+        static Machine CreateMachine(string filePath)
+        {
+            var machine = new Machine();
+            machine.logModules = false;
+            machine.logRelocations = false;
+            machine.logWarnings = false;
+
+            var containingDirectory = Path.GetDirectoryName(filePath);
+            machine.PathMapper.AddMount(ValidationGuestFolder, containingDirectory, containingDirectory);
+            return machine;
+        }
+
+        static Module16 CreateModule(string filePath)
+        {
+            var module = new Module16(filePath);
+            module.SetGuestFileName(DosPath.Join(ValidationGuestFolder, BuildGuestFileName(filePath)));
+            return module;
         }
 
         static string BuildGuestFileName(string filePath)
@@ -125,6 +142,120 @@ namespace Win3muCore.Validation
 
             result.Fixups = fixupCounts;
             result.FixupCount = fixupCounts.Sum(x => x.Count);
+        }
+
+        // Build a lightweight symbol map from the loaded module so CLI output can be
+        // correlated with Sharp86 CS:IP addresses during follow-up debugging.
+        static void PopulateSymbolMap(Module16 module, LoaderValidationResult result)
+        {
+            result.Symbols.Clear();
+
+            var entryPoint = module.NeFile.Header.EntryPoint;
+            if (entryPoint != 0)
+            {
+                var entrySegmentIndex = (int)(entryPoint >> 16) - 1;
+                if (entrySegmentIndex >= 0 && entrySegmentIndex < module.NeFile.Segments.Count)
+                {
+                    result.Symbols.Add(new LoaderValidationSymbol(
+                        "start",
+                        module.NeFile.Segments[entrySegmentIndex].globalHandle,
+                        (ushort)(entryPoint & 0xFFFF),
+                        "module entry point"));
+                }
+            }
+
+            for (int i = 0; i < module.NeFile.Segments.Count; i++)
+            {
+                var segment = module.NeFile.Segments[i];
+                result.Symbols.Add(new LoaderValidationSymbol(
+                    string.Format("seg{0}", i + 1),
+                    segment.globalHandle,
+                    0,
+                    string.Format("segment {0}", i + 1)));
+            }
+
+            foreach (var ordinal in module.GetExports().OrderBy(x => x))
+            {
+                var address = module.GetProcAddress(ordinal);
+                if (address == 0 || address.Hiword() == 0xFFFF)
+                    continue;
+
+                result.Symbols.Add(new LoaderValidationSymbol(
+                    string.IsNullOrEmpty(module.GetNameFromOrdinal(ordinal)) ? string.Format("ord_{0:X4}", ordinal) : module.GetNameFromOrdinal(ordinal),
+                    address.Hiword(),
+                    address.Loword(),
+                    string.Format("ordinal {0:X4}", ordinal)));
+            }
+        }
+
+        // Start-code execution is intentionally bounded: the goal is to get through the
+        // NE entry sequence until the first Windows-host dependency or similar blocker.
+        LoaderValidationExecutionResult ExecuteStartCode(string filePath, LoaderValidationResult result)
+        {
+            var execution = new LoaderValidationExecutionResult();
+            execution.Attempted = true;
+
+            Machine machine = null;
+            Module16 module = null;
+            ulong initialCpuTime = 0;
+
+            try
+            {
+                machine = CreateMachine(filePath);
+                module = CreateModule(filePath);
+                machine.ModuleManager.LoadModule(module);
+                PopulateSymbolMap(module, result);
+
+                module.PrepareRun(machine, null, 1);
+
+                initialCpuTime = machine.CpuTime;
+                var remainingInstructions = ExecutionInstructionLimit;
+                while (remainingInstructions > 0)
+                {
+                    var slice = Math.Min(remainingInstructions, ExecutionSliceSize);
+                    var aborted = machine.Run(slice);
+                    remainingInstructions = ExecutionInstructionLimit - (int)(machine.CpuTime - initialCpuTime);
+
+                    if (aborted || machine.Halted)
+                    {
+                        execution.Aborted = true;
+                        break;
+                    }
+                }
+
+                execution.InstructionsExecuted = (int)(machine.CpuTime - initialCpuTime);
+                execution.ReachedInstructionLimit = !execution.Aborted && execution.InstructionsExecuted >= ExecutionInstructionLimit;
+                if (execution.Aborted)
+                    execution.StopReason = "Execution stopped by the emulated program before the instruction budget was exhausted.";
+            }
+            catch (Exception x)
+            {
+                execution.StopReason = UnwrapException(x).Message;
+                if (machine != null)
+                    execution.InstructionsExecuted = (int)(machine.CpuTime - initialCpuTime);
+            }
+            finally
+            {
+                if (machine != null)
+                {
+                    execution.CodeSegment = machine.cs;
+                    execution.InstructionPointer = machine.ip;
+                }
+
+                if (module != null && module.LoadCount > 0)
+                {
+                    try
+                    {
+                        machine.ModuleManager.UnloadModule(module);
+                    }
+                    catch
+                    {
+                        // Ignore cleanup failures so the original execution result is preserved.
+                    }
+                }
+            }
+
+            return execution;
         }
 
         static Exception UnwrapException(Exception x)

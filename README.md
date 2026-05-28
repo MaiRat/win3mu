@@ -49,7 +49,13 @@ Run it against a single file or a directory tree:
 dotnet run --project Win3muTestCli/Win3muTestCli.csproj -- <file-or-directory>
 ```
 
-The tool recursively scans directories for `.exe` and `.dll` files, attempts to load and link each candidate with the Win3mu loader, prints per-file fixup details, and ends with a success/failure summary.
+The tool recursively scans directories for `.exe` and `.dll` files, attempts to load and link each candidate with the Win3mu loader, prints per-file fixup details, emits a simple symbol map, and for NE executables runs the startup code under Sharp86 until it hits a blocker or an instruction budget.
+
+Current limitations:
+
+- The CLI only drives the executable start code far enough to expose missing dependencies and early control flow.
+- GUI calls and other host Windows services still depend on platform DLLs such as `user32.dll`/`gdi32.dll`, so execution will usually stop once the sample reaches those boundaries.
+- Missing companion modules (for example `COMMDLG` in some samples) still surface as loader failures before execution begins.
 
 Original links and source code
 ==============================

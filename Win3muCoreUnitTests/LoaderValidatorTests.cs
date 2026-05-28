@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -89,11 +90,42 @@ namespace Win3muCoreUnitTests
             }
         }
 
+        [TestMethod]
+        public void Validate_SampleExecutable_ProducesExecutionReportAndSymbolMap()
+        {
+            var validator = new LoaderValidator();
+
+            var report = validator.Validate(GetRepositoryFile("Samples", "alarm.exe"));
+
+            Assert.AreEqual(1, report.FilesProcessed);
+            var result = report.Results[0];
+            Assert.IsTrue(result.Success);
+            Assert.IsNotNull(result.Execution);
+            Assert.IsTrue(result.Execution.Attempted);
+            Assert.IsTrue(result.Execution.InstructionsExecuted > 0);
+            Assert.IsTrue(result.Execution.ReachedInstructionLimit || result.Execution.Aborted || !string.IsNullOrEmpty(result.Execution.StopReason));
+            Assert.IsTrue(result.Symbols.Exists(x => x.Name == "start"));
+        }
+
         static string CreateTempDirectory()
         {
             var path = Path.Combine(Path.GetTempPath(), "win3mu-tests", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(path);
             return path;
+        }
+
+        static string GetRepositoryFile(params string[] relativePath)
+        {
+            var current = new DirectoryInfo(AppContext.BaseDirectory);
+            while (current != null)
+            {
+                if (File.Exists(Path.Combine(current.FullName, "Win3mu.sln")))
+                    return Path.Combine(new[] { current.FullName }.Concat(relativePath).ToArray());
+
+                current = current.Parent;
+            }
+
+            throw new DirectoryNotFoundException("Unable to locate repository root from the test output directory.");
         }
 
         static void WriteMinimalNeFile(string filePath, string moduleName, bool isDll)
