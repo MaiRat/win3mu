@@ -56,7 +56,7 @@ namespace Win3muCore
         {
             // Get the executable module?
             if (hModule == 0)
-                return _loadedModules.OfType<Module16>().FirstOrDefault(x => !x.IsDll && x.hModule!=0);
+                return _loadedModules.Values.OfType<Module16>().FirstOrDefault(x => !x.IsDll && x.hModule!=0);
 
             ModuleBase module;
             if (!_instanceMap.TryGetValue(hModule, out module))
