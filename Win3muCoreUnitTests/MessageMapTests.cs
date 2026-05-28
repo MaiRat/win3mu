@@ -1,4 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Reflection;
 using Win3muCore;
 using Win3muCore.MessageSemantics;
 
@@ -30,6 +31,31 @@ namespace Win3muCoreUnitTests
         public void WindowClassKind_Get_RecognizesEditClassAlias()
         {
             Assert.AreEqual(WndClassKind.Edit, WindowClassKind.Get("EditClass"));
+        }
+
+        [TestMethod]
+        public void EditClass_EmCharFromPos_IsExplicitlyBypassed()
+        {
+            var map = new MessageMap();
+            var messageInfosField = typeof(MessageMap).GetField("_messageInfos", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(messageInfosField);
+
+            object mapping = null;
+            foreach (var info in (System.Collections.IEnumerable)messageInfosField.GetValue(map))
+            {
+                var infoType = info.GetType();
+                if ((WndClassKind)infoType.GetField("WndClassKind").GetValue(info) == WndClassKind.Edit &&
+                    (ushort)infoType.GetField("message32").GetValue(info) == Win32.EM_CHARFROMPOS)
+                {
+                    mapping = info;
+                    break;
+                }
+            }
+
+            Assert.IsNotNull(mapping);
+            var mappingType = mapping.GetType();
+            Assert.AreEqual(Win32.EM_CHARFROMPOS, (ushort)mappingType.GetField("message16").GetValue(mapping));
+            Assert.IsInstanceOfType(mappingType.GetField("semantics").GetValue(mapping), typeof(bypass));
         }
 
         [TestMethod]
