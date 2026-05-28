@@ -46,6 +46,18 @@ namespace Win3muCore.Validation
             set;
         } = new List<string>();
 
+        public List<LoaderValidationSymbol> Symbols
+        {
+            get;
+            set;
+        } = new List<LoaderValidationSymbol>();
+
+        public LoaderValidationExecutionResult Execution
+        {
+            get;
+            set;
+        }
+
         public bool Success
         {
             get;

@@ -33,6 +33,27 @@ namespace Win3muTestCli
 
                     if (!result.Success)
                         Console.WriteLine("  Error: {0}", result.Error);
+
+                    if (result.Success && result.Execution != null)
+                    {
+                        var execution = result.Execution;
+                        var executionStatus = execution.ReachedInstructionLimit
+                            ? string.Format("instruction limit reached after {0} instructions", execution.InstructionsExecuted)
+                            : string.Format("stopped after {0} instructions", execution.InstructionsExecuted);
+
+                        Console.WriteLine("  Startcode: {0} at {1:X4}:{2:X4}", executionStatus, execution.CodeSegment, execution.InstructionPointer);
+                        if (!string.IsNullOrEmpty(execution.StopReason))
+                            Console.WriteLine("    Reason: {0}", execution.StopReason);
+                    }
+
+                    if (result.Success)
+                    {
+                        Console.WriteLine("  Symbol map:");
+                        foreach (var symbol in result.Symbols)
+                        {
+                            Console.WriteLine("    {0:X4}:{1:X4} {2} ({3})", symbol.Segment, symbol.Offset, symbol.Name, symbol.Source);
+                        }
+                    }
                 }
 
                 Console.WriteLine();
@@ -41,6 +62,7 @@ namespace Win3muTestCli
                 Console.WriteLine("  Processed: {0}", report.FilesProcessed);
                 Console.WriteLine("  Succeeded: {0}", report.SuccessCount);
                 Console.WriteLine("  Failed: {0}", report.FailureCount);
+                Console.WriteLine("  Limitations: startcode execution is bounded and stops at the first host dependency, missing module, GUI call, or instruction budget.");
 
                 return report.FailureCount == 0 ? 0 : 2;
             }
