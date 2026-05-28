@@ -4,9 +4,4 @@ namespace Win3muCore
     public class CommDlg : Module32
     {
     }
-
-    [Module("WIN87EM", @"C:\WINDOWS\SYSTEM\WIN87EM.DLL")]
-    public class Win87Em : Module32
-    {
-    }
 }
