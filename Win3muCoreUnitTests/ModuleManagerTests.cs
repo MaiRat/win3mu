@@ -54,8 +54,8 @@ namespace Win3muCoreUnitTests
                 Directory.CreateDirectory(firstDirectory);
                 Directory.CreateDirectory(secondDirectory);
 
-                WriteMinimalNeFile(Path.Combine(firstDirectory, "pbrush.dll"), "PBRUSHA", true);
-                WriteMinimalNeFile(Path.Combine(secondDirectory, "pbrush.dll"), "PBRUSH", true);
+                WriteMinimalNeFile(Path.Combine(firstDirectory, "PBRUSH.DLL"), "PBRUSHA", true);
+                WriteMinimalNeFile(Path.Combine(secondDirectory, "PBRUSH.DLL"), "PBRUSH", true);
 
                 var machine = new Machine();
                 machine.PathMapper.AddMount(@"C:\FIRST", firstDirectory, firstDirectory);
