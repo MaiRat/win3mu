@@ -134,5 +134,87 @@ namespace Win3muCoreUnitTests
             Assert.AreEqual("ScaleWindowExtEx", gdi.GetNameFromOrdinal(0x01E5));
             Assert.AreEqual("GetAspectRatioFilterEx", gdi.GetNameFromOrdinal(0x01E6));
         }
+
+        [TestMethod]
+        public void GdiModule_ExportsCommentStubOrdinalsAsMethods()
+        {
+            var gdi = new Gdi();
+            var exports = gdi.GetExports().ToArray();
+            var expected = new (ushort Ordinal, string Name)[]
+            {
+                (0x00C9, "DMBitBlt"),
+                (0x00CA, "DMColorInfo"),
+                (0x00CE, "DMEnumDFonts"),
+                (0x00CF, "DMEnumObj"),
+                (0x00D0, "DMOutput"),
+                (0x00D1, "DMPixel"),
+                (0x00D2, "DMRealizeObject"),
+                (0x00D3, "DMStrBlt"),
+                (0x00D4, "DMScanLR"),
+                (0x00D5, "Brute"),
+                (0x00D6, "DMExtTextOut"),
+                (0x00D7, "DMGetCharWidth"),
+                (0x00D8, "DMStretchBlt"),
+                (0x00D9, "DMDibBits"),
+                (0x00DA, "DMStretchDibits"),
+                (0x00DB, "DMSetDibToDev"),
+                (0x00DC, "DMTranspose"),
+                (0x00E6, "CreatePQ"),
+                (0x00E7, "MinPQ"),
+                (0x00E8, "ExtractPQ"),
+                (0x00E9, "InsertPQ"),
+                (0x00EA, "SizePQ"),
+                (0x00EB, "DeletePQ"),
+                (0x00F0, "OpenJob"),
+                (0x00F1, "WriteSpool"),
+                (0x00F2, "WriteDialog"),
+                (0x00F3, "CloseJob"),
+                (0x00F4, "DeleteJob"),
+                (0x00F5, "GetSpoolJob"),
+                (0x00F6, "StartSpoolPage"),
+                (0x00F7, "EndSpoolPage"),
+                (0x00F8, "QueryJob"),
+                (0x00FA, "Copy"),
+                (0x00FD, "DeleteSpoolPage"),
+                (0x00FE, "SpoolFile"),
+                (0x012C, "EngineEnumerateFont"),
+                (0x012D, "EngineDeleteFont"),
+                (0x012E, "EngineRealizeFont"),
+                (0x012F, "EngineGetCharWidth"),
+                (0x0130, "EngineSetFontContext"),
+                (0x0131, "EngineGetGlyphBmp"),
+                (0x0132, "EngineMakeFontDir"),
+                (0x0133, "GetCharABCWidths"),
+                (0x0134, "GetOutlineTextMetrics"),
+                (0x0135, "GetGlyphOutline"),
+                (0x0136, "CreateScalableFontResource"),
+                (0x0137, "GetFontData"),
+                (0x0138, "ConvertOutlineFontFile"),
+                (0x0139, "GetRasterizerCaps"),
+                (0x013A, "EngineExtTextOut"),
+                (0x014A, "EnumFontFamilies"),
+                (0x014C, "GetKerningPairs"),
+                (0x015D, "SetMapperFlags"),
+                (0x0160, "GetPhysicalFontHandle"),
+                (0x0162, "ShrinkGDIHeap"),
+                (0x0163, "FTrapping0"),
+                (0x0178, "ResetDC"),
+                (0x0190, "FastWindowFrame"),
+                (0x0191, "GdiMoveBitmap"),
+                (0x0193, "GdiInit2"),
+                (0x0195, "FinalGdiInit"),
+                (0x0197, "CreateUserBitmap"),
+                (0x0199, "CreateUserDiscardableBitmap"),
+                (0x019B, "GetCurLogFont"),
+                (0x019C, "IsDCCurrentPalette"),
+            };
+
+            CollectionAssert.IsSubsetOf(expected.Select(x => x.Ordinal).ToArray(), exports);
+
+            foreach (var entry in expected)
+            {
+                Assert.AreEqual(entry.Name, gdi.GetNameFromOrdinal(entry.Ordinal));
+            }
+        }
     }
 }
