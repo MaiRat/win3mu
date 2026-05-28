@@ -22,7 +22,13 @@ namespace Win3muCoreUnitTests
             Assert.AreEqual((ushort)0x011C, user.GetOrdinalFromName("GetFreeSystemResources"));
             Assert.AreEqual((ushort)0x014C, user.GetOrdinalFromName("UserYield"));
             Assert.AreEqual((ushort)0x0166, user.GetOrdinalFromName("IsMenu"));
+            Assert.AreEqual((ushort)0x0167, user.GetOrdinalFromName("GetDCEx"));
+            Assert.AreEqual((ushort)0x0172, user.GetOrdinalFromName("GetWindowPlacement"));
+            Assert.AreEqual((ushort)0x0173, user.GetOrdinalFromName("SetWindowPlacement"));
             Assert.AreEqual((ushort)0x01B1, user.GetOrdinalFromName("IsCharAlpha"));
+            Assert.AreEqual((ushort)0x0122, user.GetOrdinalFromName("RedrawWindow"));
+            Assert.AreEqual((ushort)0x0135, user.GetOrdinalFromName("GetClipCursor"));
+            Assert.AreEqual((ushort)0x0192, user.GetOrdinalFromName("GetPriorityClipboardFormat"));
             Assert.AreEqual((ushort)0x01E2, user.GetOrdinalFromName("EnableScrollBar"));
             Assert.AreEqual((ushort)0x0121, user.GetOrdinalFromName("keybd_event"));
             Assert.AreEqual((ushort)0x0126, user.GetOrdinalFromName("LockWindowUpdate"));

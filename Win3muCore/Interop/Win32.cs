@@ -158,6 +158,31 @@ namespace Win3muCore
         }
 
         [StructLayout(LayoutKind.Sequential)]
+        [MappedType]
+        public struct WINDOWPLACEMENT
+        {
+            public uint length;
+            public uint flags;
+            public uint showCmd;
+            public POINT ptMinPosition;
+            public POINT ptMaxPosition;
+            public RECT rcNormalPosition;
+
+            public Win16.WINDOWPLACEMENT Convert()
+            {
+                return new Win16.WINDOWPLACEMENT()
+                {
+                    length = unchecked((ushort)length),
+                    flags = unchecked((ushort)flags),
+                    showCmd = unchecked((ushort)showCmd),
+                    ptMinPosition = ptMinPosition.Convert(),
+                    ptMaxPosition = ptMaxPosition.Convert(),
+                    rcNormalPosition = rcNormalPosition.Convert(),
+                };
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
         public struct MSG
         {
             public IntPtr hWnd;

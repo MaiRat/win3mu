@@ -185,6 +185,7 @@ The following items represent the current frontier for further work:
    - `COMM.DRV` now implements the standard 16 serial communication exports (`OpenComm`, `SetCommState`, `GetCommState`, `GetCommError`, `ReadComm`, `WriteComm`, `TransmitCommChar`, `CloseComm`, `SetCommEventMask`, `GetCommEventMask`, `SetCommBreak`, `ClearCommBreak`, `UngetCommChar`, `BuildCommDCB`, `EscapeCommFunction`, `FlushComm`) with compatibility-first in-memory behavior.
    - Matching USER exports (ordinals `00C8`-`00D7` and `00F5`) now forward to the same stubbed comm state, avoiding unsupported-ordinal crashes for applications that import the older USER entry points directly.
    - Additional thin USER wrappers now expose `BeginDeferWindowPos`, `DeferWindowPos`, `EndDeferWindowPos`, `GetFreeSystemResources`, `keybd_event`, `LockWindowUpdate`, and `mouse_event`, reducing unsupported-ordinal failures for applications that probe those Win3.1-era APIs.
+   - More direct USER forwarders now expose `RedrawWindow`, `GetClipCursor`, `GetDCEx`, `GetWindowPlacement`, `SetWindowPlacement`, and `GetPriorityClipboardFormat`, with Win16/Win32 struct marshaling where needed.
    - `BuildCommDCB` now parses classic serial specs such as `COM1:96,n,8,1` into a Win16-compatible DCB structure, and `Get/SetCommState` round-trip that state.
 4. ~~**Emulate WINSPOOL module**~~ ✅ **COMPLETED**
    - `WINSPOOL.DRV` is now emulated as a compatibility-first null printer module so applications can load the driver and probe common spooler APIs without failing module resolution.
