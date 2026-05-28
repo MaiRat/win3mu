@@ -1561,6 +1561,7 @@ namespace Win3muCore
                 return 0;
 
             if (cbData != 0)
+                // Null spooler compatibility: validate the guest buffer without persisting its contents.
                 _machine.ReadBytes(lpData, cbData);
 
             job.BytesWritten += cbData;
@@ -1574,6 +1575,7 @@ namespace Win3muCore
                 return 0;
 
             if (cchText != 0)
+                // Null spooler compatibility: validate the guest string buffer without rendering it.
                 _machine.GlobalHeap.ReadCharacters(lpText, cchText);
 
             job.BytesWritten += cchText;
@@ -1667,13 +1669,12 @@ namespace Win3muCore
             if (lpFileName == 0)
                 return 0;
 
-            _machine.ReadString(lpFileName);
-            if (lpPortName != 0)
-                _machine.ReadString(lpPortName);
-            if (lpJobName != 0)
-                _machine.ReadString(lpJobName);
-            if (lpOptions != 0)
-                _machine.ReadString(lpOptions);
+            string fileName = _machine.ReadString(lpFileName);
+            string portName = lpPortName != 0 ? _machine.ReadString(lpPortName) : null;
+            string jobName = lpJobName != 0 ? _machine.ReadString(lpJobName) : null;
+            string options = lpOptions != 0 ? _machine.ReadString(lpOptions) : null;
+
+            Log.WriteLine("Gdi.SpoolFile: compatibility spool request file='{0}', port='{1}', job='{2}', options='{3}'", fileName, portName, jobName, options);
 
             return 1;
         }

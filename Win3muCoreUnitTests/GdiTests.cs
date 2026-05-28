@@ -237,6 +237,7 @@ namespace Win3muCoreUnitTests
             Assert.AreEqual((nint)2, gdi.QueryJob((ushort)hJob, 0));
             Assert.AreEqual((nint)8, gdi.GetSpoolJob((ushort)hJob, 0));
             Assert.AreEqual((ushort)1, gdi.DeleteSpoolPage((ushort)hJob));
+            Assert.AreEqual((nint)8, gdi.GetSpoolJob((ushort)hJob, 0));
             Assert.AreEqual((nint)1, gdi.QueryJob((ushort)hJob, 0));
             Assert.AreEqual((ushort)1, gdi.CloseJob((ushort)hJob));
             Assert.AreEqual((short)0, gdi.WriteSpool((ushort)hJob, rawData, 4));
