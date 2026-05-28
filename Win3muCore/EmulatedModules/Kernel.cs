@@ -277,7 +277,7 @@ namespace Win3muCore
 
             // We only ever have one task so we'll just
             // use the process module handle as the task handle
-            return _machine.ProcessModule.hModule;
+            return _machine.ProcessModule?.hModule ?? (ushort)0;
         }
 
         [EntryPoint(0x0025)]
