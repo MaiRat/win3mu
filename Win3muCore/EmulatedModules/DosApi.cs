@@ -1980,7 +1980,7 @@ namespace Win3muCore
             // Just querying single folder?  Remove trailing backslash
             if (fullspec.EndsWith("\\") && fullspec.Length > 3)
             {
-                fullspec = fullspec.Substring(fullspec.Length - 1);
+                fullspec = fullspec.Substring(0, fullspec.Length - 1);
                 if (!_site.DoesGuestDirectoryExist(fullspec))
                 {
                     throw new DosError(DosError.PathNotFound);

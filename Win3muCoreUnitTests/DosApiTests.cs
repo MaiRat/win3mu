@@ -354,6 +354,31 @@ namespace Win3muCoreUnitTests
         }
 
         [TestMethod]
+        public void FindFiles_CurrentDirectoryWithTrailingSlash_EnumeratesLaunchDirectoryContents()
+        {
+            using var site = new TempMappedTestSite();
+            site.CreateFile(@"A:\START\DATA.DAT", new byte[] { 1, 2, 3 });
+
+            var cpu = new TestCpu();
+            var dos = new DosApi(cpu, site)
+            {
+                WorkingDirectory = @"A:\START"
+            };
+
+            dos.FindFiles(@".\", 0);
+
+            var foundNames = new List<string>();
+            while (dos.FindNextFile(out var ffs))
+            {
+                foundNames.Add(ffs.name);
+            }
+
+            CollectionAssert.Contains(foundNames, ".");
+            CollectionAssert.Contains(foundNames, "..");
+            CollectionAssert.Contains(foundNames, "DATA.DAT");
+        }
+
+        [TestMethod]
         public void Int1A_UnsupportedService_SetsCarryWithoutThrowing()
         {
             var cpu = new TestCpu();
