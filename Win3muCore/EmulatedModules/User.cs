@@ -2584,7 +2584,7 @@ namespace Win3muCore
         }
 
         // 00F6 - EXITWINDOWSEXEC
-        [DllImport("user32.dll")]
+        [DllImport("user32.dll", EntryPoint = "GetCursor")]
         static extern IntPtr _GetCursor();
 
         [EntryPoint(0x00F7)]
@@ -2762,19 +2762,19 @@ namespace Win3muCore
 
         // 0167 - GETDCEX
         // 016A - DCHOOK
-        [DllImport("user32.dll")]
-        static extern IntPtr CopyIcon(IntPtr hIcon);
+        [DllImport("user32.dll", EntryPoint = "CopyIcon")]
+        static extern IntPtr _CopyIcon(IntPtr hIcon);
 
         [EntryPoint(0x0170)]
         public HGDIOBJ CopyIcon(HGDIOBJ hIcon)
         {
-            return CopyIcon(hIcon.value);
+            return _CopyIcon(hIcon.value);
         }
 
         [EntryPoint(0x0171)]
         public HGDIOBJ CopyCursor(HGDIOBJ hCursor)
         {
-            return CopyIcon(hCursor.value);
+            return _CopyIcon(hCursor.value);
         }
 
         // 0172 - GETWINDOWPLACEMENT
