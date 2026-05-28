@@ -370,6 +370,7 @@ namespace Win3muCoreUnitTests
                 foundNames.Add(ffs.name);
             }
 
+            CollectionAssert.Contains(foundNames, ".");
             Assert.IsTrue(foundNames.Count > 0);
         }
 
