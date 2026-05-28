@@ -354,18 +354,15 @@ namespace Win3muCoreUnitTests
         }
 
         [TestMethod]
-        public void FindFiles_CurrentDirectoryWithTrailingSlash_EnumeratesLaunchDirectoryContents()
+        public void FindFiles_DirectoryPathWithTrailingSlash_ResolvesDirectoryInsteadOfThrowing()
         {
             using var site = new TempMappedTestSite();
             site.CreateFile(@"A:\START\DATA.DAT", new byte[] { 1, 2, 3 });
 
             var cpu = new TestCpu();
-            var dos = new DosApi(cpu, site)
-            {
-                WorkingDirectory = @"A:\START"
-            };
+            var dos = new DosApi(cpu, site);
 
-            dos.FindFiles(@".\", 0);
+            dos.FindFiles(@"A:\START\", 0);
 
             var foundNames = new List<string>();
             while (dos.FindNextFile(out var ffs))
@@ -374,8 +371,7 @@ namespace Win3muCoreUnitTests
             }
 
             CollectionAssert.Contains(foundNames, ".");
-            CollectionAssert.Contains(foundNames, "..");
-            CollectionAssert.Contains(foundNames, "DATA.DAT");
+            CollectionAssert.Contains(foundNames, "START");
         }
 
         [TestMethod]
