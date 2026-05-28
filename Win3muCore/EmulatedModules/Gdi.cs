@@ -1368,7 +1368,7 @@ namespace Win3muCore
 
         // TODO: Confirm the exact Win16 signatures for these legacy display-driver exports.
         [EntryPoint(0x00CE)]
-        public nint DMEnumDFonts(ushort arg0, ushort arg1, ushort arg2, ushort arg3, ushort arg4, ushort arg5, ushort arg6, ushort arg7)
+        public nint DMEnumDFonts(ushort hDC, uint lpLogFont, uint lpEnumProc, uint lParam, ushort flags)
         {
             return StubLegacyGdiExport<nint>("DMENUMDFONTS");
         }
@@ -1398,7 +1398,7 @@ namespace Win3muCore
         }
 
         [EntryPoint(0x00D3)]
-        public nint DMStrBlt(ushort arg0, ushort arg1, ushort arg2, ushort arg3, ushort arg4, ushort arg5, ushort arg6, ushort arg7, ushort arg8, ushort arg9, ushort arg10, ushort arg11, ushort arg12, ushort arg13, ushort arg14)
+        public nint DMStrBlt(ushort stackWord0, ushort stackWord1, ushort stackWord2, ushort stackWord3, ushort stackWord4, ushort stackWord5, ushort stackWord6, ushort stackWord7, ushort stackWord8, ushort stackWord9, ushort stackWord10, ushort stackWord11, ushort stackWord12, ushort stackWord13, ushort stackWord14)
         {
             return StubLegacyGdiExport<nint>("DMSTRBLT");
         }
@@ -1416,7 +1416,7 @@ namespace Win3muCore
         }
 
         [EntryPoint(0x00D6)]
-        public nint DMExtTextOut(ushort arg0, ushort arg1, ushort arg2, ushort arg3, ushort arg4, ushort arg5, ushort arg6, ushort arg7, ushort arg8, ushort arg9, ushort arg10, ushort arg11, ushort arg12, ushort arg13, ushort arg14, ushort arg15, ushort arg16, ushort arg17, ushort arg18, ushort arg19)
+        public nint DMExtTextOut(ushort stackWord0, ushort stackWord1, ushort stackWord2, ushort stackWord3, ushort stackWord4, ushort stackWord5, ushort stackWord6, ushort stackWord7, ushort stackWord8, ushort stackWord9, ushort stackWord10, ushort stackWord11, ushort stackWord12, ushort stackWord13, ushort stackWord14, ushort stackWord15, ushort stackWord16, ushort stackWord17, ushort stackWord18, ushort stackWord19)
         {
             return StubLegacyGdiExport<nint>("DMEXTTEXTOUT");
         }
@@ -1452,7 +1452,7 @@ namespace Win3muCore
         }
 
         [EntryPoint(0x00DC)]
-        public nint DMTranspose(ushort arg0, ushort arg1, ushort arg2, ushort arg3, ushort arg4)
+        public nint DMTranspose(ushort hDC, ushort x, ushort y, ushort width, ushort height)
         {
             return StubLegacyGdiExport<nint>("DMTRANSPOSE");
         }
@@ -1542,7 +1542,7 @@ namespace Win3muCore
         }
 
         [EntryPoint(0x00F8)]
-        public nint QueryJob(ushort arg0, ushort arg1)
+        public nint QueryJob(ushort hJob, ushort queryType)
         {
             return StubLegacyGdiExport<nint>("QueryJob");
         }
@@ -1596,13 +1596,13 @@ namespace Win3muCore
         }
 
         [EntryPoint(0x0131)]
-        public ushort EngineGetGlyphBmp(ushort arg0, uint arg1, ushort arg2, ushort arg3, uint arg4, uint arg5, uint arg6)
+        public ushort EngineGetGlyphBmp(ushort hDC, uint lpGlyph, ushort format, ushort options, uint lpBitmapBits, uint lpBounds, uint lpMetrics)
         {
             return StubLegacyGdiExport<ushort>("EngineGetGlyphBmp");
         }
 
         [EntryPoint(0x0132)]
-        public nint EngineMakeFontDir(ushort arg0, uint arg1, uint arg2)
+        public nint EngineMakeFontDir(ushort flags, uint lpFontDir, uint lpFontData)
         {
             return StubLegacyGdiExport<nint>("EngineMakeFontDir");
         }
@@ -1638,7 +1638,7 @@ namespace Win3muCore
         }
 
         [EntryPoint(0x0138)]
-        public nint ConvertOutlineFontFile(ushort arg0, ushort arg1, ushort arg2, ushort arg3, ushort arg4, ushort arg5)
+        public nint ConvertOutlineFontFile(ushort stackWord0, ushort stackWord1, ushort stackWord2, ushort stackWord3, ushort stackWord4, ushort stackWord5)
         {
             return StubLegacyGdiExport<nint>("ConvertOutlineFontFile");
         }
@@ -1650,7 +1650,7 @@ namespace Win3muCore
         }
 
         [EntryPoint(0x013A)]
-        public nint EngineExtTextOut(ushort arg0, ushort arg1, ushort arg2, ushort arg3, ushort arg4, ushort arg5, ushort arg6, ushort arg7, ushort arg8, ushort arg9, ushort arg10, ushort arg11, ushort arg12, ushort arg13, ushort arg14, ushort arg15, ushort arg16, ushort arg17, ushort arg18, ushort arg19, ushort arg20)
+        public nint EngineExtTextOut(ushort stackWord0, ushort stackWord1, ushort stackWord2, ushort stackWord3, ushort stackWord4, ushort stackWord5, ushort stackWord6, ushort stackWord7, ushort stackWord8, ushort stackWord9, ushort stackWord10, ushort stackWord11, ushort stackWord12, ushort stackWord13, ushort stackWord14, ushort stackWord15, ushort stackWord16, ushort stackWord17, ushort stackWord18, ushort stackWord19, ushort stackWord20)
         {
             return StubLegacyGdiExport<nint>("EngineExtTextOut");
         }
@@ -1956,7 +1956,7 @@ namespace Win3muCore
         public static extern int AbortDoc(HDC hDC);
 
         [EntryPoint(0x0190)]
-        public ushort FastWindowFrame(ushort arg0, uint arg1, short arg2, short arg3, uint arg4)
+        public ushort FastWindowFrame(ushort hDC, uint lpRect, short xThickness, short yThickness, uint colorRef)
         {
             return StubLegacyGdiExport<ushort>("FastWindowFrame");
         }
@@ -1968,13 +1968,13 @@ namespace Win3muCore
         }
 
         [EntryPoint(0x0193)]
-        public ushort GdiInit2(ushort arg0, ushort arg1)
+        public ushort GdiInit2(ushort hInstance, ushort flags)
         {
             return StubLegacyGdiExport("GdiInit2", (ushort)1);
         }
 
         [EntryPoint(0x0195)]
-        public ushort FinalGdiInit(ushort arg0)
+        public ushort FinalGdiInit(ushort hInstance)
         {
             return StubLegacyGdiExport("FinalGdiInit", (ushort)1);
         }
