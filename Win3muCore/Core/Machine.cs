@@ -176,7 +176,19 @@ namespace Win3muCore
             set;
         }
 
-        public string ProgramHostPath;
+        string _programHostPath;
+        public string ProgramHostPath
+        {
+            get
+            {
+                return _programHostPath;
+            }
+            set
+            {
+                _programHostPath = value;
+                RegisterProgramVariables();
+            }
+        }
 
         public void MergeConfig(string configName, string programName, Dictionary<string, object> config, string filename)
         {
@@ -866,8 +878,7 @@ namespace Win3muCore
 
         void RegisterVariables()
         {
-            _variableResolver.Register("AppName", () => System.IO.Path.GetFileNameWithoutExtension(ProgramHostPath));
-            _variableResolver.Register("AppFolder", () => System.IO.Path.GetDirectoryName(ProgramHostPath));
+            RegisterProgramVariables();
             _variableResolver.Register("Win3muFolder", () =>
             {
                 if (System.Reflection.Assembly.GetExecutingAssembly() != null)
@@ -901,7 +912,7 @@ namespace Win3muCore
                 if (_disassembled == null)
                     _disassembled = _disassembler.Read(cs, ip);
                 return _disassembled;
-            });                              
+            });
             _variableResolver.Register("annotations", () =>
             {
                 if (_disassembled == null)
@@ -909,6 +920,24 @@ namespace Win3muCore
                 return _expressionContext.GenerateDisassemblyAnnotations(_disassembled, _disassembler.ImplicitParams);
             });
             _variableResolver.Register("cputime", () => CpuTime.ToString());
+        }
+
+        void RegisterProgramVariables()
+        {
+            _variableResolver.Register("AppName", () =>
+            {
+                if (string.IsNullOrEmpty(ProgramHostPath))
+                    return string.Empty;
+
+                return System.IO.Path.GetFileNameWithoutExtension(ProgramHostPath);
+            });
+            _variableResolver.Register("AppFolder", () =>
+            {
+                if (string.IsNullOrEmpty(ProgramHostPath))
+                    return string.Empty;
+
+                return System.IO.Path.GetDirectoryName(ProgramHostPath) ?? string.Empty;
+            });
         }
 
         ExpressionContext _expressionContext;

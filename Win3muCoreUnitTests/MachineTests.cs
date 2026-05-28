@@ -10,6 +10,35 @@ namespace Win3muCoreUnitTests
     public class MachineTests
     {
         [TestMethod]
+        public void AppFolderVariable_IsEmptyBeforeProgramHostPathIsAssigned()
+        {
+            var machine = new Machine();
+
+            Assert.AreEqual(string.Empty, machine.VariableResolver.Resolve("$(AppFolder)"));
+            Assert.AreEqual(string.Empty, machine.VariableResolver.Resolve("$(AppName)"));
+        }
+
+        [TestMethod]
+        public void AppFolderVariable_UsesProgramHostPathAssignedAfterConstruction()
+        {
+            var tempRoot = CreateTempDirectory();
+            try
+            {
+                var machine = new Machine();
+                var programHostPath = Path.Combine(tempRoot, "PROGRAM.EXE");
+                machine.ProgramHostPath = programHostPath;
+
+                Assert.AreEqual(Path.GetDirectoryName(programHostPath), machine.VariableResolver.Resolve("$(AppFolder)"));
+                Assert.AreEqual("PROGRAM", machine.VariableResolver.Resolve("$(AppName)"));
+            }
+            finally
+            {
+                if (Directory.Exists(tempRoot))
+                    Directory.Delete(tempRoot, true);
+            }
+        }
+
+        [TestMethod]
         public void ConfigureLaunchWorkingDirectory_UsesMappedCurrentDirectoryForRelativeFileAccess()
         {
             var tempRoot = CreateTempDirectory();
