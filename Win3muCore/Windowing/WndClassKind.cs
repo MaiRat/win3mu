@@ -45,6 +45,7 @@ namespace Win3muCore
             { "#32770", WndClassKind.Dialog },
             { "button", WndClassKind.Button },
             { "edit", WndClassKind.Edit },
+            { "editclass", WndClassKind.Edit },
             { "static", WndClassKind.Static },
             { "listbox", WndClassKind.Listbox },
             { "scrollbar", WndClassKind.Scrollbar },
