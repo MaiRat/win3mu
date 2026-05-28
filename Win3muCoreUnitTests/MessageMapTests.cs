@@ -14,7 +14,7 @@ namespace Win3muCoreUnitTests
             var semantics = map.LookupMessage32(System.IntPtr.Zero, 0x0288, out var message16);
 
             Assert.AreEqual((ushort)0x0288, message16);
-            Assert.IsInstanceOfType<bypass>(semantics);
+            Assert.IsInstanceOfType(semantics, typeof(bypass));
         }
     }
 }
