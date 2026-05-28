@@ -18,7 +18,7 @@ namespace Win3muCoreUnitTests
         }
 
         [TestMethod]
-        public void ShouldBypassUnknownMessage32_ReturnsTrueForAppDefinedMessage()
+        public void ShouldBypassUnknownMessage32_ClassifiesAppDefinedAndKnownMessages()
         {
             Assert.IsTrue(MessageMap.ShouldBypassUnknownMessage32(1084));
             Assert.IsFalse(MessageMap.ShouldBypassUnknownMessage32(0x0288));
