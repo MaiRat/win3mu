@@ -1078,10 +1078,10 @@ namespace Win3muCore
         [EntryPoint(0x00AF)]
         public ushort AllocSelector(ushort src)
         {
-            var newSel = _machine.GlobalHeap.AllocSelector(string.Format("Selector copy for 0x{0:X4}", src), 1);
             if (src == 0)
-                return newSel.selector;
+                return _machine.GlobalHeap.AllocSelector("Selector copy for 0x0000", 1).selector;
 
+            var newSel = _machine.GlobalHeap.AllocSelector(string.Format("Selector copy for 0x{0:X4}", src), 1);
             var srcSel = _machine.GlobalHeap.GetSelector(src);
             if (srcSel == null)
             {
@@ -1322,7 +1322,7 @@ namespace Win3muCore
             if (offset < 0)
                 return true;
 
-            return offset > sel.allocation.buffer.Length - cb;
+            return offset < 0 || (ulong)offset + cb > (ulong)sel.allocation.buffer.Length;
         }
 
         static int GetSelectorOffset(uint ptr, GlobalHeap.Selector sel)
