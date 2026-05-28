@@ -180,8 +180,10 @@ namespace Win3muCore.Validation
                 if (address == 0 || address.Hiword() == 0xFFFF)
                     continue;
 
+                var exportName = module.GetNameFromOrdinal(ordinal);
+
                 result.Symbols.Add(new LoaderValidationSymbol(
-                    string.IsNullOrEmpty(module.GetNameFromOrdinal(ordinal)) ? string.Format("ord_{0:X4}", ordinal) : module.GetNameFromOrdinal(ordinal),
+                    string.IsNullOrEmpty(exportName) ? string.Format("ord_{0:X4}", ordinal) : exportName,
                     address.Hiword(),
                     address.Loword(),
                     string.Format("ordinal {0:X4}", ordinal)));
@@ -204,6 +206,8 @@ namespace Win3muCore.Validation
                 machine = CreateMachine(filePath);
                 module = CreateModule(filePath);
                 machine.ModuleManager.LoadModule(module);
+                // Refresh the symbol map with addresses from the execution-ready machine so
+                // the reported CS:IP values line up with the Sharp86 run attempt below.
                 PopulateSymbolMap(module, result);
 
                 module.PrepareRun(machine, null, 1);
@@ -214,7 +218,7 @@ namespace Win3muCore.Validation
                 {
                     var slice = Math.Min(remainingInstructions, ExecutionSliceSize);
                     var aborted = machine.Run(slice);
-                    remainingInstructions = ExecutionInstructionLimit - (int)(machine.CpuTime - initialCpuTime);
+                    remainingInstructions = Math.Max(0, ExecutionInstructionLimit - (int)(machine.CpuTime - initialCpuTime));
 
                     if (aborted || machine.Halted)
                     {
