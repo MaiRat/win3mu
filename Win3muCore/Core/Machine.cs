@@ -97,6 +97,7 @@ namespace Win3muCore
             _moduleManager.LoadModule(new DdeML());
             _moduleManager.LoadModule(new Sound());
             _moduleManager.LoadModule(new Win87Em());
+            InstallWin87EmInvalidOpcodeHandler();
 
             _disassembler = new Disassembler(this);
 
@@ -813,6 +814,25 @@ namespace Win3muCore
             return (uint)(_systemCodeSelector << 16 | address);
         }
 
+        public uint CreateInterruptThunk(Action handler, string name)
+        {
+            ushort address = _systemCodeGenPos;
+
+            ushort thunkIndex = (ushort)_systemThunkHanders.Count;
+            _systemThunkHanders.Add(handler);
+            _thunkNames[thunkIndex] = name;
+
+            byte[] mem = _globalHeap.GetBuffer(_systemCodeSelector, true);
+            mem[_systemCodeGenPos++] = 0xB8;
+            mem[_systemCodeGenPos++] = (byte)(thunkIndex & 0xFF);
+            mem[_systemCodeGenPos++] = (byte)(thunkIndex >> 8);
+            mem[_systemCodeGenPos++] = 0xCD;
+            mem[_systemCodeGenPos++] = SysCallInterrupt;
+            mem[_systemCodeGenPos++] = 0xCF;
+
+            return (uint)(_systemCodeSelector << 16 | address);
+        }
+
         List<ushort> _freeProcInstances = new List<ushort>();
         public uint MakeProcInstance(ushort ds, uint targetProc)
         {
@@ -856,6 +876,21 @@ namespace Win3muCore
             {
                 Log.WriteLine("Invalid pointer passed to FreeProcInstance: {0:X8}", ptr);
                 return;
+            }
+
+            void InstallWin87EmInvalidOpcodeHandler()
+            {
+                var handler = CreateInterruptThunk(() =>
+                {
+                    var win87em = _moduleManager.GetModule("WIN87EM") as Win87Em;
+                    if (win87em != null && win87em.HandleInvalidOpcodeFault())
+                        return;
+
+                    throw new InvalidOpCodeException();
+                }, "WIN87EM Invalid Opcode");
+
+                WriteWord(0, (ushort)(6 * 4), handler.Loword());
+                WriteWord(0, (ushort)(6 * 4 + 2), handler.Hiword());
             }
 
             _freeProcInstances.Add(ptr.Loword());

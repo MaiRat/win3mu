@@ -119,6 +119,20 @@ namespace Win3muCoreUnitTests
             Assert.IsTrue(report.Results.All(x => x.Success));
         }
 
+        [TestMethod]
+        public void Validate_TestCtlSample_DoesNotStopWithInvalidOpcode()
+        {
+            var validator = new LoaderValidator();
+
+            var report = validator.Validate(GetRepositoryFile("Samples", "testctl.exe"));
+
+            Assert.AreEqual(1, report.FilesProcessed);
+            var result = report.Results[0];
+            Assert.IsTrue(result.Success);
+            Assert.IsNotNull(result.Execution);
+            StringAssert.DoesNotContain(result.Execution.StopReason ?? string.Empty, "InvalidOpCodeException");
+        }
+
         static string CreateTempDirectory()
         {
             var path = Path.Combine(Path.GetTempPath(), "win3mu-tests", Guid.NewGuid().ToString("N"));

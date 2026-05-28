@@ -1,5 +1,6 @@
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Sharp86;
 using Win3muCore;
 
 namespace Win3muCoreUnitTests
@@ -94,6 +95,62 @@ namespace Win3muCoreUnitTests
             {
                 machine.RaiseInterrupt(interruptNumber);
             }
+        }
+
+        [TestMethod]
+        public void Win87EmModule_InvalidOpcodeHandlerProcessesCommonEscInstructions()
+        {
+            var machine = new Machine();
+            var win87em = machine.ModuleManager.GetModule("WIN87EM") as Win87Em;
+
+            Assert.IsNotNull(win87em);
+
+            ushort selector = machine.GlobalHeap.Alloc("Win87Em Esc", 0, 0x100);
+            var code = machine.GlobalHeap.GetBuffer(selector, true);
+            code[0] = 0xDB;
+            code[1] = 0xE3;
+            code[2] = 0xD9;
+            code[3] = 0x7E;
+            code[4] = 0xFE;
+            code[5] = 0xDB;
+            code[6] = 0xE1;
+
+            machine.ss = selector;
+            machine.ds = selector;
+            machine.sp = 0x40;
+            machine.bp = 0x20;
+
+            machine.WriteWord(selector, 0x40, 0);
+            machine.WriteWord(selector, 0x42, selector);
+            Assert.IsTrue(win87em.HandleInvalidOpcodeFault());
+            Assert.AreEqual((ushort)2, machine.ReadWord(selector, 0x40));
+
+            machine.WriteWord(selector, 0x40, 2);
+            Assert.IsTrue(win87em.HandleInvalidOpcodeFault());
+            Assert.AreEqual((ushort)5, machine.ReadWord(selector, 0x40));
+            Assert.AreEqual((ushort)0x1332, machine.ReadWord(selector, 0x1E));
+
+            machine.WriteWord(selector, 0x40, 5);
+            Assert.IsTrue(win87em.HandleInvalidOpcodeFault());
+            Assert.AreEqual((ushort)7, machine.ReadWord(selector, 0x40));
+            Assert.AreEqual((ushort)0x000B, machine.ax);
+        }
+
+        [TestMethod]
+        public void Win87EmModule_DisassemblerDoesNotThrowOnEscInstructions()
+        {
+            var machine = new Machine();
+            ushort selector = machine.GlobalHeap.Alloc("Win87Em Disasm", 0, 0x20);
+            var code = machine.GlobalHeap.GetBuffer(selector, true);
+            code[0] = 0xDB;
+            code[1] = 0xE3;
+            code[2] = 0xD9;
+            code[3] = 0x7E;
+            code[4] = 0xFE;
+
+            var disassembler = new Disassembler(machine, selector, 0);
+            Assert.AreEqual("esc 0xDB,0xE3", disassembler.Read());
+            Assert.AreEqual("esc 0xD9,0x7E", disassembler.Read());
         }
 
         static uint Alloc(Machine machine, string name, uint size)
