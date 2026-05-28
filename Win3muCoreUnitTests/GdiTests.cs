@@ -1,5 +1,6 @@
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Sharp86;
 using Win3muCore;
 
 namespace Win3muCoreUnitTests
@@ -215,6 +216,53 @@ namespace Win3muCoreUnitTests
             {
                 Assert.AreEqual(entry.Name, gdi.GetNameFromOrdinal(entry.Ordinal));
             }
+        }
+
+        [TestMethod]
+        public void GdiModule_LegacySpoolApisMaintainCompatibilityState()
+        {
+            var machine = new Machine();
+            var gdi = machine.ModuleManager.GetModule("GDI") as Gdi;
+
+            Assert.IsNotNull(gdi);
+
+            uint rawData = Alloc(machine, "Spool Data", 4);
+            machine.WriteBytes(rawData, new byte[] { 1, 2, 3, 4 });
+
+            short hJob = gdi.OpenJob(machine.StringHeap.GetString("HP LaserJet"), machine.StringHeap.GetString("Test Document"), 0);
+            Assert.IsTrue(hJob > 0);
+            Assert.AreEqual((short)4, gdi.WriteSpool((ushort)hJob, rawData, 4));
+            Assert.AreEqual((short)4, gdi.WriteDialog((ushort)hJob, machine.StringHeap.GetString("Page"), 4));
+            Assert.AreEqual((ushort)1, gdi.StartSpoolPage((ushort)hJob));
+            Assert.AreEqual((nint)2, gdi.QueryJob((ushort)hJob, 0));
+            Assert.AreEqual((nint)8, gdi.GetSpoolJob((ushort)hJob, 0));
+            Assert.AreEqual((ushort)1, gdi.DeleteSpoolPage((ushort)hJob));
+            Assert.AreEqual((nint)1, gdi.QueryJob((ushort)hJob, 0));
+            Assert.AreEqual((ushort)1, gdi.CloseJob((ushort)hJob));
+            Assert.AreEqual((short)0, gdi.WriteSpool((ushort)hJob, rawData, 4));
+        }
+
+        [TestMethod]
+        public void GdiModule_LegacyCopyExportCopiesGuestMemory()
+        {
+            var machine = new Machine();
+            var gdi = machine.ModuleManager.GetModule("GDI") as Gdi;
+
+            Assert.IsNotNull(gdi);
+
+            uint source = Alloc(machine, "Copy Source", 4);
+            uint dest = Alloc(machine, "Copy Dest", 4);
+            machine.WriteBytes(source, new byte[] { 0x10, 0x20, 0x30, 0x40 });
+
+            Assert.AreEqual((ushort)1, gdi.Copy(source, dest, 4));
+            CollectionAssert.AreEqual(new byte[] { 0x10, 0x20, 0x30, 0x40 }, machine.ReadBytes(dest, 4));
+            Assert.AreEqual((ushort)1, gdi.Copy(source, dest, 0));
+            Assert.AreEqual((ushort)0, gdi.Copy(0, dest, 1));
+        }
+
+        static uint Alloc(Machine machine, string name, uint size)
+        {
+            return BitUtils.MakeDWord(0, machine.GlobalHeap.Alloc(name, 0, size));
         }
     }
 }

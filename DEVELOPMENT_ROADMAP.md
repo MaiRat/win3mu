@@ -196,6 +196,7 @@ The following items represent the current frontier for further work:
    - Added classic metafile exports for `GetMetaFile`, `CreateMetaFile`, `CloseMetaFile`, `CopyMetaFile`, `GetMetaFileBits`, `SetMetaFileBitsBetter`, `EnumMetaFile`, `PlayMetaFileRecord`, and `IsValidMetaFile`, plus print-abort helper `QueryAbort`.
    - Added palette exports for `SelectPalette`, `RealizePalette`, `GetPaletteEntries`, `SetPaletteEntries`, `RealizeDefaultPalette`, `UpdateColors`, `AnimatePalette`, `ResizePalette`, `GetNearestPaletteIndex`, `SetSystemPaletteUse`, and `GetSystemPaletteUse`.
    - Added printer/path exports for `Escape`, `StartDoc`, `EndDoc`, `StartPage`, `EndPage`, `SetAbortProc`, `AbortDoc`, `SetBoundsRect`, `GetBoundsRect`, and `SelectBitmap`, with 16-bit `DOCINFO` marshaling and abort-proc callback bridging.
+   - Legacy GDI spooler exports `OpenJob`, `WriteSpool`, `WriteDialog`, `CloseJob`, `DeleteJob`, `GetSpoolJob`, `StartSpoolPage`, `EndSpoolPage`, `QueryJob`, `DeleteSpoolPage`, `SpoolFile`, and `Copy` now use compatibility-first in-memory behavior instead of placeholder stubs.
    - **Remaining:** additional printer-driver-specific GDI exports can be added as application compatibility testing reveals specific gaps.
 6. ~~**Implement functional DDE string handles**~~ ✅ **COMPLETED**
    - `DdeCreateStringHandle` now maintains a real `(string, codepage)`→handle table with reference counting, allowing duplicate creates to reuse the same HSZ.

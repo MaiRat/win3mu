@@ -32,7 +32,48 @@ namespace Win3muCore
         delegate int ABORTPROC(IntPtr hdc, int code);
         delegate int MFENUMPROC(IntPtr hdc, IntPtr lpHTable, IntPtr lpMFR, int nObj, IntPtr lpData);
 
+        class LegacySpoolJob
+        {
+            public string Device;
+            public string Title;
+            public bool PageOpen;
+            public int BytesWritten;
+        }
+
         readonly Dictionary<IntPtr, ABORTPROC> _abortProcs = new Dictionary<IntPtr, ABORTPROC>();
+        readonly Dictionary<ushort, LegacySpoolJob> _legacySpoolJobs = new Dictionary<ushort, LegacySpoolJob>();
+        ushort _nextLegacySpoolJob = 1;
+
+        public override void Load(Machine machine)
+        {
+            base.Load(machine);
+            _abortProcs.Clear();
+            _legacySpoolJobs.Clear();
+            _nextLegacySpoolJob = 1;
+        }
+
+        ushort AllocateLegacySpoolJob()
+        {
+            while (_nextLegacySpoolJob == 0 || _legacySpoolJobs.ContainsKey(_nextLegacySpoolJob))
+                _nextLegacySpoolJob++;
+
+            return _nextLegacySpoolJob++;
+        }
+
+        bool TryGetLegacySpoolJob(ushort hJob, out LegacySpoolJob job)
+        {
+            return _legacySpoolJobs.TryGetValue(hJob, out job);
+        }
+
+        static bool HasValidLegacySpoolBuffer(uint ptr, ushort count)
+        {
+            return count == 0 || ptr != 0;
+        }
+
+        static ushort LegacySuccess(bool success)
+        {
+            return success ? (ushort)1 : (ushort)0;
+        }
 
         [EntryPoint(0x0001)]
         [DllImport("gdi32.dll")]
@@ -1500,73 +1541,141 @@ namespace Win3muCore
         [EntryPoint(0x00F0)]
         public short OpenJob(uint lpDevice, uint lpTitle, ushort outputPort)
         {
-            return StubLegacyGdiExport<short>("OpenJob");
+            ushort hJob = AllocateLegacySpoolJob();
+            _legacySpoolJobs[hJob] = new LegacySpoolJob()
+            {
+                Device = lpDevice != 0 ? _machine.ReadString(lpDevice) : null,
+                Title = lpTitle != 0 ? _machine.ReadString(lpTitle) : null,
+            };
+
+            if (outputPort != 0)
+                Log.WriteLine("Gdi.OpenJob: outputPort {0:X4} ignored by compatibility spool stub", outputPort);
+
+            return (short)hJob;
         }
 
         [EntryPoint(0x00F1)]
         public short WriteSpool(ushort hJob, uint lpData, ushort cbData)
         {
-            return StubLegacyGdiExport<short>("WriteSpool");
+            if (!TryGetLegacySpoolJob(hJob, out var job) || !HasValidLegacySpoolBuffer(lpData, cbData))
+                return 0;
+
+            if (cbData != 0)
+                _machine.ReadBytes(lpData, cbData);
+
+            job.BytesWritten += cbData;
+            return unchecked((short)cbData);
         }
 
         [EntryPoint(0x00F2)]
         public short WriteDialog(ushort hJob, uint lpText, ushort cchText)
         {
-            return StubLegacyGdiExport<short>("WriteDialog");
+            if (!TryGetLegacySpoolJob(hJob, out var job) || !HasValidLegacySpoolBuffer(lpText, cchText))
+                return 0;
+
+            if (cchText != 0)
+                _machine.GlobalHeap.ReadCharacters(lpText, cchText);
+
+            job.BytesWritten += cchText;
+            return unchecked((short)cchText);
         }
 
         [EntryPoint(0x00F3)]
         public ushort CloseJob(ushort hJob)
         {
-            return StubLegacyGdiExport<ushort>("CloseJob");
+            return LegacySuccess(_legacySpoolJobs.Remove(hJob));
         }
 
         [EntryPoint(0x00F4)]
         public ushort DeleteJob(ushort hJob, ushort options)
         {
-            return StubLegacyGdiExport<ushort>("DeleteJob");
+            if (options != 0)
+                Log.WriteLine("Gdi.DeleteJob: options {0:X4} ignored by compatibility spool stub", options);
+
+            return LegacySuccess(_legacySpoolJobs.Remove(hJob));
         }
 
         [EntryPoint(0x00F5)]
         public nint GetSpoolJob(ushort hJob, uint lpJobInfo)
         {
-            return StubLegacyGdiExport<nint>("GetSpoolJob");
+            if (!TryGetLegacySpoolJob(hJob, out var job))
+                return 0;
+
+            if (lpJobInfo != 0)
+                Log.WriteLine("Gdi.GetSpoolJob: job info buffer ignored by compatibility spool stub");
+
+            return job.BytesWritten != 0 ? job.BytesWritten : 1;
         }
 
         [EntryPoint(0x00F6)]
         public ushort StartSpoolPage(ushort hJob)
         {
-            return StubLegacyGdiExport<ushort>("StartSpoolPage");
+            if (!TryGetLegacySpoolJob(hJob, out var job) || job.PageOpen)
+                return 0;
+
+            job.PageOpen = true;
+            return 1;
         }
 
         [EntryPoint(0x00F7)]
         public ushort EndSpoolPage(ushort hJob)
         {
-            return StubLegacyGdiExport<ushort>("EndSpoolPage");
+            if (!TryGetLegacySpoolJob(hJob, out var job) || !job.PageOpen)
+                return 0;
+
+            job.PageOpen = false;
+            return 1;
         }
 
         [EntryPoint(0x00F8)]
         public nint QueryJob(ushort hJob, ushort queryType)
         {
-            return StubLegacyGdiExport<nint>("QueryJob");
+            if (!TryGetLegacySpoolJob(hJob, out var job))
+                return 0;
+
+            if (queryType != 0)
+                Log.WriteLine("Gdi.QueryJob: query type {0:X4} treated as compatibility status probe", queryType);
+
+            return job.PageOpen ? 2 : 1;
         }
 
         [EntryPoint(0x00FA)]
         public ushort Copy(uint lpSource, uint lpDest, ushort cbCopy)
         {
-            return StubLegacyGdiExport<ushort>("Copy");
+            if (!HasValidLegacySpoolBuffer(lpSource, cbCopy) || !HasValidLegacySpoolBuffer(lpDest, cbCopy))
+                return 0;
+
+            if (cbCopy != 0)
+                _machine.WriteBytes(lpDest, _machine.ReadBytes(lpSource, cbCopy));
+
+            return 1;
         }
 
         [EntryPoint(0x00FD)]
         public ushort DeleteSpoolPage(ushort hJob)
         {
-            return StubLegacyGdiExport<ushort>("DeleteSpoolPage");
+            if (!TryGetLegacySpoolJob(hJob, out var job))
+                return 0;
+
+            job.PageOpen = false;
+            return 1;
         }
 
         [EntryPoint(0x00FE)]
         public ushort SpoolFile(uint lpFileName, uint lpPortName, uint lpJobName, uint lpOptions)
         {
-            return StubLegacyGdiExport<ushort>("SpoolFile");
+            if (lpFileName == 0)
+                return 0;
+
+            _machine.ReadString(lpFileName);
+            if (lpPortName != 0)
+                _machine.ReadString(lpPortName);
+            if (lpJobName != 0)
+                _machine.ReadString(lpJobName);
+            if (lpOptions != 0)
+                _machine.ReadString(lpOptions);
+
+            return 1;
         }
 
         [EntryPoint(0x012C)]
