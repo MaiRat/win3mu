@@ -26,6 +26,9 @@ namespace Win3muCore.MessageSemantics
 {
     class MessageMap
     {
+        [ThreadStatic]
+        static bool _formattingUnknownMessageError;
+
         public MessageMap()
         {
             Load();
@@ -40,7 +43,52 @@ namespace Win3muCore.MessageSemantics
 
         public static void ThrowMessageError(IntPtr hWnd32, uint message)
         {
-            throw new VirtualException($"Unknown windows message {MessageNames.NameOfMessage(message)} for window class '{User.GetClassName(hWnd32)}' ({WindowClassKind.Get(hWnd32)})");
+            throw new VirtualException(FormatUnknownMessageError(message, () => GetWindowClassDescription(hWnd32)));
+        }
+
+        internal static string FormatUnknownMessageError(uint message, Func<string> getWindowClassDescription)
+        {
+            var error = $"Unknown windows message {MessageNames.NameOfMessage(message)}";
+            if (_formattingUnknownMessageError)
+                return error;
+
+            try
+            {
+                _formattingUnknownMessageError = true;
+                var windowClassDescription = getWindowClassDescription?.Invoke();
+                if (!string.IsNullOrEmpty(windowClassDescription))
+                    return $"{error} for window class {windowClassDescription}";
+            }
+            catch (VirtualException)
+            {
+                // Never let error-reporting recurse or fail while formatting an
+                // unknown-message exception; fall back to the message-only text.
+            }
+            catch (DllNotFoundException)
+            {
+                // Never let error-reporting recurse or fail while formatting an
+                // unknown-message exception; fall back to the message-only text.
+            }
+            catch (EntryPointNotFoundException)
+            {
+                // Never let error-reporting recurse or fail while formatting an
+                // unknown-message exception; fall back to the message-only text.
+            }
+            finally
+            {
+                _formattingUnknownMessageError = false;
+            }
+
+            return error;
+        }
+
+        static string GetWindowClassDescription(IntPtr hWnd32)
+        {
+            var className = User.GetClassName(hWnd32);
+            if (string.IsNullOrEmpty(className))
+                return null;
+
+            return $"'{className}' ({WindowClassKind.Get(className)})";
         }
 
         internal static bool ShouldBypassUnknownMessage32(uint message32)
