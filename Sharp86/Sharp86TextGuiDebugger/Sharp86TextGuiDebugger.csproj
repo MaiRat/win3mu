@@ -13,8 +13,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../ConFrames/ConFrames/ConFrames.csproj" />
-    <ProjectReference Include="../PetaJson/PetaJson_Net40.csproj" />
     <ProjectReference Include="../Sharp86DebuggerCore/Sharp86DebuggerCore.csproj" />
     <ProjectReference Include="../Sharp86/Sharp86.csproj" />
+    <ProjectReference Include="..\PetaJson\PetaJson.csproj" />
   </ItemGroup>
 </Project>
