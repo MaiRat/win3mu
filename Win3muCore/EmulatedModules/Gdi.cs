@@ -488,9 +488,15 @@ namespace Win3muCore
                 faceName);
         }
 
+        [DllImport("gdi32.dll", EntryPoint = "CreateFontIndirectW", CharSet = CharSet.Unicode)]
+        static extern HGDIOBJ _CreateFontIndirect([In] ref Win32.LOGFONT lf);
+
         [EntryPoint(0x0039)]
-        [DllImport("gdi32.dll")]
-        public static extern HGDIOBJ CreateFontIndirect([In] ref Win32.LOGFONT lf);
+        public HGDIOBJ CreateFontIndirect(ref Win16.LOGFONT lf)
+        {
+            var lf32 = Win32.LOGFONT.To32(lf);
+            return _CreateFontIndirect(ref lf32);
+        }
 
         [EntryPoint(0x003A)]
         [DllImport("gdi32.dll")]
@@ -889,9 +895,21 @@ namespace Win3muCore
             return (short)copied;
         }
 
+        [DllImport("gdi32.dll", EntryPoint = "GetTextMetricsW", CharSet = CharSet.Unicode)]
+        static extern bool _GetTextMetrics(HDC hdc, out Win32.TEXTMETRIC lptm);
+
         [EntryPoint(0x005d)]
-        [DllImport("gdi32.dll", CharSet = CharSet.Auto)]
-        public static extern bool GetTextMetrics(HDC hdc, out Win32.TEXTMETRIC lptm);
+        public bool GetTextMetrics(HDC hdc, uint lptm)
+        {
+            if (lptm == 0)
+                return false;
+
+            if (!_GetTextMetrics(hdc, out var tm32))
+                return false;
+
+            _machine.WriteStruct(lptm, Win32.TEXTMETRIC.To16(tm32));
+            return true;
+        }
 
 
         [DllImport("gdi32.dll")]

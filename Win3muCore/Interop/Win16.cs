@@ -433,6 +433,30 @@ namespace Win3muCore
         };
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct ABC
+        {
+            public short abcA;
+            public ushort abcB;
+            public short abcC;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct KERNINGPAIR
+        {
+            public ushort wFirst;
+            public ushort wSecond;
+            public short iKernAmount;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct RASTERIZER_STATUS
+        {
+            public short nSize;
+            public short wFlags;
+            public short nLanguageID;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct BITMAP
         {
             public short bmType;
