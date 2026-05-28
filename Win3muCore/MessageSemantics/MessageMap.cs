@@ -361,7 +361,8 @@ namespace Win3muCore.MessageSemantics
             Add(0x0231, new bypass());             // WM_ENTERSIZEMOVE
             Add(0x0232, new bypass());             // WM_EXITSIZEMOVE
             Add(0x0281, new bypass());             // WM_IME_SETCONTEXT
-            Add(0x0282, new bypass());             // WM_IME_NOTIFY            
+            Add(0x0282, new bypass());             // WM_IME_NOTIFY
+            Add(0x0288, new bypass());             // WM_IME_REQUEST
             Add(0x02a2, new bypass());             // WM_NCMOUSELEAVE
             Add(0x02a3, new bypass());             // WM_MOUSELEAVE
             Add(0x031e, new bypass());             // WM_DWMCOMPOSITIONCHANGED
