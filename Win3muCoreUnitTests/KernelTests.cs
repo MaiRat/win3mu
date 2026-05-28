@@ -29,6 +29,7 @@ namespace Win3muCoreUnitTests
             var kernel = machine.ModuleManager.GetModule("KERNEL") as Kernel;
 
             Assert.IsNotNull(kernel);
+            Assert.AreEqual((ushort)0, kernel.GetCurrentTask());
             Assert.AreEqual((ushort)1, kernel.GetNumTasks());
             Assert.IsTrue(kernel.IsTask(kernel.GetCurrentTask()));
             Assert.IsFalse(kernel.IsTask(0x2222));

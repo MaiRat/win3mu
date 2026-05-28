@@ -1281,9 +1281,9 @@ namespace Win3muCore
         {
             // Win16 uses selector aliases to address 64 KiB windows inside a shared
             // allocation. Converting the far pointer back to a byte offset requires
-            // normalizing the selector to a selector-table index, subtracting the
-            // allocation's base selector index, then combining that page delta with
-            // the 16-bit offset.
+            // normalizing the selector to a selector-table index (selector >> 3),
+            // subtracting the allocation's base selector index, then shifting that
+            // page delta back into bytes (<< 16) before adding the 16-bit offset.
             return ((ptr.Hiword() >> 3) - sel.selectorIndex) << 16 | ptr.Loword();
         }
     }
