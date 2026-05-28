@@ -1322,7 +1322,7 @@ namespace Win3muCore
             if (offset < 0)
                 return true;
 
-            return offset < 0 || (ulong)offset + cb > (ulong)sel.allocation.buffer.Length;
+            return (ulong)offset + cb > (ulong)sel.allocation.buffer.Length;
         }
 
         static int GetSelectorOffset(uint ptr, GlobalHeap.Selector sel)
