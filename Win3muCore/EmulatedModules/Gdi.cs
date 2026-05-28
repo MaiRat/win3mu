@@ -32,7 +32,52 @@ namespace Win3muCore
         delegate int ABORTPROC(IntPtr hdc, int code);
         delegate int MFENUMPROC(IntPtr hdc, IntPtr lpHTable, IntPtr lpMFR, int nObj, IntPtr lpData);
 
+        class LegacySpoolJob
+        {
+            public string Device;
+            public string Title;
+            public bool PageOpen;
+            public int BytesWritten;
+        }
+
         readonly Dictionary<IntPtr, ABORTPROC> _abortProcs = new Dictionary<IntPtr, ABORTPROC>();
+        readonly Dictionary<ushort, LegacySpoolJob> _legacySpoolJobs = new Dictionary<ushort, LegacySpoolJob>();
+        ushort _nextLegacySpoolJob = 1;
+        ushort _relAbsMode;
+        const int LegacySpoolJobPresentStatus = 1;
+        const int LegacySpoolJobPageOpenStatus = 2;
+
+        public override void Load(Machine machine)
+        {
+            base.Load(machine);
+            _abortProcs.Clear();
+            _legacySpoolJobs.Clear();
+            _nextLegacySpoolJob = 1;
+            _relAbsMode = 0;
+        }
+
+        ushort AllocateLegacySpoolJob()
+        {
+            while (_nextLegacySpoolJob == 0 || _legacySpoolJobs.ContainsKey(_nextLegacySpoolJob))
+                _nextLegacySpoolJob++;
+
+            return _nextLegacySpoolJob++;
+        }
+
+        bool TryGetLegacySpoolJob(ushort hJob, out LegacySpoolJob job)
+        {
+            return _legacySpoolJobs.TryGetValue(hJob, out job);
+        }
+
+        static bool HasValidLegacySpoolBuffer(uint ptr, ushort count)
+        {
+            return count == 0 || ptr != 0;
+        }
+
+        static ushort LegacySuccess(bool success)
+        {
+            return success ? (ushort)1 : (ushort)0;
+        }
 
         [EntryPoint(0x0001)]
         [DllImport("gdi32.dll")]
@@ -51,7 +96,13 @@ namespace Win3muCore
         public static extern nint SetROP2(HDC hDC, nint mode);
 
 
-        // 0005 - SETRELABS
+        [EntryPoint(0x0005)]
+        public ushort SetRelAbs(ushort mode)
+        {
+            ushort previousMode = _relAbsMode;
+            _relAbsMode = (ushort)(mode != 0 ? 1 : 0);
+            return previousMode;
+        }
 
         [EntryPoint(0x0006)]
         [DllImport("gdi32.dll")]
@@ -437,9 +488,15 @@ namespace Win3muCore
                 faceName);
         }
 
+        [DllImport("gdi32.dll", EntryPoint = "CreateFontIndirectW", CharSet = CharSet.Unicode)]
+        static extern HGDIOBJ _CreateFontIndirect([In] ref Win32.LOGFONT lf);
+
         [EntryPoint(0x0039)]
-        [DllImport("gdi32.dll")]
-        public static extern HGDIOBJ CreateFontIndirect([In] ref Win32.LOGFONT lf);
+        public HGDIOBJ CreateFontIndirect(ref Win16.LOGFONT lf)
+        {
+            var lf32 = Win32.LOGFONT.To32(lf);
+            return _CreateFontIndirect(ref lf32);
+        }
 
         [EntryPoint(0x003A)]
         [DllImport("gdi32.dll")]
@@ -782,7 +839,11 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern nint GetROP2(HDC hDC);
 
-        // 0056 - GETRELABS
+        [EntryPoint(0x0056)]
+        public ushort GetRelAbs()
+        {
+            return _relAbsMode;
+        }
 
         [EntryPoint(0x0057)]
         [DllImport("gdi32.dll")]
@@ -834,9 +895,21 @@ namespace Win3muCore
             return (short)copied;
         }
 
+        [DllImport("gdi32.dll", EntryPoint = "GetTextMetricsW", CharSet = CharSet.Unicode)]
+        static extern bool _GetTextMetrics(HDC hdc, out Win32.TEXTMETRIC lptm);
+
         [EntryPoint(0x005d)]
-        [DllImport("gdi32.dll", CharSet = CharSet.Auto)]
-        public static extern bool GetTextMetrics(HDC hdc, out Win32.TEXTMETRIC lptm);
+        public bool GetTextMetrics(HDC hdc, uint lptm)
+        {
+            if (lptm == 0)
+                return false;
+
+            if (!_GetTextMetrics(hdc, out var tm32))
+                return false;
+
+            _machine.WriteStruct(lptm, Win32.TEXTMETRIC.To16(tm32));
+            return true;
+        }
 
 
         [DllImport("gdi32.dll")]
@@ -891,7 +964,11 @@ namespace Win3muCore
             return point.ToDWord();
         }
 
-        // 0062 - INTERSECTVISRECT
+        [EntryPoint(0x0062)]
+        public bool IntersectVisRect(HDC hDC, nint left, nint top, nint right, nint bottom)
+        {
+            return IntersectClipRect(hDC, left, top, right, bottom);
+        }
 
         [DllImport("gdi32.dll")]
         static extern bool LPtoDP(IntPtr hdc, [In, Out] Win32.POINT[] lpPoints, int nCount);
@@ -940,7 +1017,27 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern nint OffsetRgn(HGDIOBJ hRgn, nint x, nint y);
 
-        // 0066 - OFFSETVISRGN
+        [EntryPoint(0x0066)]
+        public nint OffsetVisRgn(HDC hDC, nint x, nint y)
+        {
+            var hClipRgn = CreateRectRgn(0, 0, 0, 0);
+            if (hClipRgn.value == IntPtr.Zero)
+                return 0;
+
+            try
+            {
+                if (GetClipRgn(hDC, hClipRgn) != 1)
+                    return 0;
+
+                var result = OffsetRgn(hClipRgn, x, y);
+                SelectClipRgn(hDC, hClipRgn);
+                return result;
+            }
+            finally
+            {
+                DeleteObject(hClipRgn);
+            }
+        }
 
         [EntryPoint(0x0067)]
         [DllImport("gdi32.dll")]
@@ -969,8 +1066,16 @@ namespace Win3muCore
             }
         }
 
-        // 0075 - SETDCORG
-        // 0077 - ADDFONTRESOURCE
+        [EntryPoint(0x0075)]
+        public uint SetDCOrg(HDC hDC, short x, short y)
+        {
+            return SetViewportOrg(hDC, x, y);
+        }
+
+        [EntryPoint(0x0077)]
+        [DllImport("gdi32.dll", CharSet = CharSet.Unicode, EntryPoint = "AddFontResourceW")]
+        public static extern int AddFontResource([FileName(false)] string lpszFilename);
+
         // 0079 - DEATH
         // 007A - RESURRECTION
  
@@ -1500,73 +1605,142 @@ namespace Win3muCore
         [EntryPoint(0x00F0)]
         public short OpenJob(uint lpDevice, uint lpTitle, ushort outputPort)
         {
-            return StubLegacyGdiExport<short>("OpenJob");
+            ushort hJob = AllocateLegacySpoolJob();
+            _legacySpoolJobs[hJob] = new LegacySpoolJob()
+            {
+                Device = lpDevice != 0 ? _machine.ReadString(lpDevice) : null,
+                Title = lpTitle != 0 ? _machine.ReadString(lpTitle) : null,
+            };
+
+            if (outputPort != 0)
+                Log.WriteLine("Gdi.OpenJob: outputPort {0:X4} ignored by compatibility spool stub", outputPort);
+
+            return (short)hJob;
         }
 
         [EntryPoint(0x00F1)]
         public short WriteSpool(ushort hJob, uint lpData, ushort cbData)
         {
-            return StubLegacyGdiExport<short>("WriteSpool");
+            if (!TryGetLegacySpoolJob(hJob, out var job) || !HasValidLegacySpoolBuffer(lpData, cbData))
+                return 0;
+
+            if (cbData != 0)
+                // Null spooler compatibility: validate the guest buffer without persisting its contents.
+                _machine.ReadBytes(lpData, cbData);
+
+            job.BytesWritten += cbData;
+            return unchecked((short)cbData);
         }
 
         [EntryPoint(0x00F2)]
         public short WriteDialog(ushort hJob, uint lpText, ushort cchText)
         {
-            return StubLegacyGdiExport<short>("WriteDialog");
+            if (!TryGetLegacySpoolJob(hJob, out var job) || !HasValidLegacySpoolBuffer(lpText, cchText))
+                return 0;
+
+            if (cchText != 0)
+                // Null spooler compatibility: validate the guest string buffer without rendering it.
+                _machine.GlobalHeap.ReadCharacters(lpText, cchText);
+
+            job.BytesWritten += cchText;
+            return unchecked((short)cchText);
         }
 
         [EntryPoint(0x00F3)]
         public ushort CloseJob(ushort hJob)
         {
-            return StubLegacyGdiExport<ushort>("CloseJob");
+            return LegacySuccess(_legacySpoolJobs.Remove(hJob));
         }
 
         [EntryPoint(0x00F4)]
         public ushort DeleteJob(ushort hJob, ushort options)
         {
-            return StubLegacyGdiExport<ushort>("DeleteJob");
+            if (options != 0)
+                Log.WriteLine("Gdi.DeleteJob: options {0:X4} ignored by compatibility spool stub", options);
+
+            return LegacySuccess(_legacySpoolJobs.Remove(hJob));
         }
 
         [EntryPoint(0x00F5)]
         public nint GetSpoolJob(ushort hJob, uint lpJobInfo)
         {
-            return StubLegacyGdiExport<nint>("GetSpoolJob");
+            if (!TryGetLegacySpoolJob(hJob, out var job))
+                return 0;
+
+            if (lpJobInfo != 0)
+                Log.WriteLine("Gdi.GetSpoolJob: job info buffer ignored by compatibility spool stub");
+
+            return job.BytesWritten != 0 ? job.BytesWritten : LegacySpoolJobPresentStatus;
         }
 
         [EntryPoint(0x00F6)]
         public ushort StartSpoolPage(ushort hJob)
         {
-            return StubLegacyGdiExport<ushort>("StartSpoolPage");
+            if (!TryGetLegacySpoolJob(hJob, out var job) || job.PageOpen)
+                return 0;
+
+            job.PageOpen = true;
+            return 1;
         }
 
         [EntryPoint(0x00F7)]
         public ushort EndSpoolPage(ushort hJob)
         {
-            return StubLegacyGdiExport<ushort>("EndSpoolPage");
+            if (!TryGetLegacySpoolJob(hJob, out var job) || !job.PageOpen)
+                return 0;
+
+            job.PageOpen = false;
+            return 1;
         }
 
         [EntryPoint(0x00F8)]
         public nint QueryJob(ushort hJob, ushort queryType)
         {
-            return StubLegacyGdiExport<nint>("QueryJob");
+            if (!TryGetLegacySpoolJob(hJob, out var job))
+                return 0;
+
+            if (queryType != 0)
+                Log.WriteLine("Gdi.QueryJob: query type {0:X4} treated as compatibility status probe", queryType);
+
+            return job.PageOpen ? LegacySpoolJobPageOpenStatus : LegacySpoolJobPresentStatus;
         }
 
         [EntryPoint(0x00FA)]
         public ushort Copy(uint lpSource, uint lpDest, ushort cbCopy)
         {
-            return StubLegacyGdiExport<ushort>("Copy");
+            if (!HasValidLegacySpoolBuffer(lpSource, cbCopy) || !HasValidLegacySpoolBuffer(lpDest, cbCopy))
+                return 0;
+
+            if (cbCopy != 0)
+                _machine.WriteBytes(lpDest, _machine.ReadBytes(lpSource, cbCopy));
+
+            return 1;
         }
 
         [EntryPoint(0x00FD)]
         public ushort DeleteSpoolPage(ushort hJob)
         {
-            return StubLegacyGdiExport<ushort>("DeleteSpoolPage");
+            if (!TryGetLegacySpoolJob(hJob, out var job))
+                return 0;
+
+            job.PageOpen = false;
+            return 1;
         }
 
         [EntryPoint(0x00FE)]
         public ushort SpoolFile(uint lpFileName, uint lpPortName, uint lpJobName, uint lpOptions)
         {
-            return StubLegacyGdiExport<ushort>("SpoolFile");
+            if (lpFileName == 0)
+                return 0;
+
+            string fileName = _machine.ReadString(lpFileName);
+            string portName = lpPortName != 0 ? _machine.ReadString(lpPortName) : null;
+            string jobName = lpJobName != 0 ? _machine.ReadString(lpJobName) : null;
+            string options = lpOptions != 0 ? _machine.ReadString(lpOptions) : null;
+
+            Log.WriteLine("Gdi.SpoolFile: compatibility spool request file='{0}', port='{1}', job='{2}', options='{3}'", fileName, portName, jobName, options);
+
+            return 1;
         }
 
         [EntryPoint(0x012C)]
@@ -2100,8 +2274,24 @@ namespace Win3muCore
         [EntryPoint(0x01BC)]
         [DllImport("gdi32.dll")]
         public static extern HGDIOBJ CreateRoundRectRgn(nint left, nint top, nint right, nint bottom, nint widthEllipse, nint heightEllipse);
-        // 01BD - CREATEDIBPATTERNBRUSH
-        // 01C1 - DEVICECOLORMATCH
+
+        [DllImport("gdi32.dll", EntryPoint = "CreateDIBPatternBrushPt")]
+        static extern HGDIOBJ _CreateDIBPatternBrush(IntPtr packedDib, uint usage);
+
+        [EntryPoint(0x01BD)]
+        public HGDIOBJ CreateDIBPatternBrush(uint hPackedDib, uint usage)
+        {
+            using (var hp = _machine.GlobalHeap.GetHeapPointer(hPackedDib, false))
+            {
+                return _CreateDIBPatternBrush(hp, usage);
+            }
+        }
+
+        [EntryPoint(0x01C1)]
+        public uint DeviceColorMatch(HDC hDC, uint color)
+        {
+            return GetNearestColor(hDC, color);
+        }
 
         [DllImport("gdi32.dll")]
         static extern HGDIOBJ CreatePolyPolygonRgn(Win32.POINT[] points, int[] polygonPointCounts, int polygonCount, int fillMode);

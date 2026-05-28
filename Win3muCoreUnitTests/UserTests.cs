@@ -1,0 +1,64 @@
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Win3muCore;
+
+namespace Win3muCoreUnitTests
+{
+    [TestClass]
+    public class UserTests
+    {
+        [TestMethod]
+        public void UserModule_ExportsRecentStubOrdinals()
+        {
+            var user = new User();
+
+            Assert.AreEqual((ushort)0x00E2, user.GetOrdinalFromName("LockInput"));
+            Assert.AreEqual((ushort)0x00E6, user.GetOrdinalFromName("GetNextWindow"));
+            Assert.AreEqual((ushort)0x00F7, user.GetOrdinalFromName("GetCursor"));
+            Assert.AreEqual((ushort)0x0103, user.GetOrdinalFromName("BeginDeferWindowPos"));
+            Assert.AreEqual((ushort)0x0104, user.GetOrdinalFromName("DeferWindowPos"));
+            Assert.AreEqual((ushort)0x0105, user.GetOrdinalFromName("EndDeferWindowPos"));
+            Assert.AreEqual((ushort)0x0108, user.GetOrdinalFromName("GetMenuItemID"));
+            Assert.AreEqual((ushort)0x0116, user.GetOrdinalFromName("GetDesktopHwnd"));
+            Assert.AreEqual((ushort)0x011C, user.GetOrdinalFromName("GetFreeSystemResources"));
+            Assert.AreEqual((ushort)0x014C, user.GetOrdinalFromName("UserYield"));
+            Assert.AreEqual((ushort)0x0166, user.GetOrdinalFromName("IsMenu"));
+            Assert.AreEqual((ushort)0x0167, user.GetOrdinalFromName("GetDCEx"));
+            Assert.AreEqual((ushort)0x0172, user.GetOrdinalFromName("GetWindowPlacement"));
+            Assert.AreEqual((ushort)0x0173, user.GetOrdinalFromName("SetWindowPlacement"));
+            Assert.AreEqual((ushort)0x01B1, user.GetOrdinalFromName("IsCharAlpha"));
+            Assert.AreEqual((ushort)0x0122, user.GetOrdinalFromName("RedrawWindow"));
+            Assert.AreEqual((ushort)0x0135, user.GetOrdinalFromName("GetClipCursor"));
+            Assert.AreEqual((ushort)0x0192, user.GetOrdinalFromName("GetPriorityClipboardFormat"));
+            Assert.AreEqual((ushort)0x01E2, user.GetOrdinalFromName("EnableScrollBar"));
+            Assert.AreEqual((ushort)0x0121, user.GetOrdinalFromName("keybd_event"));
+            Assert.AreEqual((ushort)0x0126, user.GetOrdinalFromName("LockWindowUpdate"));
+            Assert.AreEqual((ushort)0x012B, user.GetOrdinalFromName("mouse_event"));
+        }
+
+        [TestMethod]
+        public void User_CharHelpers_ClassifyAnsiCharacters()
+        {
+            var user = new User();
+
+            Assert.IsTrue(user.IsCharAlpha((ushort)'A'));
+            Assert.IsTrue(user.IsCharAlphaNumeric((ushort)'7'));
+            Assert.IsTrue(user.IsCharUpper((ushort)'Z'));
+            Assert.IsTrue(user.IsCharLower((ushort)'z'));
+
+            Assert.IsFalse(user.IsCharAlpha((ushort)'7'));
+            Assert.IsFalse(user.IsCharAlphaNumeric((ushort)'?'));
+            Assert.IsFalse(user.IsCharUpper((ushort)'a'));
+            Assert.IsFalse(user.IsCharLower((ushort)'A'));
+        }
+
+        [TestMethod]
+        public void User_SimpleCompatibilityStubs_ReturnExpectedDefaults()
+        {
+            var user = new User();
+
+            Assert.IsTrue(user.LockInput(true));
+            Assert.AreEqual((ushort)0, user.GetSystemDebugState());
+            Assert.AreEqual((ushort)100, user.GetFreeSystemResources(0));
+        }
+    }
+}

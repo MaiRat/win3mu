@@ -158,6 +158,31 @@ namespace Win3muCore
         }
 
         [StructLayout(LayoutKind.Sequential)]
+        [MappedType]
+        public struct WINDOWPLACEMENT
+        {
+            public uint length;
+            public uint flags;
+            public uint showCmd;
+            public POINT ptMinPosition;
+            public POINT ptMaxPosition;
+            public RECT rcNormalPosition;
+
+            public Win16.WINDOWPLACEMENT Convert()
+            {
+                return new Win16.WINDOWPLACEMENT()
+                {
+                    length = unchecked((ushort)length),
+                    flags = unchecked((ushort)flags),
+                    showCmd = unchecked((ushort)showCmd),
+                    ptMinPosition = ptMinPosition.Convert(),
+                    ptMaxPosition = ptMaxPosition.Convert(),
+                    rcNormalPosition = rcNormalPosition.Convert(),
+                };
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
         public struct MSG
         {
             public IntPtr hWnd;
@@ -392,6 +417,63 @@ namespace Win3muCore
             */
         }
 
+        [MappedType]
+        [StructLayout(LayoutKind.Sequential)]
+        public struct ABC
+        {
+            public int abcA;
+            public uint abcB;
+            public int abcC;
+
+            public static Win16.ABC To16(Win32.ABC abc32)
+            {
+                return new Win16.ABC()
+                {
+                    abcA = (short)abc32.abcA,
+                    abcB = (ushort)abc32.abcB,
+                    abcC = (short)abc32.abcC,
+                };
+            }
+        }
+
+        [MappedType]
+        [StructLayout(LayoutKind.Sequential)]
+        public struct KERNINGPAIR
+        {
+            public ushort wFirst;
+            public ushort wSecond;
+            public int iKernAmount;
+
+            public static Win16.KERNINGPAIR To16(Win32.KERNINGPAIR pair32)
+            {
+                return new Win16.KERNINGPAIR()
+                {
+                    wFirst = pair32.wFirst,
+                    wSecond = pair32.wSecond,
+                    iKernAmount = (short)pair32.iKernAmount,
+                };
+            }
+        }
+
+        [MappedType]
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RASTERIZER_STATUS
+        {
+            public short nSize;
+            public short wFlags;
+            public short nLanguageID;
+
+            public static Win16.RASTERIZER_STATUS To16(Win32.RASTERIZER_STATUS status32)
+            {
+                return new Win16.RASTERIZER_STATUS()
+                {
+                    nSize = status32.nSize,
+                    wFlags = status32.wFlags,
+                    nLanguageID = status32.nLanguageID,
+                };
+            }
+        }
+
 
         public const uint OBJ_PEN = 1;
         public const uint OBJ_BRUSH = 2;
@@ -594,7 +676,7 @@ namespace Win3muCore
                 return new Win16.LOGFONT()
                 {
                     lfHeight = (short)lf32.lfHeight,
-                    lfWidth = (short)lf32.lfHeight,
+                    lfWidth = (short)lf32.lfWidth,
                     lfEscapement = (short)lf32.lfEscapement,
                     lfOrientation = (short)lf32.lfOrientation,
                     lfWeight = (short)lf32.lfWeight,

@@ -2411,16 +2411,36 @@ namespace Win3muCore
         }
 
         // 00E1 - ENUMTASKWINDOWS
-        // 00E2 - LOCKINPUT
-        // 00E3 - GETNEXTDLGGROUPITEM
-        // 00E4 - GETNEXTDLGTABITEM
+        [EntryPoint(0x00E2)]
+        public bool LockInput(bool lockInput)
+        {
+            Log.WriteLine("User.LockInput: ignoring request to {0} input", lockInput ? "lock" : "unlock");
+            return true;
+        }
+
+        [EntryPoint(0x00E3)]
+        [DllImport("user32.dll")]
+        public static extern HWND GetNextDlgGroupItem(HWND hDlg, HWND hCtl, bool previous);
+
+        [EntryPoint(0x00E4)]
+        [DllImport("user32.dll")]
+        public static extern HWND GetNextDlgTabItem(HWND hDlg, HWND hCtl, bool previous);
 
         [EntryPoint(0x00e5)]
         [DllImport("user32.dll")]
         public static extern HWND GetTopWindow(HWND hWnd);
 
-        // 00E6 - GETNEXTWINDOW
-        // 00E7 - GETSYSTEMDEBUGSTATE
+        [EntryPoint(0x00E6)]
+        public HWND GetNextWindow(HWND hWnd, ushort relation)
+        {
+            return GetWindow(hWnd, relation);
+        }
+
+        [EntryPoint(0x00E7)]
+        public ushort GetSystemDebugState()
+        {
+            return 0;
+        }
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -2438,7 +2458,9 @@ namespace Win3muCore
 
         }
 
-        // 00E9 - SETPARENT
+        [EntryPoint(0x00E9)]
+        [DllImport("user32.dll")]
+        public static extern HWND SetParent(HWND hWndChild, HWND hWndNewParent);
 
 
         [EntryPoint(0x00ec)]
@@ -2562,8 +2584,18 @@ namespace Win3muCore
         }
 
         // 00F6 - EXITWINDOWSEXEC
-        // 00F7 - GETCURSOR
-        // 00F8 - GETOPENCLIPBOARDWINDOW
+        [DllImport("user32.dll", EntryPoint = "GetCursor")]
+        static extern IntPtr _GetCursor();
+
+        [EntryPoint(0x00F7)]
+        public HGDIOBJ GetCursor()
+        {
+            return _GetCursor();
+        }
+
+        [EntryPoint(0x00F8)]
+        [DllImport("user32.dll")]
+        public static extern HWND GetOpenClipboardWindow();
 
         [EntryPoint(0x00F9)]
         [DllImport("user32.dll")]
@@ -2584,9 +2616,28 @@ namespace Win3muCore
         [EntryPoint(0x0102)]
         [DllImport("user32.dll", SetLastError = true)]
         public static extern int MapWindowPoints(HWND hWndFrom, HWND hWndTo, ref Win16.POINT []lpPoints, uint cPoints);
-        // 0103 - BEGINDEFERWINDOWPOS
-        // 0104 - DEFERWINDOWPOS
-        // 0105 - ENDDEFERWINDOWPOS
+
+        [EntryPoint(0x0103)]
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern nint BeginDeferWindowPos(int nNumWindows);
+
+        [DllImport("user32.dll", SetLastError = true, EntryPoint = "DeferWindowPos")]
+        static extern nint _DeferWindowPos(nint hWinPosInfo, HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx, int cy, nuint uFlags);
+
+        [EntryPoint(0x0104)]
+        public nint DeferWindowPos(nint hWinPosInfo, HWND hWnd, HWND hWndInsertAfter, short X, short Y, short cx, short cy, nuint uFlags)
+        {
+            if ((uFlags & Win32.SWP_NOSIZE) == 0)
+            {
+                AdjustWindowSize(_GetWindowLong(hWnd, Win32.GWL_STYLE), _GetWindowLong(hWnd, Win32.GWL_EXSTYLE), ref cx, ref cy);
+            }
+
+            return _DeferWindowPos(hWinPosInfo, hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
+        }
+
+        [EntryPoint(0x0105)]
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool EndDeferWindowPos(nint hWinPosInfo);
 
         [EntryPoint(0x0106)]
         [DllImport("user32.dll", SetLastError = true)]
@@ -2596,8 +2647,13 @@ namespace Win3muCore
         [DllImport("user32.dll")]
         public static extern nint GetMenuItemCount(HMENU hMenu);
 
-        // 0108 - GETMENUITEMID
-        // 0109 - SHOWOWNEDPOPUPS
+        [EntryPoint(0x0108)]
+        [DllImport("user32.dll")]
+        public static extern uint GetMenuItemID(HMENU hMenu, int nPos);
+
+        [EntryPoint(0x0109)]
+        [DllImport("user32.dll")]
+        public static extern bool ShowOwnedPopups(HWND hWnd, bool show);
 
         [EntryPoint(0x010a)]
         public bool SetMessageQueue(short cMessages)
@@ -2641,7 +2697,12 @@ namespace Win3muCore
         [DllImport("user32.dll")]
         public static extern nint GetDlgCtrlID(HWND hWnd);
 
-        // 0116 - GETDESKTOPHWND
+        [EntryPoint(0x0116)]
+        public HWND GetDesktopHwnd()
+        {
+            return GetDesktopWindow();
+        }
+
         // 0117 - OLDSETDESKPATTERN
         // 0118 - SETSYSTEMMENU
 
@@ -2653,7 +2714,13 @@ namespace Win3muCore
         [DllImport("gdi32.dll")]
         public static extern nuint RealizePalette(HDC hDC);
 
-        // 011C - GETFREESYSTEMRESOURCES
+        [EntryPoint(0x011C)]
+        public ushort GetFreeSystemResources(ushort fuSysResource)
+        {
+            Log.WriteLine("User.GetFreeSystemResources: reporting full availability for flags 0x{0:X4}", fuSysResource);
+            return 100;
+        }
+
         // 011D - BEAR285
 
         [EntryPoint(0x011e)]
@@ -2664,18 +2731,65 @@ namespace Win3muCore
         [DllImport("user32.dll")]
         public static extern HWND GetLastActivePopup(HWND hWnd);
 
-        // 0120 - GETMESSAGEEXTRAINFO
-        // 0121 - KEYBD_EVENT
-        // 0122 - REDRAWWINDOW
+        [EntryPoint(0x0120)]
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetMessageExtraInfo();
+
+        [EntryPoint(0x0121)]
+        [DllImport("user32.dll", EntryPoint = "keybd_event")]
+        public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, nuint dwExtraInfo);
+
+        [DllImport("user32.dll", EntryPoint = "RedrawWindow")]
+        static extern bool _RedrawWindow(HWND hWnd, IntPtr lprcUpdate, HGDIOBJ hrgnUpdate, uint flags);
+
+        [EntryPoint(0x0122)]
+        public bool RedrawWindow(HWND hWnd, uint lprcUpdate, HGDIOBJ hrgnUpdate, ushort flags)
+        {
+            if (lprcUpdate == 0)
+                return _RedrawWindow(hWnd, IntPtr.Zero, hrgnUpdate, flags);
+
+            var rect32 = _machine.ReadStruct<Win16.RECT>(lprcUpdate).Convert();
+            unsafe
+            {
+                return _RedrawWindow(hWnd, (IntPtr)(&rect32), hrgnUpdate, flags);
+            }
+        }
+
         // 0123 - SETWINDOWSHOOKEX
         // 0124 - UNHOOKWINDOWSHOOKEX
         // 0125 - CALLNEXTHOOKEX
-        // 0126 - LOCKWINDOWUPDATE
-        // 012B - MOUSE_EVENT
+
+        [EntryPoint(0x0126)]
+        [DllImport("user32.dll")]
+        public static extern bool LockWindowUpdate(HWND hWndLock);
+
+        [EntryPoint(0x012B)]
+        [DllImport("user32.dll", EntryPoint = "mouse_event")]
+        public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, nuint dwExtraInfo);
+
         // 012D - BOZOSLIVEHERE
         // 0132 - BEAR306
         // 0134 - DEFDLGPROC
-        // 0135 - GETCLIPCURSOR
+        [DllImport("user32.dll", EntryPoint = "GetClipCursor")]
+        static extern bool _GetClipCursor(IntPtr lpRect);
+
+        [EntryPoint(0x0135)]
+        public bool GetClipCursor(uint lpRect)
+        {
+            if (lpRect == 0)
+                return false;
+
+            unsafe
+            {
+                Win32.RECT rect32;
+                if (!_GetClipCursor((IntPtr)(&rect32)))
+                    return false;
+
+                _machine.WriteStruct(lpRect, rect32.Convert());
+                return true;
+            }
+        }
+
         // 013A - SIGNALPROC
         // 013F - SCROLLWINDOWEX
         // 0140 - SYSERRORBOX
@@ -2686,27 +2800,112 @@ namespace Win3muCore
         // 0145 - PAINTRECT
         // 0146 - GETCONTROLBRUSH
         // 014B - ENABLEHARDWAREINPUT
-        // 014C - USERYIELD
-        // 014D - ISUSERIDLE
-        // 014E - GETQUEUESTATUS
-        // 014F - GETINPUTSTATE
+        [EntryPoint(0x014C)]
+        public void UserYield()
+        {
+        }
+
+        [EntryPoint(0x014D)]
+        public bool IsUserIdle()
+        {
+            return true;
+        }
+
+        [EntryPoint(0x014E)]
+        [DllImport("user32.dll")]
+        public static extern uint GetQueueStatus(uint flags);
+
+        [EntryPoint(0x014F)]
+        [DllImport("user32.dll")]
+        public static extern bool GetInputState();
+
         // 0150 - LOADCURSORICONHANDLER
         // 0151 - GETMOUSEEVENTPROC
         // 0155 - _FFFE_FARFRAME
         // 0157 - GETFILEPORTNAME
         // 0164 - LOADDIBCURSORHANDLER
         // 0165 - LOADDIBICONHANDLER
-        // 0166 - ISMENU
-        // 0167 - GETDCEX
+        [EntryPoint(0x0166)]
+        [DllImport("user32.dll")]
+        public static extern bool IsMenu(HMENU hMenu);
+
+        [EntryPoint(0x0167)]
+        [DllImport("user32.dll")]
+        public static extern HDC GetDCEx(HWND hWnd, HGDIOBJ hrgnClip, uint flags);
+
         // 016A - DCHOOK
-        // 0170 - COPYICON
-        // 0171 - COPYCURSOR
-        // 0172 - GETWINDOWPLACEMENT
-        // 0173 - SETWINDOWPLACEMENT
+        [DllImport("user32.dll", EntryPoint = "CopyIcon")]
+        static extern IntPtr _CopyIcon(IntPtr hIcon);
+
+        [EntryPoint(0x0170)]
+        public HGDIOBJ CopyIcon(HGDIOBJ hIcon)
+        {
+            return _CopyIcon(hIcon.value);
+        }
+
+        [EntryPoint(0x0171)]
+        public HGDIOBJ CopyCursor(HGDIOBJ hCursor)
+        {
+            return _CopyIcon(hCursor.value);
+        }
+
+        [DllImport("user32.dll", EntryPoint = "GetWindowPlacement")]
+        static extern bool _GetWindowPlacement(HWND hWnd, ref Win32.WINDOWPLACEMENT lpwndpl);
+
+        [EntryPoint(0x0172)]
+        public bool GetWindowPlacement(HWND hWnd, uint lpwndpl)
+        {
+            if (lpwndpl == 0)
+                return false;
+
+            var placement32 = new Win32.WINDOWPLACEMENT();
+            placement32.length = (uint)Marshal.SizeOf<Win32.WINDOWPLACEMENT>();
+            if (!_GetWindowPlacement(hWnd, ref placement32))
+                return false;
+
+            var placement16 = placement32.Convert();
+            placement16.length = (ushort)Marshal.SizeOf<Win16.WINDOWPLACEMENT>();
+            _machine.WriteStruct(lpwndpl, placement16);
+            return true;
+        }
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowPlacement")]
+        static extern bool _SetWindowPlacement(HWND hWnd, [In] ref Win32.WINDOWPLACEMENT lpwndpl);
+
+        [EntryPoint(0x0173)]
+        public bool SetWindowPlacement(HWND hWnd, uint lpwndpl)
+        {
+            if (lpwndpl == 0)
+                return false;
+
+            var placement32 = _machine.ReadStruct<Win16.WINDOWPLACEMENT>(lpwndpl).Convert();
+            placement32.length = (uint)Marshal.SizeOf<Win32.WINDOWPLACEMENT>();
+            return _SetWindowPlacement(hWnd, ref placement32);
+        }
+
         // 0174 - GETINTERNALICONHEADER
-        // 0175 - SUBTRACTRECT
+        [EntryPoint(0x0175)]
+        [DllImport("user32.dll")]
+        public static extern bool SubtractRect(out Win32.RECT lprcDst, ref Win32.RECT lprcSrc1, ref Win32.RECT lprcSrc2);
+
         // 0190 - FINALUSERINIT
-        // 0192 - GETPRIORITYCLIPBOARDFORMAT
+        [DllImport("user32.dll", EntryPoint = "GetPriorityClipboardFormat")]
+        static extern int _GetPriorityClipboardFormat([In] int[] paFormatPriorityList, int cFormats);
+
+        [EntryPoint(0x0192)]
+        public int GetPriorityClipboardFormat(uint paFormatPriorityList, short cFormats)
+        {
+            if (cFormats <= 0)
+                return _GetPriorityClipboardFormat(Array.Empty<int>(), 0);
+
+            var formats = new int[cFormats];
+            for (int i = 0; i < cFormats; i++)
+            {
+                formats[i] = _machine.ReadWord(checked((uint)((long)paFormatPriorityList + i * 2L)));
+            }
+
+            return _GetPriorityClipboardFormat(formats, cFormats);
+        }
 
 
         [DllImport("user32.dll")]
@@ -3017,10 +3216,29 @@ namespace Win3muCore
 
         }
 
-        // 01B1 - ISCHARALPHA
-        // 01B2 - ISCHARALPHANUMERIC
-        // 01B3 - ISCHARUPPER
-        // 01B4 - ISCHARLOWER
+        [EntryPoint(0x01B1)]
+        public bool IsCharAlpha(ushort ch)
+        {
+            return char.IsLetter((char)(ch & 0xFF));
+        }
+
+        [EntryPoint(0x01B2)]
+        public bool IsCharAlphaNumeric(ushort ch)
+        {
+            return char.IsLetterOrDigit((char)(ch & 0xFF));
+        }
+
+        [EntryPoint(0x01B3)]
+        public bool IsCharUpper(ushort ch)
+        {
+            return char.IsUpper((char)(ch & 0xFF));
+        }
+
+        [EntryPoint(0x01B4)]
+        public bool IsCharLower(ushort ch)
+        {
+            return char.IsLower((char)(ch & 0xFF));
+        }
 
         [EntryPoint(0x01b5)]
         public ushort AnsiUpperBuff(uint psz, ushort len)
@@ -3168,7 +3386,10 @@ namespace Win3muCore
 
         // 01E0 - GETUSERLOCALOBJTYPE
         // 01E1 - HARDWARE_EVENT
-        // 01E2 - ENABLESCROLLBAR
+        [EntryPoint(0x01E2)]
+        [DllImport("user32.dll")]
+        public static extern bool EnableScrollBar(HWND hWnd, uint wSBflags, uint wArrows);
+
         // 01E3 - SYSTEMPARAMETERSINFO
         // 01F3 - WNETERRORTEXT
         // 01F5 - WNETOPENJOB

@@ -277,7 +277,7 @@ namespace Win3muCore
 
             // We only ever have one task so we'll just
             // use the process module handle as the task handle
-            return _machine.ProcessModule.hModule;
+            return _machine.ProcessModule?.hModule ?? 0;
         }
 
         [EntryPoint(0x0025)]
@@ -998,7 +998,12 @@ namespace Win3muCore
         // 008D - INITTASK1
         // 0096 - DIRECTEDYIELD
         // 0097 - WINOLDAPCALL
-        // 0098 - GETNUMTASKS
+        [EntryPoint(0x0098)]
+        public ushort GetNumTasks()
+        {
+            return 1;
+        }
+
         // 009A - GLOBALNOTIFY
         // 009B - GETTASKDS
         // 009C - LIMITEMSPAGES
@@ -1043,11 +1048,29 @@ namespace Win3muCore
             newSel.allocation = sel.allocation;
             newSel.isCode = false;
             newSel.readOnly = false;
+            newSel.baseSelectorIndex = (ushort)(newSel.selectorIndex - GetSelectorPageOffset(wSelector, sel));
 
             return newSel.selector;
         }
 
-        // 00AB - ALLOCDSTOCSALIAS
+        [EntryPoint(0x00AB)]
+        public ushort AllocDSToCSAlias(ushort wSelector)
+        {
+            var sel = _machine.GlobalHeap.GetSelector(wSelector);
+            if (sel == null || sel.allocation == null)
+                return 0;
+            if (sel.isCode)
+                return 0;
+
+            var newSel = _machine.GlobalHeap.AllocSelector(string.Format("DS to CS alias for 0x{0:X4}", wSelector), 1);
+            newSel.allocation = sel.allocation;
+            newSel.isCode = true;
+            newSel.readOnly = true;
+            newSel.baseSelectorIndex = (ushort)(newSel.selectorIndex - GetSelectorPageOffset(wSelector, sel));
+
+            return newSel.selector;
+        }
+
         // 00AC - ALLOCALIAS
         // 00AD - __ROMBIOS
         // 00AE - __A000H
@@ -1055,7 +1078,22 @@ namespace Win3muCore
         [EntryPoint(0x00AF)]
         public ushort AllocSelector(ushort src)
         {
-            return _machine.GlobalHeap.FreeSelector(src);
+            if (src == 0)
+                return _machine.GlobalHeap.AllocSelector("Selector copy for 0x0000", 1).selector;
+
+            var newSel = _machine.GlobalHeap.AllocSelector(string.Format("Selector copy for 0x{0:X4}", src), 1);
+            var srcSel = _machine.GlobalHeap.GetSelector(src);
+            if (srcSel == null)
+            {
+                _machine.GlobalHeap.FreeSelector(newSel.selector);
+                return 0;
+            }
+
+            newSel.allocation = srcSel.allocation;
+            newSel.isCode = srcSel.isCode;
+            newSel.readOnly = srcSel.readOnly;
+            newSel.baseSelectorIndex = (ushort)(newSel.selectorIndex - GetSelectorPageOffset(src, srcSel));
+            return newSel.selector;
         }
 
         [EntryPoint(0x00B0)]
@@ -1095,9 +1133,19 @@ namespace Win3muCore
         // 00B7 - __0000H
         // 00B8 - GLOBALDOSALLOC
         // 00B9 - GLOBALDOSFREE
-        // 00BA - GETSELECTORBASE
+        [EntryPoint(0x00BA)]
+        public uint GetSelectorBase(ushort selector)
+        {
+            return _machine.GlobalHeap.GetSelectorBase(selector);
+        }
+
         // 00BB - SETSELECTORBASE
-        // 00BC - GETSELECTORLIMIT
+        [EntryPoint(0x00BC)]
+        public uint GetSelectorLimit(ushort selector)
+        {
+            return _machine.GlobalHeap.GetSelectorLimit(selector);
+        }
+
         // 00BD - SETSELECTORLIMIT
         // 00BE - __E000H
         // 00BF - GLOBALPAGELOCK
@@ -1105,7 +1153,23 @@ namespace Win3muCore
         // 00C1 - __0040H
         // 00C2 - __F000H
         // 00C3 - __C000H
-        // 00C4 - SELECTORACCESSRIGHTS
+        [EntryPoint(0x00C4)]
+        public ushort SelectorAccessRights(ushort selector, ushort op, ushort value)
+        {
+            var sel = _machine.GlobalHeap.GetSelector(selector);
+            if (sel == null)
+                return 0;
+
+            if (op == 0)
+                return GetSelectorAccessRights(sel);
+
+            bool isCode = (value & 0x0008) != 0;
+            bool writable = (value & 0x0002) != 0;
+            sel.isCode = isCode;
+            sel.readOnly = isCode || !writable;
+            return 0;
+        }
+
         // 00C5 - GLOBALFIX
         // 00C6 - GLOBALUNFIX
         // 00C7 - SETHANDLECOUNT
@@ -1127,7 +1191,12 @@ namespace Win3muCore
         // 013C - GETFREEMEMINFO
         // 013E - FATALEXITHOOK
         // 013F - FLUSHCACHEDFILEHANDLE
-        // 0140 - ISTASK
+        [EntryPoint(0x0140)]
+        public bool IsTask(ushort hTask)
+        {
+            return hTask == GetCurrentTask();
+        }
+
         // 0143 - ISROMMODULE
         // 0144 - LOGERROR
         // 0145 - LOGPARAMERROR
@@ -1136,28 +1205,148 @@ namespace Win3muCore
         // 0148 - _DEBUGOUTPUT
         // 0149 - K329
         // 014C - THHOOK
-        // 014E - ISBADREADPTR
-        // 014F - ISBADWRITEPTR
-        // 0150 - ISBADCODEPTR
-        // 0151 - ISBADSTRINGPTR
+        [EntryPoint(0x014E)]
+        public bool IsBadReadPtr(uint ptr, ushort cb)
+        {
+            return IsBadPointerRange(ptr, cb, requireWritable: false, requireCode: false);
+        }
+
+        [EntryPoint(0x014F)]
+        public bool IsBadWritePtr(uint ptr, ushort cb)
+        {
+            return IsBadPointerRange(ptr, cb, requireWritable: true, requireCode: false);
+        }
+
+        [EntryPoint(0x0150)]
+        public bool IsBadCodePtr(uint ptr)
+        {
+            return IsBadPointerRange(ptr, 1, requireWritable: false, requireCode: true);
+        }
+
+        [EntryPoint(0x0151)]
+        public bool IsBadStringPtr(uint ptr, ushort cchMax)
+        {
+            if (cchMax == 0)
+                return false;
+
+            var sel = _machine.GlobalHeap.GetSelector(ptr.Hiword());
+            if (sel == null || sel.allocation == null || sel.allocation.buffer == null)
+                return true;
+
+            int offset = GetSelectorOffset(ptr, sel);
+            if (offset < 0 || offset >= sel.allocation.buffer.Length)
+                return true;
+
+            int maxLength = Math.Min(sel.allocation.buffer.Length - offset, cchMax);
+            for (int i = 0; i < maxLength; i++)
+            {
+                if (sel.allocation.buffer[offset + i] == 0)
+                    return false;
+            }
+
+            return true;
+        }
+
         // 0152 - HASGPHANDLER
         // 0153 - DIAGQUERY
         // 0154 - DIAGOUTPUT
         // 0155 - TOOLHELPHOOK
         // 0157 - REGISTERWINOLDAPHOOK
         // 0158 - GETWINOLDAPHOOKS
-        // 0159 - ISSHAREDSELECTOR
+        [EntryPoint(0x0159)]
+        public bool IsSharedSelector(ushort selector)
+        {
+            return _machine.GlobalHeap.GetSelector(selector) != null;
+        }
+
         // 015A - ISBADHUGEREADPTR
         // 015B - ISBADHUGEWRITEPTR
-        // 015C - HMEMCPY
+        [EntryPoint(0x015C)]
+        public void hmemcpy(uint dest, uint src, int count)
+        {
+            if (count <= 0)
+                return;
+
+            if (IsBadPointerRange(src, (ushort)Math.Min(count, ushort.MaxValue), requireWritable: false, requireCode: false))
+                return;
+            if (IsBadPointerRange(dest, (ushort)Math.Min(count, ushort.MaxValue), requireWritable: true, requireCode: false))
+                return;
+
+            int srcOffset;
+            int destOffset;
+            var srcBuffer = _machine.GlobalHeap.GetBuffer(src, false, out srcOffset);
+            var destBuffer = _machine.GlobalHeap.GetBuffer(dest, true, out destOffset);
+            Buffer.BlockCopy(srcBuffer, srcOffset, destBuffer, destOffset, count);
+        }
+
         // 015D - _HREAD
         // 015E - _HWRITE
         // 015F - BUNNY_351
-        // 0161 - LSTRCPYN
+        [EntryPoint(0x0161)]
+        public uint lstrcpyn(uint destPtr, string srcPtr, int iMaxLength)
+        {
+            if (iMaxLength <= 0)
+                return destPtr;
+
+            string value = srcPtr ?? string.Empty;
+            if (value.Length >= iMaxLength)
+                value = value.Substring(0, iMaxLength - 1);
+
+            _machine.WriteString(destPtr, value, (ushort)iMaxLength);
+            return destPtr;
+        }
+
         // 0162 - GETAPPCOMPATFLAGS
         // 0163 - GETWINDEBUGINFO
         // 0164 - SETWINDEBUGINFO
         // 0193 - K403
         // 0194 - K404
+
+        bool IsBadPointerRange(uint ptr, ushort cb, bool requireWritable, bool requireCode)
+        {
+            if (cb == 0)
+                return false;
+            if (ptr == 0)
+                return true;
+
+            var sel = _machine.GlobalHeap.GetSelector(ptr.Hiword());
+            if (sel == null || sel.allocation == null || sel.allocation.buffer == null)
+                return true;
+
+            if (requireWritable && (sel.readOnly || sel.isCode))
+                return true;
+            if (requireCode && !sel.isCode)
+                return true;
+
+            int offset = GetSelectorOffset(ptr, sel);
+            if (offset < 0)
+                return true;
+
+            return (ulong)offset + cb > (ulong)sel.allocation.buffer.Length;
+        }
+
+        static int GetSelectorOffset(uint ptr, GlobalHeap.Selector sel)
+        {
+            // Win16 uses selector aliases to address 64 KiB windows inside a shared
+            // allocation. Converting the far pointer back to a byte offset requires
+            // normalizing the selector to a selector-table index (selector >> 3),
+            // subtracting the selector's mapped base selector index, then shifting that
+            // page delta back into bytes (<< 16) before adding the 16-bit offset.
+            return ((ptr.Hiword() >> 3) - sel.baseSelectorIndex) << 16 | ptr.Loword();
+        }
+
+        static int GetSelectorPageOffset(ushort selector, GlobalHeap.Selector sel)
+        {
+            return (selector >> 3) - sel.baseSelectorIndex;
+        }
+
+        static ushort GetSelectorAccessRights(GlobalHeap.Selector sel)
+        {
+            byte type = sel.isCode
+                ? (byte)0x0A
+                : (byte)(sel.readOnly ? 0x00 : 0x02);
+
+            return (ushort)(0x80 | 0x60 | 0x10 | type);
+        }
     }
 }

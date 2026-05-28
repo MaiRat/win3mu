@@ -633,14 +633,14 @@ namespace Win3muCore
 
         protected override bool TryGetSelectorLimit(ushort selector, out ushort limit)
         {
-            var sel = _globalHeap.GetSelector(selector);
-            if (sel == null || sel.allocation == null || sel.allocation.buffer == null)
+            var selectorLimit = _globalHeap.GetSelectorLimit(selector);
+            if (_globalHeap.GetSelector(selector) == null)
             {
                 limit = 0;
                 return false;
             }
 
-            limit = (ushort)Math.Min(sel.allocation.buffer.Length - 1, 0xFFFF);
+            limit = (ushort)Math.Min(selectorLimit, 0xFFFF);
             return true;
         }
 
