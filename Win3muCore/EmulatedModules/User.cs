@@ -2748,15 +2748,10 @@ namespace Win3muCore
             if (lprcUpdate == 0)
                 return _RedrawWindow(hWnd, IntPtr.Zero, hrgnUpdate, flags);
 
-            var rectPtr = Marshal.AllocHGlobal(Marshal.SizeOf<Win32.RECT>());
-            try
+            var rect32 = _machine.ReadStruct<Win16.RECT>(lprcUpdate).Convert();
+            unsafe
             {
-                Marshal.StructureToPtr(_machine.ReadStruct<Win16.RECT>(lprcUpdate).Convert(), rectPtr, false);
-                return _RedrawWindow(hWnd, rectPtr, hrgnUpdate, flags);
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(rectPtr);
+                return _RedrawWindow(hWnd, (IntPtr)(&rect32), hrgnUpdate, flags);
             }
         }
 
@@ -2784,18 +2779,14 @@ namespace Win3muCore
             if (lpRect == 0)
                 return false;
 
-            var rectPtr = Marshal.AllocHGlobal(Marshal.SizeOf<Win32.RECT>());
-            try
+            unsafe
             {
-                if (!_GetClipCursor(rectPtr))
+                Win32.RECT rect32;
+                if (!_GetClipCursor((IntPtr)(&rect32)))
                     return false;
 
-                _machine.WriteStruct(lpRect, Marshal.PtrToStructure<Win32.RECT>(rectPtr).Convert());
+                _machine.WriteStruct(lpRect, rect32.Convert());
                 return true;
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(rectPtr);
             }
         }
 
@@ -2910,7 +2901,7 @@ namespace Win3muCore
             var formats = new int[cFormats];
             for (int i = 0; i < cFormats; i++)
             {
-                formats[i] = _machine.ReadWord((uint)(paFormatPriorityList + i * 2));
+                formats[i] = _machine.ReadWord(checked((uint)((long)paFormatPriorityList + i * 2L)));
             }
 
             return _GetPriorityClipboardFormat(formats, cFormats);
