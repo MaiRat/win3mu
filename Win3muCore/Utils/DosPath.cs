@@ -41,6 +41,18 @@ namespace Win3muCore
             return $"{a}\\{b}";
         }
 
+        public static string GetFileName(string path)
+        {
+            if (path == null)
+                return null;
+
+            int pos = Math.Max(path.LastIndexOf('\\'), path.LastIndexOf('/'));
+            if (pos < 0)
+                return path;
+
+            return path.Substring(pos + 1);
+        }
+
         // Check if path is valid 8.3 filename
         public static bool IsValid(string path)
         {

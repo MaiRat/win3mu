@@ -88,7 +88,7 @@ namespace Win3muCore
             // Look for module with same filename
             foreach (var kv in _loadedModules)
             {
-                if (System.IO.Path.GetFileName(kv.Value.GetModuleFileName()).ToLowerInvariant() == fileOrModuleName.ToLowerInvariant())
+                if (DosPath.GetFileName(kv.Value.GetModuleFileName()).ToLowerInvariant() == fileOrModuleName.ToLowerInvariant())
                 {
                     kv.Value.LoadCount++;
                     return kv.Value;
@@ -151,7 +151,7 @@ namespace Win3muCore
             // Look for module with same filename
             foreach (var kv in _loadedModules)
             {
-                if (System.IO.Path.GetFileName(kv.Value.GetModuleFileName()).ToLowerInvariant() == fileOrModuleName.ToLowerInvariant())
+                if (DosPath.GetFileName(kv.Value.GetModuleFileName()).ToLowerInvariant() == fileOrModuleName.ToLowerInvariant())
                 {
                     kv.Value.LoadCount++;
                     return kv.Value;
