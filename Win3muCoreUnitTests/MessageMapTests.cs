@@ -8,6 +8,29 @@ namespace Win3muCoreUnitTests
     [TestClass]
     public class MessageMapTests
     {
+        static object FindEditMessageMapping(MessageMap map, ushort message32)
+        {
+            var messageInfosField = typeof(MessageMap).GetField("_messageInfos", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(messageInfosField);
+
+            foreach (var info in (System.Collections.IEnumerable)messageInfosField.GetValue(map))
+            {
+                var infoType = info.GetType();
+                var wndClassKindField = infoType.GetField("WndClassKind");
+                var message32Field = infoType.GetField("message32");
+                Assert.IsNotNull(wndClassKindField);
+                Assert.IsNotNull(message32Field);
+
+                if ((WndClassKind)wndClassKindField.GetValue(info) == WndClassKind.Edit &&
+                    (ushort)message32Field.GetValue(info) == message32)
+                {
+                    return info;
+                }
+            }
+
+            return null;
+        }
+
         [TestMethod]
         public void LookupMessage32_BypassesImeRequest()
         {
@@ -37,25 +60,7 @@ namespace Win3muCoreUnitTests
         public void EditClass_EmCharFromPos_IsExplicitlyBypassed()
         {
             var map = new MessageMap();
-            var messageInfosField = typeof(MessageMap).GetField("_messageInfos", BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.IsNotNull(messageInfosField);
-
-            object mapping = null;
-            foreach (var info in (System.Collections.IEnumerable)messageInfosField.GetValue(map))
-            {
-                var infoType = info.GetType();
-                var wndClassKindField = infoType.GetField("WndClassKind");
-                var message32Field = infoType.GetField("message32");
-                Assert.IsNotNull(wndClassKindField);
-                Assert.IsNotNull(message32Field);
-
-                if ((WndClassKind)wndClassKindField.GetValue(info) == WndClassKind.Edit &&
-                    (ushort)message32Field.GetValue(info) == Win32.EM_CHARFROMPOS)
-                {
-                    mapping = info;
-                    break;
-                }
-            }
+            var mapping = FindEditMessageMapping(map, Win32.EM_CHARFROMPOS);
 
             Assert.IsNotNull(mapping);
             var mappingType = mapping.GetType();
@@ -65,6 +70,38 @@ namespace Win3muCoreUnitTests
             Assert.IsNotNull(semanticsField);
             Assert.AreEqual(Win32.EM_CHARFROMPOS, (ushort)message16Field.GetValue(mapping));
             Assert.IsInstanceOfType(semanticsField.GetValue(mapping), typeof(bypass));
+        }
+
+        [TestMethod]
+        public void EditClass_Win32OnlyMessages_AreExplicitlyBypassed()
+        {
+            var map = new MessageMap();
+            var messages = new ushort[]
+            {
+                Win32.EM_SCROLL,
+                Win32.EM_SCROLLCARET,
+                Win32.EM_GETTHUMB,
+                Win32.EM_SETMARGINS,
+                Win32.EM_GETMARGINS,
+                Win32.EM_GETLIMITTEXT,
+                Win32.EM_POSFROMCHAR,
+                Win32.EM_SETIMESTATUS,
+                Win32.EM_GETIMESTATUS,
+            };
+
+            foreach (var message in messages)
+            {
+                var mapping = FindEditMessageMapping(map, message);
+                Assert.IsNotNull(mapping, $"{nameof(WndClassKind.Edit)} should map {MessageNames.NameOfMessage(message)}");
+
+                var mappingType = mapping.GetType();
+                var message16Field = mappingType.GetField("message16");
+                var semanticsField = mappingType.GetField("semantics");
+                Assert.IsNotNull(message16Field);
+                Assert.IsNotNull(semanticsField);
+                Assert.AreEqual(message, (ushort)message16Field.GetValue(mapping));
+                Assert.IsInstanceOfType(semanticsField.GetValue(mapping), typeof(bypass));
+            }
         }
 
         [TestMethod]
