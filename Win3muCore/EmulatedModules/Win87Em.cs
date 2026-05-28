@@ -13,6 +13,7 @@ namespace Win3muCore
         const ushort Have80x87 = 1;
 
         readonly HashSet<byte> _warnedInterrupts = new HashSet<byte>();
+        readonly HashSet<ushort> _warnedEscInstructions = new HashSet<ushort>();
 
         ushort _refCount;
         ushort _controlWord;
@@ -32,6 +33,7 @@ namespace Win3muCore
         void ResetState()
         {
             _warnedInterrupts.Clear();
+            _warnedEscInstructions.Clear();
             _refCount = 0;
             _controlWord = DefaultControlWord;
             _internalControlWord = (ushort)(DefaultControlWord & ~ControlWordMask);
@@ -47,6 +49,11 @@ namespace Win3muCore
             _controlWord = DefaultControlWord;
             _internalControlWord = (ushort)(DefaultControlWord & ~ControlWordMask);
             _statusWord2 = 0;
+        }
+
+        ushort GetStatusWord()
+        {
+            return (ushort)(((_statusWord1 & 0x003F) | _statusWord2) & ~0xE000);
         }
 
         void ClearExceptions()
@@ -151,7 +158,7 @@ namespace Win3muCore
                     break;
 
                 case 8:
-                    _machine.ax = (ushort)(((_statusWord1 & 0x003F) | _statusWord2) & ~0xE000);
+                    _machine.ax = GetStatusWord();
                     _statusWord2 = _machine.ax;
                     break;
 
@@ -177,6 +184,204 @@ namespace Win3muCore
                     _machine.dx = 0xFFFF;
                     break;
             }
+        }
+
+        public bool HandleInvalidOpcodeFault()
+        {
+            ushort faultIp = _machine.ReadWord(_machine.ss, _machine.sp);
+            ushort faultCs = _machine.ReadWord(_machine.ss, (ushort)(_machine.sp + 2));
+            ushort nextIp;
+            if (!TryHandleEscInstruction(faultCs, faultIp, out nextIp))
+                return false;
+
+            _machine.WriteWord(_machine.ss, _machine.sp, nextIp);
+            return true;
+        }
+
+            bool TryHandleEscInstruction(ushort cs, ushort ip, out ushort nextIp)
+            {
+                ushort segmentOverride = 0;
+                ushort instructionIp = ip;
+
+                while (true)
+                {
+                    switch (_machine.ReadByte(cs, instructionIp))
+                    {
+                        case 0x26:
+                            segmentOverride = _machine.es;
+                            instructionIp++;
+                            continue;
+
+                        case 0x2E:
+                            segmentOverride = _machine.cs;
+                            instructionIp++;
+                            continue;
+
+                        case 0x36:
+                            segmentOverride = _machine.ss;
+                            instructionIp++;
+                            continue;
+
+                        case 0x3E:
+                            segmentOverride = _machine.ds;
+                            instructionIp++;
+                            continue;
+                    }
+
+                    break;
+                }
+
+                byte opcode = _machine.ReadByte(cs, instructionIp);
+                if (opcode < 0xD8 || opcode > 0xDF)
+                {
+                    nextIp = ip;
+                    return false;
+                }
+
+                byte modrm = _machine.ReadByte(cs, (ushort)(instructionIp + 1));
+                ushort decodedNextIp;
+                bool hasMemoryOperand = TryResolveMemoryOperand(cs, instructionIp, segmentOverride, out ushort operandSegment, out ushort operandOffset, out decodedNextIp);
+
+                switch (opcode)
+                {
+                    case 0xD9:
+                        if (hasMemoryOperand)
+                        {
+                            switch ((modrm >> 3) & 0x07)
+                            {
+                                case 5:
+                                    _controlWord = _machine.ReadWord(operandSegment, operandOffset);
+                                    _internalControlWord = (ushort)(_controlWord & ~ControlWordMask);
+                                    nextIp = decodedNextIp;
+                                    return true;
+
+                                case 7:
+                                    _machine.WriteWord(operandSegment, operandOffset, _controlWord);
+                                    nextIp = decodedNextIp;
+                                    return true;
+                            }
+                        }
+                        break;
+
+                    case 0xDB:
+                        switch (modrm)
+                        {
+                            case 0xE1:
+                                _machine.ax = GetStatusWord();
+                                _statusWord2 = _machine.ax;
+                                nextIp = decodedNextIp;
+                                return true;
+
+                            case 0xE2:
+                                ClearExceptions();
+                                nextIp = decodedNextIp;
+                                return true;
+
+                            case 0xE3:
+                                Initialize();
+                                nextIp = decodedNextIp;
+                                return true;
+                        }
+                        break;
+                }
+
+                ushort warningKey = (ushort)((opcode << 8) | modrm);
+                if (_warnedEscInstructions.Add(warningKey))
+                {
+                    Log.WriteLine("Warning: WIN87EM ESC opcode {0:X2} {1:X2} invoked; treating as compatibility no-op", opcode, modrm);
+                }
+
+                nextIp = decodedNextIp;
+                return true;
+        }
+
+        bool TryResolveMemoryOperand(ushort cs, ushort instructionIp, ushort segmentOverride, out ushort operandSegment, out ushort operandOffset, out ushort nextIp)
+        {
+                byte modrm = _machine.ReadByte(cs, (ushort)(instructionIp + 1));
+                int mod = (modrm >> 6) & 0x03;
+                int rm = modrm & 0x07;
+
+                ushort displacement = 0;
+                int displacementSize = 0;
+                bool usesStackSegment = false;
+                int baseOffset = 0;
+
+                switch (mod)
+                {
+                    case 0:
+                        if (rm == 6)
+                        {
+                            displacement = _machine.ReadWord(cs, (ushort)(instructionIp + 2));
+                            displacementSize = 2;
+                        }
+                        break;
+
+                    case 1:
+                        displacement = (ushort)(short)(sbyte)_machine.ReadByte(cs, (ushort)(instructionIp + 2));
+                        displacementSize = 1;
+                        break;
+
+                    case 2:
+                        displacement = _machine.ReadWord(cs, (ushort)(instructionIp + 2));
+                        displacementSize = 2;
+                        break;
+
+                    default:
+                        nextIp = (ushort)(instructionIp + 2);
+                        operandSegment = 0;
+                        operandOffset = 0;
+                        return false;
+                }
+
+                switch (rm)
+                {
+                    case 0:
+                        baseOffset = _machine.bx + _machine.si;
+                        break;
+
+                    case 1:
+                        baseOffset = _machine.bx + _machine.di;
+                        break;
+
+                    case 2:
+                        baseOffset = _machine.bp + _machine.si;
+                        usesStackSegment = true;
+                        break;
+
+                    case 3:
+                        baseOffset = _machine.bp + _machine.di;
+                        usesStackSegment = true;
+                        break;
+
+                    case 4:
+                        baseOffset = _machine.si;
+                        break;
+
+                    case 5:
+                        baseOffset = _machine.di;
+                        break;
+
+                    case 6:
+                        if (mod == 0)
+                        {
+                            baseOffset = 0;
+                        }
+                        else
+                        {
+                            baseOffset = _machine.bp;
+                            usesStackSegment = true;
+                        }
+                        break;
+
+                    case 7:
+                        baseOffset = _machine.bx;
+                        break;
+                }
+
+                operandSegment = segmentOverride != 0 ? segmentOverride : (usesStackSegment ? _machine.ss : _machine.ds);
+                operandOffset = (ushort)(baseOffset + displacement);
+            nextIp = (ushort)(instructionIp + 2 + displacementSize);
+            return true;
         }
 
         [EntryPoint(3, "__WinEm87Info")]

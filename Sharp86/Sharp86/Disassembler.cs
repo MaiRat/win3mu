@@ -518,6 +518,34 @@ namespace Sharp86
 
         public string ImplicitParams;
 
+        string ReadEsc(byte opcode)
+        {
+            byte modrm = ReadByte(cs, ip++);
+            int mod = (modrm >> 6) & 0x03;
+            int rm = modrm & 0x07;
+
+            if (mod != 3)
+            {
+                switch (mod)
+                {
+                    case 0:
+                        if (rm == 6)
+                            ip += 2;
+                        break;
+
+                    case 1:
+                        ip++;
+                        break;
+
+                    case 2:
+                        ip += 2;
+                        break;
+                }
+            }
+
+            return string.Format("esc 0x{0:X2},0x{1:X2}", opcode, modrm);
+        }
+
         public string Read()
         {
             ImplicitParams = null;
@@ -1375,15 +1403,21 @@ namespace Sharp86
                         return "xlat";
 
                     case 0xD8:
+                        return ReadEsc(0xD8);
                     case 0xD9:
+                        return ReadEsc(0xD9);
                     case 0xDA:
+                        return ReadEsc(0xDA);
                     case 0xDB:
+                        return ReadEsc(0xDB);
                     case 0xDC:
+                        return ReadEsc(0xDC);
                     case 0xDD:
+                        return ReadEsc(0xDD);
                     case 0xDE:
+                        return ReadEsc(0xDE);
                     case 0xDF:
-                        // -
-                        throw new InvalidOpCodeException();
+                        return ReadEsc(0xDF);
 
                     case 0xE0:
                         // LOOPNZ Jb
