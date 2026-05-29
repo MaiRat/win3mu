@@ -98,11 +98,109 @@ namespace Win3muCoreUnitTests
             }
         }
 
+        [TestMethod]
+        public void ConfigureMandatoryCDriveRoot_RequiresRootPath()
+        {
+            var machine = new Machine();
+            try
+            {
+                InvokeConfigureMandatoryCDriveRoot(machine);
+                Assert.Fail("Expected ConfigureMandatoryCDriveRoot to throw.");
+            }
+            catch (TargetInvocationException ex)
+            {
+                Assert.IsInstanceOfType(ex.InnerException, typeof(InvalidOperationException));
+                StringAssert.Contains(ex.InnerException.Message, "/root:<path>");
+            }
+        }
+
+        [TestMethod]
+        public void ConfigureMandatoryCDriveRoot_CreatesDefaultStructureForMissingRoot()
+        {
+            var tempRoot = CreateTempDirectory();
+            var cDriveRoot = Path.Combine(tempRoot, "drive-c");
+            try
+            {
+                var machine = new Machine();
+                machine.CDriveRoot = cDriveRoot;
+
+                InvokeConfigureMandatoryCDriveRoot(machine);
+
+                Assert.IsTrue(Directory.Exists(cDriveRoot));
+                Assert.IsTrue(Directory.Exists(Path.Combine(cDriveRoot, "WINDOWS")));
+                Assert.IsTrue(Directory.Exists(Path.Combine(cDriveRoot, "WINDOWS", "SYSTEM")));
+                Assert.IsTrue(Directory.Exists(Path.Combine(cDriveRoot, "DOS")));
+                Assert.IsTrue(Directory.Exists(Path.Combine(cDriveRoot, "TEMP")));
+                StringAssert.Contains(File.ReadAllText(Path.Combine(cDriveRoot, "WINDOWS", "WIN.INI")), "[windows]");
+                StringAssert.Contains(File.ReadAllText(Path.Combine(cDriveRoot, "WINDOWS", "SYSTEM.INI")), "[boot]");
+                StringAssert.Contains(File.ReadAllText(Path.Combine(cDriveRoot, "AUTOEXEC.BAT")), "SET TEMP=C:\\TEMP");
+                Assert.AreEqual(cDriveRoot, machine.mountPoints[@"C:\"].host);
+                Assert.AreEqual(Path.Combine(cDriveRoot, "WINDOWS"), machine.mountPoints[@"C:\WINDOWS"].host);
+            }
+            finally
+            {
+                if (Directory.Exists(tempRoot))
+                    Directory.Delete(tempRoot, true);
+            }
+        }
+
+        [TestMethod]
+        public void ConfigureMandatoryCDriveRoot_DoesNotInitializeExistingRoot()
+        {
+            var tempRoot = CreateTempDirectory();
+            var cDriveRoot = Path.Combine(tempRoot, "drive-c");
+            try
+            {
+                Directory.CreateDirectory(cDriveRoot);
+
+                var machine = new Machine();
+                machine.CDriveRoot = cDriveRoot;
+
+                InvokeConfigureMandatoryCDriveRoot(machine);
+
+                Assert.IsFalse(Directory.Exists(Path.Combine(cDriveRoot, "WINDOWS")));
+                Assert.AreEqual(cDriveRoot, machine.mountPoints[@"C:\"].host);
+            }
+            finally
+            {
+                if (Directory.Exists(tempRoot))
+                    Directory.Delete(tempRoot, true);
+            }
+        }
+
+        [TestMethod]
+        public void RootGuestMount_MapsChildDirectoriesUnderMountedRoot()
+        {
+            var tempRoot = CreateTempDirectory();
+            try
+            {
+                var cDriveRoot = Path.Combine(tempRoot, "drive-c");
+                Directory.CreateDirectory(Path.Combine(cDriveRoot, "WINDOWS"));
+
+                var machine = new Machine();
+                machine.PathMapper.AddMount(@"C:\", cDriveRoot, cDriveRoot);
+
+                Assert.AreEqual(Path.Combine(cDriveRoot, "WINDOWS"), machine.PathMapper.TryMapGuestToHost(@"C:\WINDOWS", false));
+            }
+            finally
+            {
+                if (Directory.Exists(tempRoot))
+                    Directory.Delete(tempRoot, true);
+            }
+        }
+
         static void InvokeConfigureLaunchWorkingDirectory(Machine machine, string programName16)
         {
             var method = typeof(Machine).GetMethod("ConfigureLaunchWorkingDirectory", BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.IsNotNull(method);
             method.Invoke(machine, new object[] { programName16 });
+        }
+
+        static void InvokeConfigureMandatoryCDriveRoot(Machine machine)
+        {
+            var method = typeof(Machine).GetMethod("ConfigureMandatoryCDriveRoot", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(method);
+            method.Invoke(machine, Array.Empty<object>());
         }
 
         static string CreateTempDirectory()

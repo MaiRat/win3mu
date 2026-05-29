@@ -57,6 +57,12 @@ namespace Win3muCore.Utils
             set;
         }
 
+        public string Root
+        {
+            get;
+            set;
+        }
+
         public bool ProcessArg(string arg)
         {
             if (arg == null)
@@ -93,6 +99,10 @@ namespace Win3muCore.Utils
                     case "break":
                         Break = true;
                         Config = "debug";
+                        break;
+
+                    case "root":
+                        Root = Value;
                         break;
 
                     default:

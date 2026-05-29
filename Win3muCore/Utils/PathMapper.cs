@@ -103,7 +103,19 @@ namespace Win3muCore
             if (string.IsNullOrEmpty(guestSuffix))
                 return root;
 
-            return root + guestSuffix.Replace('\\', System.IO.Path.DirectorySeparatorChar);
+            var hostSuffix = guestSuffix.Replace('\\', System.IO.Path.DirectorySeparatorChar);
+            if (hostSuffix.Length == 0)
+                return root;
+
+            if (root.EndsWith(System.IO.Path.DirectorySeparatorChar.ToString()) ||
+                root.EndsWith(System.IO.Path.AltDirectorySeparatorChar.ToString()) ||
+                hostSuffix[0] == System.IO.Path.DirectorySeparatorChar ||
+                hostSuffix[0] == System.IO.Path.AltDirectorySeparatorChar)
+            {
+                return root + hostSuffix;
+            }
+
+            return root + System.IO.Path.DirectorySeparatorChar + hostSuffix;
         }
 
         bool DoesPathPrefixMatch(string prefix, string path)

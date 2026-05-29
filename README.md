@@ -28,7 +28,9 @@ Usage
 
 Right-click on your .16-bit exe file, then choose "Convert with Win3mu". If everything is good, your original file will be renamed and the new exe will appear with the original icon.
 
-You can then run the new executable. If it complains about some modules (SHELL, COMMDLG, OLECLI...), copy the corresponding DLL file from the original WINDOWS\SYSTEM to the current folder, and try again.
+You can then run the new executable with a mandatory C-drive root, for example `win3mu myapp.exe /root:C:\temp\win3mu-c`. If the supplied root folder does not already exist, Win3mu initializes it with a minimal DOS/Windows layout including `C:\WINDOWS`, `C:\WINDOWS\SYSTEM`, `C:\DOS`, `C:\TEMP`, `C:\AUTOEXEC.BAT`, `C:\CONFIG.SYS`, `C:\WINDOWS\WIN.INI`, and `C:\WINDOWS\SYSTEM.INI`.
+
+If it complains about some modules (SHELL, COMMDLG, OLECLI...), copy the corresponding DLL file from the original WINDOWS\SYSTEM to the current folder, and try again.
 
 Finally, if you get some error like "Unsupported ordinal #**** in module **** invoked", then sorry, this particular function hasn't been implemented yet.
 
