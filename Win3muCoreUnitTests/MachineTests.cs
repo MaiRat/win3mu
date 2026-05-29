@@ -111,7 +111,7 @@ namespace Win3muCoreUnitTests
             {
                 Assert.IsInstanceOfType(ex.InnerException, typeof(InvalidOperationException));
                 StringAssert.Contains(ex.InnerException.Message, "/root:<path>");
-                StringAssert.DoesNotContain(ex.InnerException.Message, "config setting");
+                Assert.IsFalse(ex.InnerException.Message.Contains("config setting"));
             }
         }
 
