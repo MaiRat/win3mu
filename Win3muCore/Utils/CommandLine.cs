@@ -45,13 +45,25 @@ namespace Win3muCore.Utils
             }));
         }
 
-        public string Config
+        public bool EnableDebugger
+        {
+            get;
+            set;
+        }
+
+        public bool HasEnableDebuggerOverride
         {
             get;
             set;
         }
 
         public bool Break
+        {
+            get;
+            set;
+        }
+
+        public string Root
         {
             get;
             set;
@@ -79,20 +91,26 @@ namespace Win3muCore.Utils
                 switch (SwitchName.ToLower())
                 {
                     case "config":
-                        Config = Value;
-                        break;
+                        throw new InvalidOperationException("The /config switch is no longer supported. Put the program and its files inside the configured C: drive root.");
 
                     case "debug":
-                        Config = "debug";
+                        EnableDebugger = true;
+                        HasEnableDebuggerOverride = true;
                         break;
 
                     case "release":
-                        Config = "release";
+                        EnableDebugger = false;
+                        HasEnableDebuggerOverride = true;
                         break;
 
                     case "break":
                         Break = true;
-                        Config = "debug";
+                        EnableDebugger = true;
+                        HasEnableDebuggerOverride = true;
+                        break;
+
+                    case "root":
+                        Root = Value;
                         break;
 
                     default:

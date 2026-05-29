@@ -50,15 +50,13 @@ Source: "{#SourceDir}\Win3muRuntime.dll"; DestDir: "{#TargetDir}"; Flags: ignore
 Source: "{#SourceDir}\Win3muTool.exe"; DestDir: "{#TargetDir}"; Flags: ignoreversion;
 Source: "{#SourceDir}\Win3muProxy.exe"; DestDir: "{#TargetDir}"; Flags: ignoreversion;
 Source: "{#SourceDir}\Win3mu.exe"; DestDir: "{#TargetDir}"; Flags: ignoreversion;
-Source: "{#SourceDir}\config.json"; DestDir: "{#TargetDir}"; Flags: ignoreversion;
-
 ; common
 Source: ".\dotNetFx40_Client_setup.exe"; DestDir: {tmp}; Flags: deleteafterinstall; Check: not IsRequiredDotNetDetected 
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 
 [Run]
-Filename: "{tmp}\dotNetFx40_Client_setup.exe"; Parameters: "/q /norestart"; Check: not IsRequiredDotNetDetected; StatusMsg: Microsoft Framework 4.0 is beïng installed. Please wait, might take a while...
+Filename: "{tmp}\dotNetFx40_Client_setup.exe"; Parameters: "/q /norestart"; Check: not IsRequiredDotNetDetected; StatusMsg: Microsoft Framework 4.0 is beï¿½ng installed. Please wait, might take a while...
 Filename: "{code:GetV4NetDir}ngen.exe"; Parameters: "install ""{#TargetDir}\Win3muRuntime.dll"""; StatusMsg: Creating native images (ngen)...; Flags: runhidden;
 Filename: "{code:GetV4NetDir}ngen.exe"; Parameters: "install ""{#TargetDir}\Win3muTool.exe"""; StatusMsg: Creating native images (ngen)...; Flags: runhidden;
 Filename: "{code:GetV4NetDir}ngen.exe"; Parameters: "install ""{#TargetDir}\Win3muProxy.exe"""; StatusMsg: Creating native images (ngen)...; Flags: runhidden;

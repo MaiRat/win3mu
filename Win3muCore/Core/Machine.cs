@@ -174,12 +174,6 @@ namespace Win3muCore
         User _user;
         public User User { get { return _user; } }
 
-        public string ConfigFile
-        {
-            get;
-            set;
-        }
-
         string _programHostPath;
         public string ProgramHostPath
         {
@@ -194,33 +188,6 @@ namespace Win3muCore
             }
         }
 
-        public void MergeConfig(string configName, string programName, Dictionary<string, object> config, string filename)
-        {
-            if (System.IO.File.Exists(filename))
-            {
-                // Load the file
-                var fileConfig = Json.ParseFile<Dictionary<string, object>>(filename);
-
-                // Debug/Release config?
-                var configConfig = fileConfig.GetPath<Dictionary<string, object>>("config." + configName);
-                fileConfig.Remove("config");
-                if (configConfig != null)
-                {
-                    JsonMerge.Merge(fileConfig, configConfig);
-                }
-                
-                // Per-app config?
-                var appConfig = fileConfig.GetPath<Dictionary<string, object>>("programSpecific." + programName);
-                fileConfig.Remove("programSpecific");
-                if (appConfig!= null)
-                {                                      
-                    JsonMerge.Merge(fileConfig, appConfig);
-                }
-
-                JsonMerge.Merge(config, fileConfig);
-            }
-        }
-                
         public int RunProgram(string programName, string[] commandArgs, int nCmdShow)
         {
             try
@@ -230,16 +197,11 @@ namespace Win3muCore
                 // Store the program path
                 ProgramHostPath = System.IO.Path.GetFullPath(programName);
 
-                // Work out base name for the program (we'll use this to merge program specific configuration settings)
-                var baseProgramName = System.IO.Path.GetFileNameWithoutExtension(programName).ToLowerInvariant();
-
-                // Create merged config
-                var config = new Dictionary<string, object>();
-                MergeConfig(cl.Config, baseProgramName, config, VariableResolver.Resolve("$(Win3muFolder)\\config.json"));
-                MergeConfig(cl.Config, baseProgramName, config, VariableResolver.Resolve("$(AppData)\\Win3mu\\config.json"));
-                MergeConfig(cl.Config, baseProgramName, config, System.IO.Path.Combine(System.IO.Path.GetDirectoryName(programName), "config.json"));
-                MergeConfig(cl.Config, baseProgramName, config, System.IO.Path.ChangeExtension(programName, ".json"));
-                Json.ReparseInto(this, config);
+                if (cl.HasEnableDebuggerOverride)
+                    enableDebugger = cl.EnableDebugger;
+                if (!string.IsNullOrWhiteSpace(cl.Root))
+                    CDriveRoot = cl.Root;
+                ConfigureMandatoryCDriveRoot();
 
                 // Need console?
                 if (enableDebugger || consoleLogger)
@@ -253,9 +215,7 @@ namespace Win3muCore
                 _dos.EnableApiLogging = logApiCalls;
                 _dos.EnableFileLogging = logFileOperations;
 
-                // Log configuration
-                Log.WriteLine("Configuration:");
-                Log.WriteLine(Json.Format(config));
+                Log.WriteLine("CDriveRoot: {0}", CDriveRoot);
                 Log.WriteLine("");
 
                 // Connect debugger?
@@ -338,6 +298,75 @@ namespace Win3muCore
             private set;
         }
 
+        void ConfigureMandatoryCDriveRoot()
+        {
+            if (string.IsNullOrWhiteSpace(CDriveRoot))
+                throw new InvalidOperationException("An emulated C: drive root folder must be provided using /root:<path>.");
+
+            var resolvedRoot = System.IO.Path.GetFullPath(VariableResolver.Resolve(CDriveRoot));
+            EnsureMandatoryCDriveRootInitialized(resolvedRoot);
+
+            mountPoints[@"C:\"] = new PathMapper.Mount()
+            {
+                guest = @"C:\",
+                host = resolvedRoot,
+                hostWrite = resolvedRoot,
+            };
+
+            var windowsRoot = System.IO.Path.Combine(resolvedRoot, "WINDOWS");
+            mountPoints[@"C:\WINDOWS"] = new PathMapper.Mount()
+            {
+                guest = @"C:\WINDOWS",
+                host = windowsRoot,
+                hostWrite = windowsRoot,
+            };
+        }
+
+        static void EnsureMandatoryCDriveRootInitialized(string rootPath)
+        {
+            if (System.IO.Directory.Exists(rootPath))
+                return;
+
+            CreateDirectoryOrThrow(rootPath);
+            CreateDirectoryOrThrow(System.IO.Path.Combine(rootPath, "WINDOWS"));
+            CreateDirectoryOrThrow(System.IO.Path.Combine(rootPath, "WINDOWS", "SYSTEM"));
+            CreateDirectoryOrThrow(System.IO.Path.Combine(rootPath, "DOS"));
+            CreateDirectoryOrThrow(System.IO.Path.Combine(rootPath, "TEMP"));
+
+            WriteFileOrThrow(System.IO.Path.Combine(rootPath, "AUTOEXEC.BAT"),
+                "@ECHO OFF\r\nPROMPT $P$G\r\nPATH C:\\WINDOWS;C:\\WINDOWS\\SYSTEM;C:\\DOS\r\nSET TEMP=C:\\TEMP\r\n");
+            WriteFileOrThrow(System.IO.Path.Combine(rootPath, "CONFIG.SYS"),
+                "FILES=30\r\nBUFFERS=20\r\nSHELL=C:\\DOS\\COMMAND.COM /P\r\n");
+            WriteFileOrThrow(System.IO.Path.Combine(rootPath, "WINDOWS", "WIN.INI"),
+                "[windows]\r\nload=\r\nrun=\r\n");
+            WriteFileOrThrow(System.IO.Path.Combine(rootPath, "WINDOWS", "SYSTEM.INI"),
+                "[boot]\r\nshell=progman.exe\r\nsystem.drv=system.drv\r\n");
+        }
+
+        static void CreateDirectoryOrThrow(string path)
+        {
+            try
+            {
+                System.IO.Directory.CreateDirectory(path);
+            }
+            catch (Exception x)
+            {
+                throw new InvalidOperationException(string.Format("Failed to create emulated C: drive directory '{0}': {1}", path, x.Message), x);
+            }
+        }
+
+        static void WriteFileOrThrow(string path, string content)
+        {
+            try
+            {
+                System.IO.File.WriteAllText(path, content);
+            }
+            catch (Exception x)
+            {
+                throw new InvalidOperationException(string.Format("Failed to create emulated C: drive file '{0}': {1}", path, x.Message), x);
+            }
+        }
+
         void ConfigureLaunchWorkingDirectory(string programName16)
         {
             var programDirectoryGuest = System.IO.Path.GetDirectoryName(programName16);
@@ -406,6 +435,9 @@ namespace Win3muCore
 
         [Json("mountPoints", KeepInstance = true)]
         public Dictionary<string, PathMapper.Mount> mountPoints = new Dictionary<string, PathMapper.Mount>();
+
+        [Json("cDriveRoot")]
+        public string CDriveRoot;
 
         [Json("enableDebugger")]
         public bool enableDebugger;
