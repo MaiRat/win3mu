@@ -301,7 +301,7 @@ namespace Win3muCore
         void ConfigureMandatoryCDriveRoot()
         {
             if (string.IsNullOrWhiteSpace(CDriveRoot))
-                throw new InvalidOperationException("An emulated C:\\ root folder must be provided using /root:<path>.");
+                throw new InvalidOperationException("An emulated C: drive root folder must be provided using /root:<path>.");
 
             var resolvedRoot = System.IO.Path.GetFullPath(VariableResolver.Resolve(CDriveRoot));
             EnsureMandatoryCDriveRootInitialized(resolvedRoot);
@@ -351,7 +351,7 @@ namespace Win3muCore
             }
             catch (Exception x)
             {
-                throw new InvalidOperationException(string.Format("Failed to create emulated C:\\ directory '{0}': {1}", path, x.Message), x);
+                throw new InvalidOperationException(string.Format("Failed to create emulated C: drive directory '{0}': {1}", path, x.Message), x);
             }
         }
 
@@ -363,7 +363,7 @@ namespace Win3muCore
             }
             catch (Exception x)
             {
-                throw new InvalidOperationException(string.Format("Failed to create emulated C:\\ file '{0}': {1}", path, x.Message), x);
+                throw new InvalidOperationException(string.Format("Failed to create emulated C: drive file '{0}': {1}", path, x.Message), x);
             }
         }
 
