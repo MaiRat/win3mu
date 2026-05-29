@@ -190,7 +190,7 @@ namespace Win3muCoreUnitTests
                 Assert.AreEqual(32, iconEntry.bHeight);
                 Assert.AreEqual(4, iconEntry.wBitCount);
 
-                var icon = neFile.LoadResource(Win16.ResourceType.RT_ICON.ToString(), string.Format("#{0}", iconEntry.nId));
+                var icon = neFile.LoadResource(Win16.ResourceType.RT_ICON.ToString(), $"#{iconEntry.nId}");
                 Assert.IsNotNull(icon);
                 Assert.AreEqual((int)iconEntry.dwBytesInRes, icon.Length);
                 AssertBitmapHeader(icon, 32, 64, 4);
