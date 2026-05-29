@@ -14,12 +14,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="../Win3muCore/config.json" Link="config.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="../Win3muRuntime/Win3muRuntime.csproj" />
   </ItemGroup>
 </Project>
