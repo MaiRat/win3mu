@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Win3muCore;
@@ -133,6 +134,69 @@ namespace Win3muCoreUnitTests
             Assert.IsFalse((result.Execution.StopReason ?? string.Empty).Contains("InvalidOpCodeException", StringComparison.InvariantCulture));
         }
 
+        [TestMethod]
+        public void WatzeeSample_DiceBitmapResources_CanBeReadAndRemainDistinct()
+        {
+            using (var neFile = new NeFileReader(GetRepositoryFile("Samples", "watzee.exe")))
+            {
+                var bitmapType = neFile.FindResourceType(Win16.ResourceType.RT_BITMAP.ToString());
+
+                Assert.IsNotNull(bitmapType);
+                CollectionAssert.AreEqual(
+                    new[] { "DICE1", "DICE2", "DICE3", "DICE4", "DICE5", "DICE6" },
+                    bitmapType.resources.Select(x => x.name).ToArray());
+
+                var hashes = bitmapType.resources.Select(resource =>
+                {
+                    var data = neFile.LoadResource(resource);
+                    Assert.IsNotNull(data);
+                    Assert.AreEqual(336, data.Length);
+                    AssertBitmapHeader(data, 36, 36, 1);
+                    return Convert.ToHexString(SHA256.HashData(data));
+                }).ToArray();
+
+                Assert.AreEqual(hashes.Length, hashes.Distinct(StringComparer.Ordinal).Count());
+            }
+        }
+
+        [TestMethod]
+        public void WatzeeSample_IconMenuAndDialogResources_CanBeResolvedForDisplay()
+        {
+            using (var neFile = new NeFileReader(GetRepositoryFile("Samples", "watzee.exe")))
+            {
+                var menuType = neFile.FindResourceType(Win16.ResourceType.RT_MENU.ToString());
+                Assert.IsNotNull(menuType);
+                CollectionAssert.AreEqual(new[] { "WATZEE" }, menuType.resources.Select(x => x.name).ToArray());
+                CollectionAssert.AreEqual(new[] { 98 }, menuType.resources.Select(x => x.length).ToArray());
+
+                var dialogType = neFile.FindResourceType(Win16.ResourceType.RT_DIALOG.ToString());
+                Assert.IsNotNull(dialogType);
+                CollectionAssert.AreEqual(
+                    new[] { "GETNUMPLAYERS", "GETPLAYERSINITIALS", "ABOUTWATZEE", "OPTIONS", "WATZEEHELP" },
+                    dialogType.resources.Select(x => x.name).ToArray());
+                Assert.IsTrue(dialogType.resources.All(x => neFile.LoadResource(x).Length > 0));
+
+                var iconGroupType = neFile.FindResourceType(Win16.ResourceType.RT_GROUP_ICON.ToString());
+                Assert.IsNotNull(iconGroupType);
+                CollectionAssert.AreEqual(new[] { "WATZEE" }, iconGroupType.resources.Select(x => x.name).ToArray());
+
+                var iconGroup = Resources.LoadIconOrCursorGroup(neFile.GetResourceStream(iconGroupType.name, "WATZEE"));
+                Assert.AreEqual(0, iconGroup.Directory.idReserved);
+                Assert.AreEqual(1, iconGroup.Directory.idType);
+                Assert.AreEqual(1, iconGroup.Entries.Count);
+
+                var iconEntry = iconGroup.Entries[0];
+                Assert.AreEqual(32, iconEntry.bWidth);
+                Assert.AreEqual(32, iconEntry.bHeight);
+                Assert.AreEqual(4, iconEntry.wBitCount);
+
+                var icon = neFile.LoadResource(Win16.ResourceType.RT_ICON.ToString(), $"#{iconEntry.nId}");
+                Assert.IsNotNull(icon);
+                Assert.AreEqual((int)iconEntry.dwBytesInRes, icon.Length);
+                AssertBitmapHeader(icon, 32, 64, 4);
+            }
+        }
+
         static string CreateTempDirectory()
         {
             var path = Path.Combine(Path.GetTempPath(), "win3mu-tests", Guid.NewGuid().ToString("N"));
@@ -204,6 +268,16 @@ namespace Win3muCoreUnitTests
                 writer.Write((ushort)0);
                 writer.Write((byte)0);
             }
+        }
+
+        static void AssertBitmapHeader(byte[] data, int width, int height, short bitCount)
+        {
+            Assert.IsTrue(data.Length >= 16);
+            Assert.AreEqual(40, BitConverter.ToInt32(data, 0));
+            Assert.AreEqual(width, BitConverter.ToInt32(data, 4));
+            Assert.AreEqual(height, BitConverter.ToInt32(data, 8));
+            Assert.AreEqual(1, BitConverter.ToInt16(data, 12));
+            Assert.AreEqual(bitCount, BitConverter.ToInt16(data, 14));
         }
 
         static void WriteStruct<T>(BinaryWriter writer, T value) where T : struct
