@@ -80,6 +80,43 @@ namespace Win3muCoreUnitTests
             }
         }
 
+        [TestMethod]
+        public void LoadModule_ExecutableAndDllWithSameBaseNameRemainDistinctModules()
+        {
+            var tempRoot = CreateTempDirectory();
+            try
+            {
+                WriteMinimalNeFile(Path.Combine(tempRoot, "PBRUSH.EXE"), "PBRUSHX", false);
+                WriteMinimalNeFile(Path.Combine(tempRoot, "PBRUSH.DLL"), "PBRUSH", true);
+
+                var machine = new Machine();
+                machine.PathMapper.AddMount(@"C:\APP", tempRoot, tempRoot);
+                machine.ModuleManager.SetProcessPath(@"C:\APP");
+
+                var executable = new Module16(Path.Combine(tempRoot, "PBRUSH.EXE"));
+                executable.SetGuestFileName(@"C:\APP\PBRUSH.EXE");
+                machine.ModuleManager.LoadModuleForValidation(executable);
+
+                var loadModuleInternalForValidation = typeof(ModuleManager).GetMethod("LoadModuleInternalForValidation", BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.IsNotNull(loadModuleInternalForValidation);
+
+                var library = (Module16)loadModuleInternalForValidation.Invoke(machine.ModuleManager, new object[] { "PBRUSH", @"C:\APP" });
+
+                Assert.AreNotSame(executable, library);
+                Assert.AreEqual("PBRUSHX", executable.GetModuleName());
+                Assert.AreEqual("PBRUSH", library.GetModuleName());
+                Assert.AreEqual(@"C:\APP\PBRUSH.EXE", executable.GetModuleFileName());
+                Assert.AreEqual(@"C:\APP\PBRUSH.DLL", library.GetModuleFileName());
+                Assert.AreSame(executable, machine.ModuleManager.GetModule("PBRUSHX"));
+                Assert.AreSame(library, machine.ModuleManager.GetModule("PBRUSH"));
+            }
+            finally
+            {
+                if (Directory.Exists(tempRoot))
+                    Directory.Delete(tempRoot, true);
+            }
+        }
+
         static string CreateTempDirectory()
         {
             var path = Path.Combine(Path.GetTempPath(), "win3mu-tests", Guid.NewGuid().ToString("N"));
